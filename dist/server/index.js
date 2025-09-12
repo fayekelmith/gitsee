@@ -608,11 +608,31 @@ import { generateText, tool, hasToolCall } from "ai";
 import { getModel, getApiKeyForProvider } from "aieo";
 
 // server/agentic/prompts.ts
+var FIRST_PASS_EXPLORER = `
+You are a codebase exploration assistant. Use the provided tools to quickly explore the codebase and get a high-level understanding. DONT GO DEEP. Focus on general language and framework, specific core libraries, integrations, and features. Try to understand the main user story of the codebase just by looking at the file structure. YOU NEED TO RETURN AN ANSWER AS FAST AS POSSIBLE! So the best approach is 3-4 tool calls only: 1) repo_overview 2) file_summary of the package.json (or other main package file), 3) The main router file of page/endpoint names, ONLY if you can identify it first try, and 4) final_answer. DO NOT GO DEEPER THAN THIS.
+`;
+var FIRST_PASS_FINAL_ANSWER_DESCRIPTION = `
+Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF YOUR EXPLORATION.
+
+Return a simple JSON object with the following fields:
+
+- "summary": a SHORT 1-2 sentence synopsis of the codebase.
+- "key_files": an array of a few core package and LLM agent files. Focus on package files like package.json, and core markdown files. DO NOT include code files unless they are central to the codebase, such as the main DB schema file.
+- "infrastructure"/"dependencies"/"user_stories"/"pages": short arrays of core elements of the application,: 1-2 words each. Include just a few dependencies, ONLY if it seems like they are central to the application. Try to find the main user flows and pages just by looking at file names, or a couple file contents. In total try to target 10-12 items for these four categories. Get at least one in each category, but don't make anything up!
+
+{
+  "summary": "This is a next.js project with a postgres database and a github oauth implementation",
+  "key_files": ["package.json", "README.md", "CLAUDE.md", "AGENTS.md", "schema.prisma"],
+  "infrastructure": ["Next.js", "Postgres", "Typescript"],
+  "dependencies": ["Github Integration", "D3.js", "React"],
+  "user_stories": ["Authentication", "Payments"],
+  "pages": ["User Journeys page", "Admin Dashboard"]
+}
+`;
 var GENERAL_EXPLORER = `
 You are a codebase exploration assistant. Use the provided tools to explore the codebase and answer the user's question. Focus on general language and framework first, then specific core libraries, integrations, and features. Try to understand the core functionallity (user stories) of the codebase. Explore files, functions, and component names to understand the main user stories, pages, UX components, or workflows in the application.
 `;
 var GENERAL_FINAL_ANSWER_DESCRIPTION = `
-
 Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF YOUR EXPLORATION.
 
 Return a simple JSON object with the following fields:
@@ -624,7 +644,7 @@ Return a simple JSON object with the following fields:
 {
   "summary": "This is a next.js project with a postgres database and a github oauth implementation",
   "key_files": ["package.json", "README.md", "CLAUDE.md", "AGENTS.md", "schema.prisma"],
-  "features": ["Authentication", "User Journeys page", "Payments","Admin Dashboard", "Notifications", "User Profile", "Settings page", "Data Visualization", "Github Integration", "File Uploads", "Search Functionality", "Real-time Collaboration Tools", "Activity Logs", "Billing and Subscription Management", "Help and Support"]
+  "features": ["Authentication", "User Journeys page", "Payments", "Admin Dashboard", "Notifications", "User Profile", "Settings page", "Data Visualization", "Github Integration", "File Uploads", "Search Functionality", "Real-time Collaboration Tools", "Activity Logs", "Billing and Subscription Management", "Help and Support"]
 }
 `;
 
@@ -726,7 +746,7 @@ async function getRepoMap(repoPath) {
     return `Error getting repo map: ${error.message}`;
   }
 }
-function getFileSummary(filePath, repoPath) {
+function getFileSummary(filePath, repoPath, linesLimit) {
   if (!repoPath) {
     return "No repository path provided";
   }
@@ -736,7 +756,7 @@ function getFileSummary(filePath, repoPath) {
   }
   try {
     const content = fs2.readFileSync(fullPath, "utf-8");
-    const lines = content.split("\n").slice(0, 40).map((line) => {
+    const lines = content.split("\n").slice(0, linesLimit || 40).map((line) => {
       return line.length > 200 ? line.substring(0, 200) + "..." : line;
     });
     return lines.join("\n");
@@ -778,7 +798,19 @@ function logStep(contents) {
     }
   }
 }
-async function get_context(prompt, repoPath) {
+var CONFIG = {
+  first_pass: {
+    file_lines: 100,
+    system: FIRST_PASS_EXPLORER,
+    final_answer_description: FIRST_PASS_FINAL_ANSWER_DESCRIPTION
+  },
+  general: {
+    file_lines: 40,
+    system: GENERAL_EXPLORER,
+    final_answer_description: GENERAL_FINAL_ANSWER_DESCRIPTION
+  }
+};
+async function get_context(prompt, repoPath, mode = "general") {
   const startTime = Date.now();
   const provider = process.env.LLM_PROVIDER || "anthropic";
   const apiKey = getApiKeyForProvider(provider);
@@ -796,7 +828,7 @@ async function get_context(prompt, repoPath) {
       }
     }),
     file_summary: tool({
-      description: "Get a summary of what a specific file contains and its role in the codebase. Use this when you have identified a potentially relevant file and need to understand: 1) What functions/components it exports, 2) What its main responsibility is, 3) Whether it's worth exploring further for the user's question. The first 40 lines of the file will be returned. Call this with a hypothesis like 'This file probably handles user authentication' or 'This looks like the main dashboard component'. Don't call this to browse random files.",
+      description: "Get a summary of what a specific file contains and its role in the codebase. Use this when you have identified a potentially relevant file and need to understand: 1) What functions/components it exports, 2) What its main responsibility is, 3) Whether it's worth exploring further for the user's question. Only the first 40-100 lines of the file will be returned. Call this with a hypothesis like 'This file probably handles user authentication' or 'This looks like the main dashboard component'. Don't call this to browse random files.",
       inputSchema: z.object({
         file_path: z.string().describe("Path to the file to summarize"),
         hypothesis: z.string().describe(
@@ -805,7 +837,7 @@ async function get_context(prompt, repoPath) {
       }),
       execute: async ({ file_path }) => {
         try {
-          return getFileSummary(file_path, repoPath);
+          return getFileSummary(file_path, repoPath, CONFIG[mode].file_lines);
         } catch (e) {
           return "Bad file path";
         }
@@ -826,16 +858,19 @@ async function get_context(prompt, repoPath) {
     }),
     final_answer: tool({
       // The tool that signals the end of the process
-      description: GENERAL_FINAL_ANSWER_DESCRIPTION,
+      description: CONFIG[mode].final_answer_description,
       inputSchema: z.object({ answer: z.string() }),
       execute: async ({ answer }) => answer
     })
   };
+  if (mode === "first_pass") {
+    delete tools.fulltext_search;
+  }
   const { steps } = await generateText({
     model,
     tools,
     prompt,
-    system: GENERAL_EXPLORER,
+    system: CONFIG[mode].system,
     stopWhen: hasToolCall("final_answer"),
     onStepFinish: (sf) => logStep(sf.content)
   });
@@ -875,7 +910,8 @@ async function get_context(prompt, repoPath) {
 setTimeout(() => {
   get_context(
     "What are the key features of this codebase?",
-    "/Users/evanfeenstra/code/sphinx2/hive"
+    "/Users/evanfeenstra/code/sphinx2/hive",
+    "first_pass"
   ).then((result) => {
     console.log("Context:", result);
   });

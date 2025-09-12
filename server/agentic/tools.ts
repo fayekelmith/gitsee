@@ -128,7 +128,11 @@ export async function getRepoMap(repoPath: string): Promise<string> {
 }
 
 // Get file summary by reading first 40 lines
-export function getFileSummary(filePath: string, repoPath: string): string {
+export function getFileSummary(
+  filePath: string,
+  repoPath: string,
+  linesLimit: number
+): string {
   if (!repoPath) {
     return "No repository path provided";
   }
@@ -143,7 +147,7 @@ export function getFileSummary(filePath: string, repoPath: string): string {
     const content = fs.readFileSync(fullPath, "utf-8");
     const lines = content
       .split("\n")
-      .slice(0, 40)
+      .slice(0, linesLimit || 40)
       .map((line) => {
         // Limit each line to 200 characters to handle minified files
         return line.length > 200 ? line.substring(0, 200) + "..." : line;

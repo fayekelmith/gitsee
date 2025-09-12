@@ -1,6 +1,6 @@
 import { generateText, tool, hasToolCall, ModelMessage } from "ai";
 import { getModel, getApiKeyForProvider, Provider } from "aieo";
-import { GENERAL_EXPLORER, GENERAL_FINAL_ANSWER_DESCRIPTION } from "./prompts";
+import * as prompts from "./prompts";
 import { z } from "zod";
 import { getRepoMap, getFileSummary, fulltextSearch } from "./tools";
 
@@ -13,15 +13,46 @@ function logStep(contents: any) {
   }
 }
 
+export type RepoContextMode = "first_pass" | "general";
+
+interface ContextConfig {
+  file_lines: number;
+  final_answer_description: string;
+  system: string;
+}
+
+const CONFIG: Record<RepoContextMode, ContextConfig> = {
+  first_pass: {
+    file_lines: 100,
+    system: prompts.FIRST_PASS_EXPLORER,
+    final_answer_description: prompts.FIRST_PASS_FINAL_ANSWER_DESCRIPTION,
+  },
+  general: {
+    file_lines: 40,
+    system: prompts.GENERAL_EXPLORER,
+    final_answer_description: prompts.GENERAL_FINAL_ANSWER_DESCRIPTION,
+  },
+};
+
 export interface GeneralContextResult {
   summary: string;
   key_files: string[];
   features: string[];
 }
 
+export interface FirstPassContextResult {
+  summary: string;
+  key_files: string[];
+  infrastructure: string[];
+  dependencies: string[];
+  user_stories: string[];
+  pages: string[];
+}
+
 export async function get_context(
   prompt: string | ModelMessage[],
-  repoPath: string
+  repoPath: string,
+  mode: RepoContextMode = "general"
 ): Promise<string> {
   const startTime = Date.now();
 
@@ -43,7 +74,7 @@ export async function get_context(
     }),
     file_summary: tool({
       description:
-        "Get a summary of what a specific file contains and its role in the codebase. Use this when you have identified a potentially relevant file and need to understand: 1) What functions/components it exports, 2) What its main responsibility is, 3) Whether it's worth exploring further for the user's question. The first 40 lines of the file will be returned. Call this with a hypothesis like 'This file probably handles user authentication' or 'This looks like the main dashboard component'. Don't call this to browse random files.",
+        "Get a summary of what a specific file contains and its role in the codebase. Use this when you have identified a potentially relevant file and need to understand: 1) What functions/components it exports, 2) What its main responsibility is, 3) Whether it's worth exploring further for the user's question. Only the first 40-100 lines of the file will be returned. Call this with a hypothesis like 'This file probably handles user authentication' or 'This looks like the main dashboard component'. Don't call this to browse random files.",
       inputSchema: z.object({
         file_path: z.string().describe("Path to the file to summarize"),
         hypothesis: z
@@ -54,7 +85,7 @@ export async function get_context(
       }),
       execute: async ({ file_path }: { file_path: string }) => {
         try {
-          return getFileSummary(file_path, repoPath);
+          return getFileSummary(file_path, repoPath, CONFIG[mode].file_lines);
         } catch (e) {
           return "Bad file path";
         }
@@ -76,17 +107,19 @@ export async function get_context(
     }),
     final_answer: tool({
       // The tool that signals the end of the process
-      description: GENERAL_FINAL_ANSWER_DESCRIPTION,
+      description: CONFIG[mode].final_answer_description,
       inputSchema: z.object({ answer: z.string() }),
       execute: async ({ answer }: { answer: string }) => answer,
     }),
   };
-
+  if (mode === "first_pass") {
+    delete (tools as Record<string, any>).fulltext_search;
+  }
   const { steps } = await generateText({
     model,
     tools,
     prompt,
-    system: GENERAL_EXPLORER,
+    system: CONFIG[mode].system,
     stopWhen: hasToolCall("final_answer"),
     onStepFinish: (sf) => logStep(sf.content),
   });
@@ -129,8 +162,11 @@ setTimeout(() => {
   // return;
   get_context(
     "What are the key features of this codebase?",
-    "/Users/evanfeenstra/code/sphinx2/hive"
+    "/Users/evanfeenstra/code/sphinx2/hive",
+    "first_pass"
   ).then((result) => {
     console.log("Context:", result);
   });
 });
+
+// infra, dependencies/integratins, user stories, pages
