@@ -15,7 +15,7 @@ interface GitSeeResponse {
     files?: FileInfo[];
     error?: string;
     options?: {
-        contributorDelay?: number;
+        nodeDelay?: number;
     };
 }
 interface GitSeeOptions {
@@ -24,7 +24,7 @@ interface GitSeeOptions {
         ttl?: number;
     };
     visualization?: {
-        contributorDelay?: number;
+        nodeDelay?: number;
     };
 }
 interface Contributor {

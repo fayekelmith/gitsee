@@ -13,7 +13,7 @@ export interface GitSeeResponse {
   files?: FileInfo[];
   error?: string;
   options?: {
-    contributorDelay?: number;
+    nodeDelay?: number;
   };
 }
 
@@ -23,7 +23,7 @@ export interface GitSeeOptions {
     ttl?: number; // seconds
   };
   visualization?: {
-    contributorDelay?: number; // milliseconds between contributor additions
+    nodeDelay?: number; // milliseconds between node additions (contributors, files, etc.)
   };
 }
 

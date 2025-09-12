@@ -427,12 +427,11 @@ var GitSeeHandler = class {
     const response = {};
     if (this.options.visualization) {
       response.options = {
-        contributorDelay: this.options.visualization.contributorDelay || 800
-        // Default 800ms for slower pace
+        nodeDelay: this.options.visualization.nodeDelay || 800
       };
     } else {
       response.options = {
-        contributorDelay: 800
+        nodeDelay: 800
       };
     }
     if (!owner || !repo) {

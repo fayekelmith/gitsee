@@ -3370,7 +3370,7 @@ var GitVisualizer = class {
     // Collision detection system
     this.occupiedSpaces = [];
     // Configurable timing
-    this.contributorDelay = 800;
+    this.nodeDelay = 800;
     this.currentZoom = 1;
     this.width = window.innerWidth;
     this.height = window.innerHeight;
@@ -3542,9 +3542,9 @@ var GitVisualizer = class {
       if (data.error) {
         throw new Error(data.error);
       }
-      if (data.options?.contributorDelay) {
-        this.contributorDelay = data.options.contributorDelay;
-        console.log(`\u2699\uFE0F Using contributor delay: ${this.contributorDelay}ms`);
+      if (data.options?.nodeDelay) {
+        this.nodeDelay = data.options.nodeDelay;
+        console.log(`\u2699\uFE0F Using node delay: ${this.nodeDelay}ms`);
       }
       if (data.repo) {
         const repoData = {
@@ -3674,45 +3674,52 @@ var GitVisualizer = class {
     }, 200);
     setTimeout(() => {
       this.addContributorsSequentially(contributors, index + 1, onComplete);
-    }, this.contributorDelay);
+    }, this.nodeDelay);
   }
   addFilesAfterContributors(files) {
     if (!files || files.length === 0) {
       console.log("\u{1F4C1} No files to add");
       return;
     }
-    console.log(`\u{1F4C1} Adding ${files.length} files to visualization...`);
-    const fileNodes = [];
-    const fileLinks = [];
-    files.forEach((file, index) => {
-      const position = this.calculateOrganicPosition("file", index);
-      const fileNode = {
-        id: `file-${file.name}`,
-        type: "file",
-        name: file.name,
-        path: file.path,
-        fileType: file.type,
-        x: position.x,
-        y: position.y
-      };
-      const nodeRadius = this.getNodeRadius("file");
-      this.registerOccupiedSpace(position.x, position.y, nodeRadius, fileNode.id);
-      fileNodes.push(fileNode);
-      fileLinks.push({
-        id: `link-repo-file-${file.name}`,
-        source: "repo",
-        target: `file-${file.name}`,
-        type: "file"
-      });
-      console.log(`\u{1F4C4} Positioned file: ${file.name} at (${Math.round(position.x)}, ${Math.round(position.y)})`);
-    });
+    console.log(`\u{1F4C1} Adding ${files.length} files to visualization one by one...`);
+    setTimeout(() => {
+      this.addFilesSequentially(files, 0);
+    }, 500);
+  }
+  addFilesSequentially(files, index) {
+    if (index >= files.length) {
+      console.log("\u{1F389} All files added!");
+      return;
+    }
+    const file = files[index];
+    console.log(`\u{1F4C4} Adding file ${index + 1}/${files.length}: ${file.name}`);
+    const position = this.calculateOrganicPosition("file", index);
+    console.log(`\u{1F4CD} Positioning ${file.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`);
+    const fileNode = {
+      id: `file-${file.name}`,
+      type: "file",
+      name: file.name,
+      path: file.path,
+      fileType: file.type,
+      x: position.x,
+      y: position.y
+    };
+    const nodeRadius = this.getNodeRadius("file");
+    this.registerOccupiedSpace(position.x, position.y, nodeRadius, fileNode.id);
+    const fileLink = {
+      id: `link-repo-file-${file.name}`,
+      source: "repo",
+      target: `file-${file.name}`,
+      type: "file"
+    };
     const fileResources = {
-      nodes: fileNodes,
-      links: fileLinks
+      nodes: [fileNode],
+      links: [fileLink]
     };
     this.addResources(fileResources);
+    const allFileNodes = this.allNodes.filter((n) => n.type === "file");
     this.filesViz.updateWithAnimation({
-      nodes: fileNodes,
+      nodes: allFileNodes,
       links: []
       // Files don't create their own links in visualization
     });
@@ -3724,8 +3731,10 @@ var GitVisualizer = class {
     this.linksViz.updatePositions(this.allNodes);
     setTimeout(() => {
       this.gradualZoomOut();
-    }, 300);
-    console.log("\u2705 All files added to visualization!");
+    }, 200);
+    setTimeout(() => {
+      this.addFilesSequentially(files, index + 1);
+    }, this.nodeDelay);
   }
   // 🌱 No more simulation methods needed - organic positioning is stable!
   // Public methods for library usage

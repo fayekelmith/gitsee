@@ -6,12 +6,12 @@ import { createGitSeeHandler } from './dist/server/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Create the GitSee handler with slow contributor timing
+// Create the GitSee handler with slow node timing
 const gitSeeHandler = createGitSeeHandler({
   token: process.env.GITHUB_TOKEN,
   cache: { ttl: 300 },
   visualization: {
-    contributorDelay: 1200 // 1.2 seconds between contributors (slower pace)
+    nodeDelay: 1200 // 1.2 seconds between nodes (contributors, files, etc.)
   }
 });
 

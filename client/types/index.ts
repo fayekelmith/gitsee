@@ -31,7 +31,7 @@ export interface ApiResponse {
   files?: any[];
   error?: string;
   options?: {
-    contributorDelay?: number;
+    nodeDelay?: number;
   };
 }
 
