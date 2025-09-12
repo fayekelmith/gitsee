@@ -93,16 +93,8 @@ export class ContributorsVisualization extends BaseVisualizationResource {
       this.createNodeLabel(node, d, radius + 15);
     });
 
-    // Update existing nodes (in case avatar changes)
-    const nodeUpdate = nodes.merge(nodeEnter);
-    
-    nodeUpdate.select('circle')
-      .style('fill', (d: NodeData) => {
-        if (d.avatar) {
-          return this.createAvatarPattern(d, 30);
-        }
-        return '#238636';
-      });
+    // Only create visual elements for NEW nodes - don't touch existing ones
+    // Existing nodes already have their circles and patterns - leave them alone!
   }
 
   updateWithAnimation(resourceData: ResourceData): void {
@@ -133,12 +125,7 @@ export class ContributorsVisualization extends BaseVisualizationResource {
       .style('opacity', 0)
       .call(this.createDragBehavior());
 
-    // Make sure existing nodes are also positioned correctly
-    nodes.attr('transform', (d: NodeData) => {
-      const x = d.x || 0;
-      const y = d.y || 0;
-      return `translate(${x},${y})`;
-    });
+    // Don't reposition existing nodes - they're already stable!
 
     // Add circles with avatar patterns to NEW nodes only
     nodeEnter.each((d: NodeData, i: number, nodes: any) => {
@@ -177,18 +164,10 @@ export class ContributorsVisualization extends BaseVisualizationResource {
         return `translate(${x},${y}) scale(1)`;
       });
 
-    // Update existing nodes (in case avatar changes) - but don't animate them
-    const nodeUpdate = nodes.merge(nodeEnter);
+    // Don't touch existing nodes - they're already perfect!
+    // Only the NEW nodes (nodeEnter) get their visual elements created above
     
-    nodeUpdate.select('circle')
-      .style('fill', (d: NodeData) => {
-        if (d.avatar) {
-          return this.createAvatarPattern(d, 30);
-        }
-        return '#238636';
-      });
-      
-    console.log(`✅ Contributors update complete. Total visible: ${nodeUpdate.size()}`);
+    console.log(`✅ Contributors update complete. Total visible: ${nodes.size() + nodeEnter.size()}`);
   }
 
   destroy(): void {

@@ -51,10 +51,8 @@ export class RepositoryVisualization extends BaseVisualizationResource {
       .attr('class', 'repo-node')
       .call(this.createDragBehavior());
 
-    // Update existing + new nodes
-    const nodeUpdate = nodes.merge(nodeEnter);
-
     // Position all nodes at their calculated positions
+    const nodeUpdate = nodes.merge(nodeEnter);
     nodeUpdate.attr('transform', (d: NodeData) => {
       const x = d.x || 0;
       const y = d.y || 0;
@@ -62,11 +60,8 @@ export class RepositoryVisualization extends BaseVisualizationResource {
       return `translate(${x},${y})`;
     });
 
-    // Clear and rebuild (to handle icon changes)
-    nodeUpdate.selectAll('*').remove();
-
-    // Add circles with avatars or default styling
-    nodeUpdate.each((d: NodeData, i: number, nodes: any) => {
+    // Only build visual elements for NEW nodes (nodeEnter)
+    nodeEnter.each((d: NodeData, i: number, nodes: any) => {
       const node = d3.select(nodes[i]);
       
       if (d.avatar) {
@@ -106,6 +101,32 @@ export class RepositoryVisualization extends BaseVisualizationResource {
 
       // Add label
       this.createNodeLabel(node, d, 35);
+    });
+
+    // Update existing nodes that now have avatars (for icon loading)
+    nodes.each((d: NodeData, i: number, nodeElements: any) => {
+      const node = d3.select(nodeElements[i]);
+      const existingCircle = node.select('circle');
+      
+      // If node has avatar but circle doesn't have avatar pattern, update it
+      if (d.avatar && existingCircle.size() > 0) {
+        const currentFill = existingCircle.style('fill');
+        if (!currentFill || currentFill.indexOf('url(') === -1) {
+          console.log('🖼️ Updating existing repo node with avatar');
+          
+          // Remove the fallback GitHub folder icon first
+          node.select('path').remove();
+          
+          const repoRadius = 25;
+          const fillPattern = this.createAvatarPattern(d, repoRadius);
+          existingCircle
+            .style('fill', fillPattern)
+            .style('opacity', 0.7)
+            .transition()
+            .duration(300)
+            .style('opacity', 1);
+        }
+      }
     });
   }
 

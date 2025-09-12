@@ -3055,8 +3055,7 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
       console.log(`\u{1F3AF} Positioning repo node at (${x}, ${y})`);
       return `translate(${x},${y})`;
     });
-    nodeUpdate.selectAll("*").remove();
-    nodeUpdate.each((d, i, nodes2) => {
+    nodeEnter.each((d, i, nodes2) => {
       const node = select_default2(nodes2[i]);
       if (d.avatar) {
         const repoRadius = 25;
@@ -3068,6 +3067,20 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
         node.append("path").attr("d", "M-8,-8 L8,-8 L8,8 L-8,8 Z M-6,-6 L6,-6 M-6,-3 L6,-3 M-6,0 L6,0 M-6,3 L6,3 M-6,6 L6,6").style("fill", "none").style("stroke", "white").style("stroke-width", "1.5px");
       }
       this.createNodeLabel(node, d, 35);
+    });
+    nodes.each((d, i, nodeElements) => {
+      const node = select_default2(nodeElements[i]);
+      const existingCircle = node.select("circle");
+      if (d.avatar && existingCircle.size() > 0) {
+        const currentFill = existingCircle.style("fill");
+        if (!currentFill || currentFill.indexOf("url(") === -1) {
+          console.log("\u{1F5BC}\uFE0F Updating existing repo node with avatar");
+          node.select("path").remove();
+          const repoRadius = 25;
+          const fillPattern = this.createAvatarPattern(d, repoRadius);
+          existingCircle.style("fill", fillPattern).style("opacity", 0.7).transition().duration(300).style("opacity", 1);
+        }
+      }
     });
   }
   destroy() {
@@ -3129,13 +3142,6 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
       node.append("circle").attr("r", radius).style("fill", fillPattern || "#238636").style("stroke", "#1f6feb").style("stroke-width", "2px");
       this.createNodeLabel(node, d, radius + 15);
     });
-    const nodeUpdate = nodes.merge(nodeEnter);
-    nodeUpdate.select("circle").style("fill", (d) => {
-      if (d.avatar) {
-        return this.createAvatarPattern(d, 30);
-      }
-      return "#238636";
-    });
   }
   updateWithAnimation(resourceData) {
     console.log(`\u{1F3AD} Updating contributors visualization with animation for ${resourceData.nodes.length} nodes...`);
@@ -3148,11 +3154,6 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
       console.log(`\u{1F3AF} NEW node ${d.id} positioned at (${x}, ${y})`);
       return `translate(${x},${y}) scale(0)`;
     }).style("opacity", 0).call(this.createDragBehavior());
-    nodes.attr("transform", (d) => {
-      const x = d.x || 0;
-      const y = d.y || 0;
-      return `translate(${x},${y})`;
-    });
     nodeEnter.each((d, i, nodes2) => {
       const node = select_default2(nodes2[i]);
       console.log(`\u{1F195} Creating visual elements for new node: ${d.id} (${d.contributions} contributions)`);
@@ -3169,14 +3170,7 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
       const y = d.y || 0;
       return `translate(${x},${y}) scale(1)`;
     });
-    const nodeUpdate = nodes.merge(nodeEnter);
-    nodeUpdate.select("circle").style("fill", (d) => {
-      if (d.avatar) {
-        return this.createAvatarPattern(d, 30);
-      }
-      return "#238636";
-    });
-    console.log(`\u2705 Contributors update complete. Total visible: ${nodeUpdate.size()}`);
+    console.log(`\u2705 Contributors update complete. Total visible: ${nodes.size() + nodeEnter.size()}`);
   }
   destroy() {
     console.log("\u{1F5D1}\uFE0F Destroying contributors visualization...");
@@ -3349,13 +3343,12 @@ var GitVisualizer = class {
       }
       if (data.icon) {
         setTimeout(() => {
-          const repoWithIcon = {
-            name: data.repo?.full_name || `${owner2}/${repo2}`,
-            icon: data.icon
-          };
-          const repoResources = this.repositoryViz.create(repoWithIcon);
-          this.repositoryViz.update(repoResources);
-          console.log("\u{1F5BC}\uFE0F Repository icon loaded");
+          const existingRepoNode = this.allNodes.find((n) => n.id === "repo");
+          if (existingRepoNode && data.icon) {
+            existingRepoNode.avatar = data.icon;
+            console.log("\u{1F5BC}\uFE0F Repository icon loaded, updating existing node");
+            this.repositoryViz.update({ nodes: [existingRepoNode], links: [] });
+          }
         }, 500);
       }
       if (data.contributors) {

@@ -147,14 +147,15 @@ class GitVisualizer {
       // Step 2: Add icon after delay
       if (data.icon) {
         setTimeout(() => {
-          const repoWithIcon = {
-            name: data.repo?.full_name || `${owner}/${repo}`,
-            icon: data.icon
-          };
-          const repoResources = this.repositoryViz.create(repoWithIcon);
-          // Don't add to allNodes again, just update visualization
-          this.repositoryViz.update(repoResources);
-          console.log('🖼️ Repository icon loaded');
+          // Update the existing repo node with the icon
+          const existingRepoNode = this.allNodes.find(n => n.id === 'repo');
+          if (existingRepoNode && data.icon) {
+            existingRepoNode.avatar = data.icon;
+            console.log('🖼️ Repository icon loaded, updating existing node');
+            
+            // Update visualization with the modified node
+            this.repositoryViz.update({ nodes: [existingRepoNode], links: [] });
+          }
         }, 500);
       }
 
