@@ -8,6 +8,7 @@ export interface GitSeeRequest {
     | "commits"
     | "branches"
     | "files"
+    | "stats"
   )[];
 }
 
@@ -18,6 +19,7 @@ export interface GitSeeResponse {
   commits?: any[];
   branches?: any[];
   files?: FileInfo[];
+  stats?: RepoStats;
   error?: string;
   options?: {
     nodeDelay?: number;
@@ -93,4 +95,11 @@ export interface FileInfo {
   name: string;
   path: string;
   type: "package" | "config" | "docs" | "build" | "ci" | "data" | "other";
+}
+
+export interface RepoStats {
+  stars: number;
+  totalPRs: number;
+  totalCommits: number;
+  ageInYears: number;
 }

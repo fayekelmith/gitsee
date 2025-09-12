@@ -1,6 +1,6 @@
 export interface NodeData {
   id: string;
-  type: "repo" | "contributor" | "commit" | "branch" | "file";
+  type: "repo" | "contributor" | "commit" | "branch" | "file" | "stat";
   name: string;
   x?: number;
   y?: number;
@@ -11,6 +11,8 @@ export interface NodeData {
   path?: string; // for files
   protected?: boolean; // for branches
   fileType?: "package" | "config" | "docs" | "build" | "ci" | "data" | "other"; // for files
+  label?: string; // for stats
+  value?: number | string; // for stats
   [key: string]: any; // Allow additional properties
 }
 
@@ -18,7 +20,7 @@ export interface LinkData {
   id: string;
   source: string | NodeData;
   target: string | NodeData;
-  type?: "contribution" | "commit" | "branch" | "dependency" | "file";
+  type?: "contribution" | "commit" | "branch" | "dependency" | "file" | "stat";
   strength?: number;
 }
 
@@ -29,6 +31,7 @@ export interface ApiResponse {
   commits?: any[];
   branches?: any[];
   files?: any[];
+  stats?: any;
   error?: string;
   options?: {
     nodeDelay?: number;

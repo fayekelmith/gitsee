@@ -4,7 +4,7 @@ import { Octokit } from '@octokit/rest';
 interface GitSeeRequest {
     owner: string;
     repo: string;
-    data: ('contributors' | 'icon' | 'repo_info' | 'commits' | 'branches' | 'files')[];
+    data: ("contributors" | "icon" | "repo_info" | "commits" | "branches" | "files" | "stats")[];
 }
 interface GitSeeResponse {
     repo?: any;
@@ -13,6 +13,7 @@ interface GitSeeResponse {
     commits?: any[];
     branches?: any[];
     files?: FileInfo[];
+    stats?: RepoStats;
     error?: string;
     options?: {
         nodeDelay?: number;
@@ -81,7 +82,13 @@ interface Branch {
 interface FileInfo {
     name: string;
     path: string;
-    type: 'package' | 'config' | 'docs' | 'build' | 'ci' | 'data' | 'other';
+    type: "package" | "config" | "docs" | "build" | "ci" | "data" | "other";
+}
+interface RepoStats {
+    stars: number;
+    totalPRs: number;
+    totalCommits: number;
+    ageInYears: number;
 }
 
 declare class GitSeeHandler {
@@ -94,6 +101,7 @@ declare class GitSeeHandler {
     private commits;
     private branches;
     private files;
+    private stats;
     constructor(options?: GitSeeOptions);
     handle(req: IncomingMessage, res: ServerResponse): Promise<void>;
     private parseRequestBody;

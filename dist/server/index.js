@@ -49,7 +49,11 @@ var BaseResource = class {
 // server/resources/contributors.ts
 var ContributorsResource = class extends BaseResource {
   async getContributors(owner, repo) {
-    const cached = await this.getCached(owner, repo, "contributors");
+    const cached = await this.getCached(
+      owner,
+      repo,
+      "contributors"
+    );
     if (cached) {
       console.log(`\u{1F4BE} Cache hit for contributors: ${owner}/${repo}`);
       return cached;
@@ -66,9 +70,15 @@ var ContributorsResource = class extends BaseResource {
       this.setCached(owner, repo, "contributors", contributors);
       return contributors;
     } catch (error) {
-      console.error(`\u{1F4A5} Error fetching contributors for ${owner}/${repo}:`, error.message);
+      console.error(
+        `\u{1F4A5} Error fetching contributors for ${owner}/${repo}:`,
+        error.message
+      );
       if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for contributors! Using token:`, !!this.octokit.auth);
+        console.error(
+          `\u23F1\uFE0F  RATE LIMIT HIT for contributors! Using token:`,
+          !!this.octokit.auth
+        );
       }
       throw error;
     }
@@ -219,9 +229,15 @@ var RepositoryResource = class extends BaseResource {
       this.setCached(owner, repo, "repo", repoData);
       return repoData;
     } catch (error) {
-      console.error(`\u{1F4A5} Error fetching repository info for ${owner}/${repo}:`, error.message);
+      console.error(
+        `\u{1F4A5} Error fetching repository info for ${owner}/${repo}:`,
+        error.message
+      );
       if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for repository! Using token:`, !!this.octokit.auth);
+        console.error(
+          `\u23F1\uFE0F  RATE LIMIT HIT for repository! Using token:`,
+          !!this.octokit.auth
+        );
       }
       throw error;
     }
@@ -248,9 +264,15 @@ var CommitsResource = class extends BaseResource {
       this.setCached(owner, repo, "commits", commits);
       return commits;
     } catch (error) {
-      console.error(`\u{1F4A5} Error fetching commits for ${owner}/${repo}:`, error.message);
+      console.error(
+        `\u{1F4A5} Error fetching commits for ${owner}/${repo}:`,
+        error.message
+      );
       if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for commits! Using token:`, !!this.octokit.auth);
+        console.error(
+          `\u23F1\uFE0F  RATE LIMIT HIT for commits! Using token:`,
+          !!this.octokit.auth
+        );
       }
       throw error;
     }
@@ -276,9 +298,15 @@ var BranchesResource = class extends BaseResource {
       this.setCached(owner, repo, "branches", branches);
       return branches;
     } catch (error) {
-      console.error(`\u{1F4A5} Error fetching branches for ${owner}/${repo}:`, error.message);
+      console.error(
+        `\u{1F4A5} Error fetching branches for ${owner}/${repo}:`,
+        error.message
+      );
       if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for branches! Using token:`, !!this.octokit.auth);
+        console.error(
+          `\u23F1\uFE0F  RATE LIMIT HIT for branches! Using token:`,
+          !!this.octokit.auth
+        );
       }
       throw error;
     }
@@ -370,6 +398,62 @@ var FilesResource = class extends BaseResource {
   }
 };
 
+// server/resources/stats.ts
+var StatsResource = class extends BaseResource {
+  async getRepoStats(owner, repo) {
+    const cached = await this.getCached(owner, repo, "stats");
+    if (cached) {
+      console.log("\u{1F4CA} Using cached stats data");
+      return cached;
+    }
+    console.log(`\u{1F50D} Fetching stats for ${owner}/${repo}...`);
+    try {
+      const repoResponse = await this.octokit.rest.repos.get({
+        owner,
+        repo
+      });
+      const repoData = repoResponse.data;
+      const prsResponse = await this.octokit.rest.search.issuesAndPullRequests({
+        q: `repo:${owner}/${repo} type:pr`,
+        per_page: 1
+        // We only need the count
+      });
+      const contributorsResponse = await this.octokit.rest.repos.listContributors({
+        owner,
+        repo,
+        per_page: 100
+        // Get up to 100 contributors
+      });
+      const totalCommits = contributorsResponse.data.reduce((sum, contributor) => {
+        return sum + (contributor.contributions || 0);
+      }, 0);
+      const createdDate = new Date(repoData.created_at);
+      const now = /* @__PURE__ */ new Date();
+      const ageInYears = Math.round((now.getTime() - createdDate.getTime()) / (365.25 * 24 * 60 * 60 * 1e3) * 10) / 10;
+      const stats = {
+        stars: repoData.stargazers_count,
+        totalPRs: prsResponse.data.total_count,
+        totalCommits,
+        ageInYears
+      };
+      console.log(`\u{1F4CA} Stats for ${owner}/${repo}:`, {
+        stars: stats.stars,
+        totalPRs: stats.totalPRs,
+        totalCommits: stats.totalCommits,
+        ageInYears: stats.ageInYears
+      });
+      this.setCached(owner, repo, "stats", stats);
+      return stats;
+    } catch (error) {
+      console.error(`\u{1F4A5} Error fetching stats for ${owner}/${repo}:`, error.message);
+      if (error.status === 403 || error.message?.includes("rate limit")) {
+        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for stats! Using token:`, !!this.octokit.auth);
+      }
+      throw error;
+    }
+  }
+};
+
 // server/handler.ts
 var GitSeeHandler = class {
   constructor(options = {}) {
@@ -384,6 +468,7 @@ var GitSeeHandler = class {
     this.commits = new CommitsResource(this.octokit, this.cache);
     this.branches = new BranchesResource(this.octokit, this.cache);
     this.files = new FilesResource(this.octokit, this.cache);
+    this.stats = new StatsResource(this.octokit, this.cache);
   }
   async handle(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -472,6 +557,11 @@ var GitSeeHandler = class {
             console.log(`\u{1F50D} Fetching key files for ${owner}/${repo}...`);
             response.files = await this.files.getKeyFiles(owner, repo);
             console.log(`\u{1F4C1} Files result: ${response.files?.length || 0} found`);
+            break;
+          case "stats":
+            console.log(`\u{1F50D} Fetching stats for ${owner}/${repo}...`);
+            response.stats = await this.stats.getRepoStats(owner, repo);
+            console.log(`\u{1F4CA} Stats result: ${response.stats?.stars} stars, ${response.stats?.totalPRs} PRs, ${response.stats?.totalCommits} commits, ${response.stats?.ageInYears}y old`);
             break;
           default:
             console.warn(`\u26A0\uFE0F  Unknown data type: ${dataType}`);

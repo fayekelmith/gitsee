@@ -11,6 +11,7 @@ import {
   ContributorsVisualization,
   LinksVisualization,
   FilesVisualization,
+  StatsVisualization,
 } from "./resources/index.js";
 
 class GitVisualizer {
@@ -24,6 +25,7 @@ class GitVisualizer {
   private contributorsViz!: ContributorsVisualization;
   private linksViz!: LinksVisualization;
   private filesViz!: FilesVisualization;
+  private statsViz!: StatsVisualization;
 
   // Data storage
   private allNodes: NodeData[] = [];
@@ -77,6 +79,7 @@ class GitVisualizer {
     this.contributorsViz = new ContributorsVisualization(this.context);
     this.linksViz = new LinksVisualization(this.context);
     this.filesViz = new FilesVisualization(this.context);
+    this.statsViz = new StatsVisualization(this.context);
 
     // Create links group first to ensure it's at the bottom
     this.linksViz["getResourceGroup"]();
@@ -88,6 +91,7 @@ class GitVisualizer {
   private getNodeRadius(nodeType: string, contributions?: number): number {
     if (nodeType === "repo") return 25;
     if (nodeType === "file") return 18; // Files are rectangular but use this for collision
+    if (nodeType === "stat") return 22; // Stats are circles
     // For contributors, calculate size based on contributions
     const baseRadius = 16;
     const maxRadius = 22;
@@ -100,7 +104,7 @@ class GitVisualizer {
       const dx = x - space.x;
       const dy = y - space.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const minDistance = radius + space.radius + 20; // 20px buffer for better spacing
+      const minDistance = radius + space.radius + 40; // 40px buffer for much better spacing
       return distance < minDistance;
     });
   }
@@ -123,8 +127,8 @@ class GitVisualizer {
     }
 
     // If collision, try spiraling outward from the original position
-    const spiralStep = 15;
-    let spiralRadius = radius + 20;
+    const spiralStep = 20;
+    let spiralRadius = radius + 40;
     let attempts = 0;
     const maxAttempts = 50;
 
@@ -187,12 +191,13 @@ class GitVisualizer {
     // Zone distances by node type (expandable for future node types)
     const zones = {
       repo: { min: 0, max: 0 }, // Center
-      contributor: { min: 80, max: 120 }, // Inner ring
-      file: { min: 140, max: 180 }, // Outer ring for files
-      story: { min: 180, max: 220 }, // Future: user stories
-      function: { min: 220, max: 260 }, // Future: functions
-      component: { min: 260, max: 300 }, // Future: components
-      schema: { min: 300, max: 340 }, // Future: schemas
+      stat: { min: 55, max: 75 }, // Close to repo - stats first!
+      contributor: { min: 90, max: 130 }, // Contributors after stats
+      file: { min: 150, max: 190 }, // Outer ring for files
+      story: { min: 190, max: 230 }, // Future: user stories
+      function: { min: 230, max: 270 }, // Future: functions
+      component: { min: 270, max: 310 }, // Future: components
+      schema: { min: 310, max: 350 }, // Future: schemas
     };
 
     const zone = zones[nodeType as keyof typeof zones] || zones["contributor"];
@@ -335,33 +340,21 @@ class GitVisualizer {
         }, 500);
       }
 
-      // Step 3: Add contributors one by one (sorted by contributions)
-      if (data.contributors) {
-        // Sort contributors by contribution count (highest first)
-        const contributors = data.contributors.sort(
-          (a, b) => b.contributions - a.contributions
-        );
-        console.log(
-          "📊 Contributors sorted by contributions:",
-          contributors.map((c) => `${c.login}: ${c.contributions}`)
-        );
-
-        const contributorDelay = data.icon ? 1000 : 500;
+      // Step 3: Add stats after icon loads
+      if (data.stats) {
         setTimeout(() => {
-          this.addContributorsSequentially(contributors, 0, () => {
-            // Step 4: Add files after all contributors are added
-            this.addFilesAfterContributors(data.files || []);
+          this.addStatsAfterIcon(data.stats, () => {
+            // Step 4: Add contributors after stats are done
+            this.addContributorsAfterStats(data.contributors || [], data.files || []);
           });
-        }, contributorDelay);
+        }, data.icon ? 1000 : 500);
       } else {
-        // If no contributors, add files directly
-        setTimeout(
-          () => {
-            this.addFilesAfterContributors(data.files || []);
-          },
-          data.icon ? 1000 : 500
-        );
+        // If no stats, go directly to contributors
+        setTimeout(() => {
+          this.addContributorsAfterStats(data.contributors || [], data.files || []);
+        }, data.icon ? 1000 : 500);
       }
+
 
       console.log(`✅ Successfully started visualization for ${owner}/${repo}`);
     } catch (error) {
@@ -381,7 +374,7 @@ class GitVisualizer {
       body: JSON.stringify({
         owner,
         repo,
-        data: ["repo_info", "contributors", "icon", "files"],
+        data: ["repo_info", "contributors", "icon", "files", "stats"],
       }),
     });
 
@@ -406,11 +399,129 @@ class GitVisualizer {
     this.contributorsViz.destroy();
     this.linksViz.destroy();
     this.filesViz.destroy();
+    this.statsViz.destroy();
   }
 
   private addResources(resources: ResourceData): void {
     this.allNodes.push(...resources.nodes);
     this.allLinks.push(...resources.links);
+  }
+
+  private addStatsAfterIcon(stats: any, onComplete: () => void): void {
+    if (!stats) {
+      console.log('📊 No stats to add');
+      if (onComplete) onComplete();
+      return;
+    }
+
+    console.log(`📊 Adding stats one by one...`);
+    setTimeout(() => {
+      this.addStatsSequentially(stats, 0, onComplete);
+    }, 300); // Small delay before starting stats
+  }
+
+  private addStatsSequentially(stats: any, index: number, onComplete?: () => void): void {
+    // Create the 4 stat items
+    const statItems = [
+      { id: 'stat-stars', name: `${stats.stars} ⭐`, label: 'Stars', value: stats.stars },
+      { id: 'stat-prs', name: `${stats.totalPRs} PRs`, label: 'Pull Requests', value: stats.totalPRs },
+      { id: 'stat-commits', name: `${stats.totalCommits} commits`, label: 'Total Commits', value: stats.totalCommits },
+      { id: 'stat-age', name: `${stats.ageInYears}y old`, label: 'Repository Age', value: stats.ageInYears }
+    ];
+
+    if (index >= statItems.length) {
+      console.log('🎉 All stats added!');
+      if (onComplete) {
+        setTimeout(onComplete, 500); // Small delay before moving to next phase
+      }
+      return;
+    }
+
+    const stat = statItems[index];
+    console.log(`📊 Adding stat ${index + 1}/${statItems.length}: ${stat.name}`);
+
+    // Calculate collision-free organic position for this stat
+    const position = this.calculateOrganicPosition('stat', index);
+    
+    console.log(`📍 Positioning ${stat.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`);
+    
+    const statNode: NodeData = {
+      id: stat.id,
+      type: 'stat',
+      name: stat.name,
+      label: stat.label,
+      value: stat.value,
+      x: position.x,
+      y: position.y
+    };
+
+    // Register this stat's space to prevent future overlaps
+    const nodeRadius = this.getNodeRadius('stat');
+    this.registerOccupiedSpace(position.x, position.y, nodeRadius, statNode.id);
+
+    const statLink: LinkData = {
+      id: `link-repo-stat-${stat.id}`,
+      source: 'repo',
+      target: stat.id,
+      type: 'stat'
+    };
+
+    const statResources = {
+      nodes: [statNode],
+      links: [statLink]
+    };
+
+    this.addResources(statResources);
+    
+    // Get all stat nodes that should be visible now
+    const allStatNodes = this.allNodes.filter(n => n.type === 'stat');
+    
+    // Update visualization with all stats (so previous ones don't disappear)
+    this.statsViz.updateWithAnimation({
+      nodes: allStatNodes,
+      links: []
+    });
+    
+    // Update links with all stat links
+    const allLinks = this.allLinks.filter(l => l.type === 'contribution' || l.type === 'stat' || l.type === 'file');
+    this.linksViz.updateWithAnimation({
+      nodes: [],
+      links: allLinks
+    });
+    
+    // Update link positions
+    this.linksViz.updatePositions(this.allNodes);
+    
+    // Gradually zoom out (keeping repo centered)
+    setTimeout(() => {
+      this.gradualZoomOut();
+    }, 200); // Small delay after the node appears
+    
+    // Add next stat after configurable delay
+    setTimeout(() => {
+      this.addStatsSequentially(stats, index + 1, onComplete);
+    }, this.nodeDelay);
+  }
+
+  private addContributorsAfterStats(contributors: any[], files: any[]): void {
+    if (!contributors || contributors.length === 0) {
+      console.log('👥 No contributors to add, going to files');
+      setTimeout(() => {
+        this.addFilesAfterContributors(files);
+      }, 500);
+      return;
+    }
+
+    // Sort contributors by contribution count (highest first)
+    const sortedContributors = contributors.sort((a, b) => b.contributions - a.contributions);
+    console.log('📊 Contributors sorted by contributions:', sortedContributors.map(c => `${c.login}: ${c.contributions}`));
+    
+    setTimeout(() => {
+      this.addContributorsSequentially(sortedContributors, 0, () => {
+        // Add files after all contributors are added
+        this.addFilesAfterContributors(files);
+      });
+    }, 500); // Small delay before starting contributors
   }
 
   private addContributorsSequentially(

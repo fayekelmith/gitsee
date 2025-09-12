@@ -3068,8 +3068,12 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
     console.log("\u{1F3D7}\uFE0F Creating repository visualization...");
     const centerX = this.context.width / 2;
     const centerY = this.context.height / 2;
-    console.log(`\u{1F4CF} Context dimensions: ${this.context.width} x ${this.context.height}`);
-    console.log(`\u{1F3AF} Positioning repository at center: (${centerX}, ${centerY})`);
+    console.log(
+      `\u{1F4CF} Context dimensions: ${this.context.width} x ${this.context.height}`
+    );
+    console.log(
+      `\u{1F3AF} Positioning repository at center: (${centerX}, ${centerY})`
+    );
     const repoNode = {
       id: "repo",
       type: "repo",
@@ -3105,7 +3109,10 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
         circle.style("opacity", 0.7).transition().duration(300).style("opacity", 1);
       } else {
         node.append("circle").attr("r", 25).style("fill", "#1f6feb").style("stroke", "#0969da").style("stroke-width", "2px");
-        node.append("path").attr("d", "M-8,-8 L8,-8 L8,8 L-8,8 Z M-6,-6 L6,-6 M-6,-3 L6,-3 M-6,0 L6,0 M-6,3 L6,3 M-6,6 L6,6").style("fill", "none").style("stroke", "white").style("stroke-width", "1.5px");
+        node.append("path").attr(
+          "d",
+          "M-8,-8 L8,-8 L8,8 L-8,8 Z M-6,-6 L6,-6 M-6,-3 L6,-3 M-6,0 L6,0 M-6,3 L6,3 M-6,6 L6,6"
+        ).style("fill", "none").style("stroke", "white").style("stroke-width", "1.5px");
       }
       this.createNodeLabel(node, d, 35);
     });
@@ -3136,7 +3143,9 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
     super(context, "contributors");
   }
   create(contributorsData) {
-    console.log(`\u{1F3D7}\uFE0F Creating contributors visualization for ${contributorsData.length} contributors...`);
+    console.log(
+      `\u{1F3D7}\uFE0F Creating contributors visualization for ${contributorsData.length} contributors...`
+    );
     const centerX = this.context.width / 2;
     const centerY = this.context.height / 2;
     const nodes = contributorsData.map((contributor, index) => {
@@ -3185,7 +3194,9 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
     });
   }
   updateWithAnimation(resourceData) {
-    console.log(`\u{1F3AD} Updating contributors visualization with animation for ${resourceData.nodes.length} nodes...`);
+    console.log(
+      `\u{1F3AD} Updating contributors visualization with animation for ${resourceData.nodes.length} nodes...`
+    );
     const group = this.getResourceGroup();
     const nodes = group.selectAll(".contributor-node").data(resourceData.nodes, (d) => d.id);
     nodes.exit().remove();
@@ -3197,7 +3208,9 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
     }).style("opacity", 0).call(this.createDragBehavior());
     nodeEnter.each((d, i, nodes2) => {
       const node = select_default2(nodes2[i]);
-      console.log(`\u{1F195} Creating visual elements for new node: ${d.id} (${d.contributions} contributions)`);
+      console.log(
+        `\u{1F195} Creating visual elements for new node: ${d.id} (${d.contributions} contributions)`
+      );
       const baseRadius = 16;
       const maxRadius = 22;
       const contributions = d.contributions || 0;
@@ -3211,7 +3224,9 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
       const y = d.y || 0;
       return `translate(${x},${y}) scale(1)`;
     });
-    console.log(`\u2705 Contributors update complete. Total visible: ${nodes.size() + nodeEnter.size()}`);
+    console.log(
+      `\u2705 Contributors update complete. Total visible: ${nodes.size() + nodeEnter.size()}`
+    );
   }
   destroy() {
     console.log("\u{1F5D1}\uFE0F Destroying contributors visualization...");
@@ -3225,7 +3240,9 @@ var LinksVisualization = class extends BaseVisualizationResource {
     super(context, "links");
   }
   create(linksData) {
-    console.log(`\u{1F3D7}\uFE0F Creating links visualization for ${linksData.length} links...`);
+    console.log(
+      `\u{1F3D7}\uFE0F Creating links visualization for ${linksData.length} links...`
+    );
     return {
       nodes: [],
       // Links don't create nodes
@@ -3240,13 +3257,17 @@ var LinksVisualization = class extends BaseVisualizationResource {
     links.enter().append("line").attr("class", "link").style("stroke", (d) => this.getLinkColor(d.type)).style("stroke-width", (d) => this.getLinkWidth(d.type)).style("stroke-opacity", 0.8);
   }
   updateWithAnimation(resourceData) {
-    console.log(`\u{1F3AD} Updating links visualization with animation for ${resourceData.links.length} links...`);
+    console.log(
+      `\u{1F3AD} Updating links visualization with animation for ${resourceData.links.length} links...`
+    );
     const group = this.getResourceGroup();
     const links = group.selectAll(".link").data(resourceData.links, (d) => d.id);
     links.exit().remove();
     const linksEnter = links.enter().append("line").attr("class", "link").style("stroke", (d) => this.getLinkColor(d.type)).style("stroke-width", (d) => this.getLinkWidth(d.type)).style("stroke-opacity", 0);
     linksEnter.transition().duration(400).style("stroke-opacity", 0.8);
-    console.log(`\u2705 Links update complete. Total visible: ${links.merge(linksEnter).size()}`);
+    console.log(
+      `\u2705 Links update complete. Total visible: ${links.merge(linksEnter).size()}`
+    );
   }
   getLinkColor(linkType) {
     switch (linkType) {
@@ -3361,6 +3382,68 @@ var FilesVisualization = class extends BaseVisualizationResource {
   }
 };
 
+// client/resources/stats.ts
+var StatsVisualization = class extends BaseVisualizationResource {
+  constructor(context) {
+    super(context, "stats");
+  }
+  create(statsData) {
+    const nodes = [];
+    if (!statsData) return { nodes, links: [] };
+    const stats = [
+      { id: "stat-stars", name: `${statsData.stars} \u2B50`, label: "Stars", value: statsData.stars },
+      { id: "stat-prs", name: `${statsData.totalPRs} PRs`, label: "Pull Requests", value: statsData.totalPRs },
+      { id: "stat-commits", name: `${statsData.totalCommits} commits`, label: "Total Commits", value: statsData.totalCommits },
+      { id: "stat-age", name: `${statsData.ageInYears}y old`, label: "Repository Age", value: statsData.ageInYears }
+    ];
+    stats.forEach((stat, index) => {
+      const node = {
+        id: stat.id,
+        type: "stat",
+        name: stat.name,
+        label: stat.label,
+        value: stat.value
+        // Position will be set by organic positioning system
+      };
+      nodes.push(node);
+    });
+    return { nodes, links: [] };
+  }
+  update(resourceData) {
+    const group = this.getResourceGroup();
+    const statNodes = group.selectAll(".stat-node").data(resourceData.nodes, (d) => d.id);
+    statNodes.exit().remove();
+    const statEnter = statNodes.enter().append("g").attr("class", "stat-node");
+    statEnter.append("circle").attr("r", 20).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+    statEnter.append("text").attr("class", "stat-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
+    const allStatNodes = statEnter.merge(statNodes);
+    allStatNodes.attr(
+      "transform",
+      (d) => d.x !== void 0 && d.y !== void 0 ? `translate(${d.x}, ${d.y})` : "translate(0,0)"
+    );
+  }
+  updateWithAnimation(resourceData) {
+    const group = this.getResourceGroup();
+    const statNodes = group.selectAll(".stat-node").data(resourceData.nodes, (d) => d.id);
+    statNodes.exit().transition().duration(300).style("opacity", 0).remove();
+    const statEnter = statNodes.enter().append("g").attr("class", "stat-node").style("opacity", 0);
+    statEnter.append("circle").attr("r", 20).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+    statEnter.append("text").attr("class", "stat-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
+    const allStatNodes = statEnter.merge(statNodes);
+    allStatNodes.attr(
+      "transform",
+      (d) => d.x !== void 0 && d.y !== void 0 ? `translate(${d.x}, ${d.y})` : "translate(0,0)"
+    ).transition().duration(500).ease(backOut).style("opacity", 1);
+  }
+  destroy() {
+    const group = this.context.container.select(`.${this.getResourceType()}-group`);
+    group.remove();
+  }
+  getResourceType() {
+    return "stats";
+  }
+};
+
 // client/index.ts
 var GitVisualizer = class {
   constructor() {
@@ -3395,6 +3478,7 @@ var GitVisualizer = class {
     this.contributorsViz = new ContributorsVisualization(this.context);
     this.linksViz = new LinksVisualization(this.context);
     this.filesViz = new FilesVisualization(this.context);
+    this.statsViz = new StatsVisualization(this.context);
     this.linksViz["getResourceGroup"]();
   }
   /**
@@ -3403,6 +3487,7 @@ var GitVisualizer = class {
   getNodeRadius(nodeType, contributions) {
     if (nodeType === "repo") return 25;
     if (nodeType === "file") return 18;
+    if (nodeType === "stat") return 22;
     const baseRadius = 16;
     const maxRadius = 22;
     const contribCount = contributions || 0;
@@ -3413,7 +3498,7 @@ var GitVisualizer = class {
       const dx = x - space.x;
       const dy = y - space.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const minDistance = radius + space.radius + 20;
+      const minDistance = radius + space.radius + 40;
       return distance < minDistance;
     });
   }
@@ -3425,8 +3510,8 @@ var GitVisualizer = class {
     if (!this.checkCollision(position.x, position.y, radius)) {
       return position;
     }
-    const spiralStep = 15;
-    let spiralRadius = radius + 20;
+    const spiralStep = 20;
+    let spiralRadius = radius + 40;
     let attempts = 0;
     const maxAttempts = 50;
     while (attempts < maxAttempts) {
@@ -3466,17 +3551,19 @@ var GitVisualizer = class {
     const zones = {
       repo: { min: 0, max: 0 },
       // Center
-      contributor: { min: 80, max: 120 },
-      // Inner ring
-      file: { min: 140, max: 180 },
+      stat: { min: 55, max: 75 },
+      // Close to repo - stats first!
+      contributor: { min: 90, max: 130 },
+      // Contributors after stats
+      file: { min: 150, max: 190 },
       // Outer ring for files
-      story: { min: 180, max: 220 },
+      story: { min: 190, max: 230 },
       // Future: user stories
-      function: { min: 220, max: 260 },
+      function: { min: 230, max: 270 },
       // Future: functions
-      component: { min: 260, max: 300 },
+      component: { min: 270, max: 310 },
       // Future: components
-      schema: { min: 300, max: 340 }
+      schema: { min: 310, max: 350 }
       // Future: schemas
     };
     const zone = zones[nodeType] || zones["contributor"];
@@ -3565,27 +3652,16 @@ var GitVisualizer = class {
           }
         }, 500);
       }
-      if (data.contributors) {
-        const contributors = data.contributors.sort(
-          (a, b) => b.contributions - a.contributions
-        );
-        console.log(
-          "\u{1F4CA} Contributors sorted by contributions:",
-          contributors.map((c) => `${c.login}: ${c.contributions}`)
-        );
-        const contributorDelay = data.icon ? 1e3 : 500;
+      if (data.stats) {
         setTimeout(() => {
-          this.addContributorsSequentially(contributors, 0, () => {
-            this.addFilesAfterContributors(data.files || []);
+          this.addStatsAfterIcon(data.stats, () => {
+            this.addContributorsAfterStats(data.contributors || [], data.files || []);
           });
-        }, contributorDelay);
+        }, data.icon ? 1e3 : 500);
       } else {
-        setTimeout(
-          () => {
-            this.addFilesAfterContributors(data.files || []);
-          },
-          data.icon ? 1e3 : 500
-        );
+        setTimeout(() => {
+          this.addContributorsAfterStats(data.contributors || [], data.files || []);
+        }, data.icon ? 1e3 : 500);
       }
       console.log(`\u2705 Successfully started visualization for ${owner2}/${repo2}`);
     } catch (error) {
@@ -3601,7 +3677,7 @@ var GitVisualizer = class {
       body: JSON.stringify({
         owner: owner2,
         repo: repo2,
-        data: ["repo_info", "contributors", "icon", "files"]
+        data: ["repo_info", "contributors", "icon", "files", "stats"]
       })
     });
     if (!response.ok) {
@@ -3621,10 +3697,96 @@ var GitVisualizer = class {
     this.contributorsViz.destroy();
     this.linksViz.destroy();
     this.filesViz.destroy();
+    this.statsViz.destroy();
   }
   addResources(resources) {
     this.allNodes.push(...resources.nodes);
     this.allLinks.push(...resources.links);
+  }
+  addStatsAfterIcon(stats, onComplete) {
+    if (!stats) {
+      console.log("\u{1F4CA} No stats to add");
+      if (onComplete) onComplete();
+      return;
+    }
+    console.log(`\u{1F4CA} Adding stats one by one...`);
+    setTimeout(() => {
+      this.addStatsSequentially(stats, 0, onComplete);
+    }, 300);
+  }
+  addStatsSequentially(stats, index, onComplete) {
+    const statItems = [
+      { id: "stat-stars", name: `${stats.stars} \u2B50`, label: "Stars", value: stats.stars },
+      { id: "stat-prs", name: `${stats.totalPRs} PRs`, label: "Pull Requests", value: stats.totalPRs },
+      { id: "stat-commits", name: `${stats.totalCommits} commits`, label: "Total Commits", value: stats.totalCommits },
+      { id: "stat-age", name: `${stats.ageInYears}y old`, label: "Repository Age", value: stats.ageInYears }
+    ];
+    if (index >= statItems.length) {
+      console.log("\u{1F389} All stats added!");
+      if (onComplete) {
+        setTimeout(onComplete, 500);
+      }
+      return;
+    }
+    const stat = statItems[index];
+    console.log(`\u{1F4CA} Adding stat ${index + 1}/${statItems.length}: ${stat.name}`);
+    const position = this.calculateOrganicPosition("stat", index);
+    console.log(`\u{1F4CD} Positioning ${stat.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`);
+    const statNode = {
+      id: stat.id,
+      type: "stat",
+      name: stat.name,
+      label: stat.label,
+      value: stat.value,
+      x: position.x,
+      y: position.y
+    };
+    const nodeRadius = this.getNodeRadius("stat");
+    this.registerOccupiedSpace(position.x, position.y, nodeRadius, statNode.id);
+    const statLink = {
+      id: `link-repo-stat-${stat.id}`,
+      source: "repo",
+      target: stat.id,
+      type: "stat"
+    };
+    const statResources = {
+      nodes: [statNode],
+      links: [statLink]
+    };
+    this.addResources(statResources);
+    const allStatNodes = this.allNodes.filter((n) => n.type === "stat");
+    this.statsViz.updateWithAnimation({
+      nodes: allStatNodes,
+      links: []
+    });
+    const allLinks = this.allLinks.filter((l) => l.type === "contribution" || l.type === "stat" || l.type === "file");
+    this.linksViz.updateWithAnimation({
+      nodes: [],
+      links: allLinks
+    });
+    this.linksViz.updatePositions(this.allNodes);
+    setTimeout(() => {
+      this.gradualZoomOut();
+    }, 200);
+    setTimeout(() => {
+      this.addStatsSequentially(stats, index + 1, onComplete);
+    }, this.nodeDelay);
+  }
+  addContributorsAfterStats(contributors, files) {
+    if (!contributors || contributors.length === 0) {
+      console.log("\u{1F465} No contributors to add, going to files");
+      setTimeout(() => {
+        this.addFilesAfterContributors(files);
+      }, 500);
+      return;
+    }
+    const sortedContributors = contributors.sort((a, b) => b.contributions - a.contributions);
+    console.log("\u{1F4CA} Contributors sorted by contributions:", sortedContributors.map((c) => `${c.login}: ${c.contributions}`));
+    setTimeout(() => {
+      this.addContributorsSequentially(sortedContributors, 0, () => {
+        this.addFilesAfterContributors(files);
+      });
+    }, 500);
   }
   addContributorsSequentially(contributors, index, onComplete) {
     if (index >= contributors.length) {
