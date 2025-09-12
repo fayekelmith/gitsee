@@ -58,14 +58,22 @@ export class RepositoryVisualization extends BaseVisualizationResource {
       const node = d3.select(nodes[i]);
       
       if (d.avatar) {
-        // Create avatar pattern and use it as fill
-        const fillPattern = this.createAvatarPattern(d, 50);
-        node
+        // Create avatar pattern and use it as fill (pass radius, not diameter)
+        const repoRadius = 25;
+        const fillPattern = this.createAvatarPattern(d, repoRadius);
+        const circle = node
           .append('circle')
-          .attr('r', 25)
+          .attr('r', repoRadius)
           .style('fill', fillPattern)
           .style('stroke', '#0969da')
           .style('stroke-width', '2px');
+          
+        // Add subtle pulse animation for icon loading
+        circle
+          .style('opacity', 0.7)
+          .transition()
+          .duration(300)
+          .style('opacity', 1);
       } else {
         // Default repo styling with fallback icon
         node

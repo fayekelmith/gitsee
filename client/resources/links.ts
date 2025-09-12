@@ -39,6 +39,37 @@ export class LinksVisualization extends BaseVisualizationResource {
       .style('stroke-opacity', 0.8);
   }
 
+  updateWithAnimation(resourceData: ResourceData): void {
+    console.log(`🎭 Updating links visualization with animation for ${resourceData.links.length} links...`);
+    
+    const group = this.getResourceGroup();
+    
+    // Bind data
+    const links = group
+      .selectAll('.link')
+      .data(resourceData.links, (d: LinkData) => d.id);
+
+    // Remove old links
+    links.exit().remove();
+
+    // Add new links with entrance animation (only NEW links will enter)
+    const linksEnter = links
+      .enter()
+      .append('line')
+      .attr('class', 'link')
+      .style('stroke', (d: LinkData) => this.getLinkColor(d.type))
+      .style('stroke-width', (d: LinkData) => this.getLinkWidth(d.type))
+      .style('stroke-opacity', 0);
+      
+    // Animate entrance for new links only
+    linksEnter
+      .transition()
+      .duration(400)
+      .style('stroke-opacity', 0.8);
+      
+    console.log(`✅ Links update complete. Total visible: ${links.merge(linksEnter).size()}`);
+  }
+
   private getLinkColor(linkType?: string): string {
     switch (linkType) {
       case 'contribution':

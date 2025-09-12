@@ -80,7 +80,7 @@ export abstract class BaseVisualizationResource {
   /**
    * Helper method to create avatar patterns
    */
-  protected createAvatarPattern(node: NodeData, size: number): string {
+  protected createAvatarPattern(node: NodeData, circleRadius: number): string {
     if (!node.avatar) return '';
 
     const patternId = this.createElementId('avatar', node.id);
@@ -91,18 +91,24 @@ export abstract class BaseVisualizationResource {
     // Remove existing pattern if it exists
     defs.select(`#${patternId}`).remove();
 
-    // Create new pattern
+    // Calculate proper sizing for circular fill
+    const diameter = circleRadius * 2;
+    
+    // Create new pattern - using userSpaceOnUse for better control
     defs.append('pattern')
       .attr('id', patternId)
-      .attr('patternUnits', 'objectBoundingBox')
-      .attr('width', 1)
-      .attr('height', 1)
+      .attr('patternUnits', 'userSpaceOnUse')
+      .attr('width', diameter)
+      .attr('height', diameter)
+      .attr('x', -circleRadius) // Center the pattern
+      .attr('y', -circleRadius)
       .append('image')
       .attr('href', node.avatar)
-      .attr('width', size)
-      .attr('height', size)
+      .attr('width', diameter)
+      .attr('height', diameter)
       .attr('x', 0)
-      .attr('y', 0);
+      .attr('y', 0)
+      .attr('preserveAspectRatio', 'xMidYMid slice'); // Crop to fill circle
 
     return `url(#${patternId})`;
   }

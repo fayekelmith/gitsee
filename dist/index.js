@@ -3258,6 +3258,68 @@ function manyBody_default() {
   return force;
 }
 
+// node_modules/d3-force/src/x.js
+function x_default2(x3) {
+  var strength = constant_default5(0.1), nodes, strengths, xz;
+  if (typeof x3 !== "function") x3 = constant_default5(x3 == null ? 0 : +x3);
+  function force(alpha) {
+    for (var i = 0, n = nodes.length, node; i < n; ++i) {
+      node = nodes[i], node.vx += (xz[i] - node.x) * strengths[i] * alpha;
+    }
+  }
+  function initialize() {
+    if (!nodes) return;
+    var i, n = nodes.length;
+    strengths = new Array(n);
+    xz = new Array(n);
+    for (i = 0; i < n; ++i) {
+      strengths[i] = isNaN(xz[i] = +x3(nodes[i], i, nodes)) ? 0 : +strength(nodes[i], i, nodes);
+    }
+  }
+  force.initialize = function(_) {
+    nodes = _;
+    initialize();
+  };
+  force.strength = function(_) {
+    return arguments.length ? (strength = typeof _ === "function" ? _ : constant_default5(+_), initialize(), force) : strength;
+  };
+  force.x = function(_) {
+    return arguments.length ? (x3 = typeof _ === "function" ? _ : constant_default5(+_), initialize(), force) : x3;
+  };
+  return force;
+}
+
+// node_modules/d3-force/src/y.js
+function y_default2(y3) {
+  var strength = constant_default5(0.1), nodes, strengths, yz;
+  if (typeof y3 !== "function") y3 = constant_default5(y3 == null ? 0 : +y3);
+  function force(alpha) {
+    for (var i = 0, n = nodes.length, node; i < n; ++i) {
+      node = nodes[i], node.vy += (yz[i] - node.y) * strengths[i] * alpha;
+    }
+  }
+  function initialize() {
+    if (!nodes) return;
+    var i, n = nodes.length;
+    strengths = new Array(n);
+    yz = new Array(n);
+    for (i = 0; i < n; ++i) {
+      strengths[i] = isNaN(yz[i] = +y3(nodes[i], i, nodes)) ? 0 : +strength(nodes[i], i, nodes);
+    }
+  }
+  force.initialize = function(_) {
+    nodes = _;
+    initialize();
+  };
+  force.strength = function(_) {
+    return arguments.length ? (strength = typeof _ === "function" ? _ : constant_default5(+_), initialize(), force) : strength;
+  };
+  force.y = function(_) {
+    return arguments.length ? (y3 = typeof _ === "function" ? _ : constant_default5(+_), initialize(), force) : y3;
+  };
+  return force;
+}
+
 // node_modules/d3-zoom/src/constant.js
 var constant_default6 = (x3) => () => x3;
 
@@ -3699,12 +3761,13 @@ var BaseVisualizationResource = class {
   /**
    * Helper method to create avatar patterns
    */
-  createAvatarPattern(node, size) {
+  createAvatarPattern(node, circleRadius) {
     if (!node.avatar) return "";
     const patternId = this.createElementId("avatar", node.id);
     const defs = this.context.svg.select("defs").empty() ? this.context.svg.append("defs") : this.context.svg.select("defs");
     defs.select(`#${patternId}`).remove();
-    defs.append("pattern").attr("id", patternId).attr("patternUnits", "objectBoundingBox").attr("width", 1).attr("height", 1).append("image").attr("href", node.avatar).attr("width", size).attr("height", size).attr("x", 0).attr("y", 0);
+    const diameter = circleRadius * 2;
+    defs.append("pattern").attr("id", patternId).attr("patternUnits", "userSpaceOnUse").attr("width", diameter).attr("height", diameter).attr("x", -circleRadius).attr("y", -circleRadius).append("image").attr("href", node.avatar).attr("width", diameter).attr("height", diameter).attr("x", 0).attr("y", 0).attr("preserveAspectRatio", "xMidYMid slice");
     return `url(#${patternId})`;
   }
   /**
@@ -3749,8 +3812,10 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
     nodeUpdate.each((d, i, nodes2) => {
       const node = select_default2(nodes2[i]);
       if (d.avatar) {
-        const fillPattern = this.createAvatarPattern(d, 50);
-        node.append("circle").attr("r", 25).style("fill", fillPattern).style("stroke", "#0969da").style("stroke-width", "2px");
+        const repoRadius = 25;
+        const fillPattern = this.createAvatarPattern(d, repoRadius);
+        const circle = node.append("circle").attr("r", repoRadius).style("fill", fillPattern).style("stroke", "#0969da").style("stroke-width", "2px");
+        circle.style("opacity", 0.7).transition().duration(300).style("opacity", 1);
       } else {
         node.append("circle").attr("r", 25).style("fill", "#1f6feb").style("stroke", "#0969da").style("stroke-width", "2px");
         node.append("path").attr("d", "M-8,-8 L8,-8 L8,8 L-8,8 Z M-6,-6 L6,-6 M-6,-3 L6,-3 M-6,0 L6,0 M-6,3 L6,3 M-6,6 L6,6").style("fill", "none").style("stroke", "white").style("stroke-width", "1.5px");
@@ -3771,13 +3836,21 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
   }
   create(contributorsData) {
     console.log(`\u{1F3D7}\uFE0F Creating contributors visualization for ${contributorsData.length} contributors...`);
-    const nodes = contributorsData.map((contributor) => ({
-      id: `contributor-${contributor.id}`,
-      type: "contributor",
-      name: contributor.login,
-      avatar: contributor.avatar_url,
-      contributions: contributor.contributions
-    }));
+    const centerX = this.context.width / 2;
+    const centerY = this.context.height / 2;
+    const nodes = contributorsData.map((contributor, index2) => {
+      const angle = index2 / contributorsData.length * 2 * Math.PI;
+      const radius = 120 + Math.random() * 80;
+      return {
+        id: `contributor-${contributor.id}`,
+        type: "contributor",
+        name: contributor.login,
+        avatar: contributor.avatar_url,
+        contributions: contributor.contributions,
+        x: centerX + Math.cos(angle) * radius,
+        y: centerY + Math.sin(angle) * radius
+      };
+    });
     const links = contributorsData.map((contributor) => ({
       id: `link-repo-contributor-${contributor.id}`,
       source: "repo",
@@ -3797,9 +3870,13 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
     const nodeEnter = nodes.enter().append("g").attr("class", "contributor-node").call(this.createDragBehavior());
     nodeEnter.each((d, i, nodes2) => {
       const node = select_default2(nodes2[i]);
-      const fillPattern = this.createAvatarPattern(d, 30);
-      node.append("circle").attr("r", 15).style("fill", fillPattern || "#238636").style("stroke", "#1f6feb").style("stroke-width", "1.5px");
-      this.createNodeLabel(node, d, 25);
+      const baseRadius = 16;
+      const maxRadius = 22;
+      const contributions = d.contributions || 0;
+      const radius = Math.min(baseRadius + contributions * 0.1, maxRadius);
+      const fillPattern = this.createAvatarPattern(d, radius);
+      node.append("circle").attr("r", radius).style("fill", fillPattern || "#238636").style("stroke", "#1f6feb").style("stroke-width", "2px");
+      this.createNodeLabel(node, d, radius + 15);
     });
     const nodeUpdate = nodes.merge(nodeEnter);
     nodeUpdate.select("circle").style("fill", (d) => {
@@ -3808,6 +3885,42 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
       }
       return "#238636";
     });
+  }
+  updateWithAnimation(resourceData) {
+    console.log(`\u{1F3AD} Updating contributors visualization with animation for ${resourceData.nodes.length} nodes...`);
+    const group = this.getResourceGroup();
+    const nodes = group.selectAll(".contributor-node").data(resourceData.nodes, (d) => d.id);
+    nodes.exit().remove();
+    const nodeEnter = nodes.enter().append("g").attr("class", "contributor-node").attr("transform", (d) => {
+      const x3 = d.x || 0;
+      const y3 = d.y || 0;
+      console.log(`\u{1F3AF} NEW node ${d.id} positioned at (${x3}, ${y3})`);
+      return `translate(${x3},${y3}) scale(0)`;
+    }).style("opacity", 0).call(this.createDragBehavior());
+    nodeEnter.each((d, i, nodes2) => {
+      const node = select_default2(nodes2[i]);
+      console.log(`\u{1F195} Creating visual elements for new node: ${d.id} (${d.contributions} contributions)`);
+      const baseRadius = 16;
+      const maxRadius = 22;
+      const contributions = d.contributions || 0;
+      const radius = Math.min(baseRadius + contributions * 0.1, maxRadius);
+      const fillPattern = this.createAvatarPattern(d, radius);
+      node.append("circle").attr("r", radius).style("fill", fillPattern || "#238636").style("stroke", "#1f6feb").style("stroke-width", "2px");
+      this.createNodeLabel(node, d, radius + 15);
+    });
+    nodeEnter.transition().duration(400).style("opacity", 1).attr("transform", (d) => {
+      const x3 = d.x || 0;
+      const y3 = d.y || 0;
+      return `translate(${x3},${y3}) scale(1)`;
+    });
+    const nodeUpdate = nodes.merge(nodeEnter);
+    nodeUpdate.select("circle").style("fill", (d) => {
+      if (d.avatar) {
+        return this.createAvatarPattern(d, 30);
+      }
+      return "#238636";
+    });
+    console.log(`\u2705 Contributors update complete. Total visible: ${nodeUpdate.size()}`);
   }
   destroy() {
     console.log("\u{1F5D1}\uFE0F Destroying contributors visualization...");
@@ -3834,6 +3947,15 @@ var LinksVisualization = class extends BaseVisualizationResource {
     const links = group.selectAll(".link").data(resourceData.links, (d) => d.id);
     links.exit().remove();
     links.enter().append("line").attr("class", "link").style("stroke", (d) => this.getLinkColor(d.type)).style("stroke-width", (d) => this.getLinkWidth(d.type)).style("stroke-opacity", 0.8);
+  }
+  updateWithAnimation(resourceData) {
+    console.log(`\u{1F3AD} Updating links visualization with animation for ${resourceData.links.length} links...`);
+    const group = this.getResourceGroup();
+    const links = group.selectAll(".link").data(resourceData.links, (d) => d.id);
+    links.exit().remove();
+    const linksEnter = links.enter().append("line").attr("class", "link").style("stroke", (d) => this.getLinkColor(d.type)).style("stroke-width", (d) => this.getLinkWidth(d.type)).style("stroke-opacity", 0);
+    linksEnter.transition().duration(400).style("stroke-opacity", 0.8);
+    console.log(`\u2705 Links update complete. Total visible: ${links.merge(linksEnter).size()}`);
   }
   getLinkColor(linkType) {
     switch (linkType) {
@@ -3895,7 +4017,11 @@ var GitVisualizer = class {
     });
     this.svg.call(zoom);
     const container = this.svg.append("g").attr("class", "main-container");
-    const simulation = simulation_default().force("link", link_default().id((d) => d.id).distance(100)).force("charge", manyBody_default().strength(-300)).force("center", center_default(this.width / 2, this.height / 2)).force("collision", collide_default().radius(35));
+    const simulation = simulation_default().force("link", link_default().id((d) => d.id).distance(80).strength(0.5)).force("charge", manyBody_default().strength(-200)).force("center", center_default(this.width / 2, this.height / 2)).force("collision", collide_default().radius((d) => {
+      if (d.type === "repo") return 30;
+      const contributions = d.contributions || 0;
+      return Math.min(16 + contributions * 0.1, 22) + 3;
+    })).force("x", x_default2(this.width / 2).strength(0.1)).force("y", y_default2(this.height / 2).strength(0.1));
     this.context = {
       svg: this.svg,
       container,
@@ -3922,25 +4048,37 @@ var GitVisualizer = class {
       if (data.error) {
         throw new Error(data.error);
       }
-      if (data.repo || data.icon) {
+      if (data.repo) {
         const repoData = {
           name: data.repo?.full_name || `${owner2}/${repo2}`,
-          icon: data.icon
+          icon: void 0
+          // Show without icon first
         };
         const repoResources = this.repositoryViz.create(repoData);
         this.addResources(repoResources);
         this.repositoryViz.update(repoResources);
+        this.updateSimulation();
+        console.log("\u{1F4CD} Repository node created");
+      }
+      if (data.icon) {
+        setTimeout(() => {
+          const repoWithIcon = {
+            name: data.repo?.full_name || `${owner2}/${repo2}`,
+            icon: data.icon
+          };
+          const repoResources = this.repositoryViz.create(repoWithIcon);
+          this.repositoryViz.update(repoResources);
+          console.log("\u{1F5BC}\uFE0F Repository icon loaded");
+        }, 500);
       }
       if (data.contributors) {
-        const contributorResources = this.contributorsViz.create(data.contributors);
-        this.addResources(contributorResources);
-        this.contributorsViz.update(contributorResources);
-        const linksResources = this.linksViz.create(contributorResources.links);
-        this.addResources(linksResources);
-        this.linksViz.update(linksResources);
+        const contributors = data.contributors.sort((a2, b) => b.contributions - a2.contributions);
+        console.log("\u{1F4CA} Contributors sorted by contributions:", contributors.map((c2) => `${c2.login}: ${c2.contributions}`));
+        setTimeout(() => {
+          this.addContributorsSequentially(contributors, 0);
+        }, data.icon ? 1e3 : 500);
       }
-      this.updateSimulation();
-      console.log(`\u2705 Successfully visualized ${owner2}/${repo2}`);
+      console.log(`\u2705 Successfully started visualization for ${owner2}/${repo2}`);
     } catch (error) {
       console.error("Error visualizing repository:", error);
     }
@@ -3974,6 +4112,87 @@ var GitVisualizer = class {
     this.allNodes.push(...resources.nodes);
     this.allLinks.push(...resources.links);
   }
+  addContributorsSequentially(contributors, index2) {
+    if (index2 >= contributors.length) {
+      console.log("\u{1F389} All contributors added!");
+      return;
+    }
+    const contributor = contributors[index2];
+    console.log(`\u{1F464} Adding contributor ${index2 + 1}/${contributors.length}: ${contributor.login}`);
+    const centerX = this.context.width / 2;
+    const centerY = this.context.height / 2;
+    const angle = index2 / contributors.length * 2 * Math.PI;
+    const baseRadius = 100;
+    const radiusIncrement = 25;
+    const radius = baseRadius + Math.floor(index2 / 6) * radiusIncrement;
+    console.log(`\u{1F4CD} Positioning ${contributor.login} (${contributor.contributions} contributions) at radius ${radius}`);
+    const x3 = centerX + Math.cos(angle) * radius;
+    const y3 = centerY + Math.sin(angle) * radius;
+    const contributorNode = {
+      id: `contributor-${contributor.id}`,
+      type: "contributor",
+      name: contributor.login,
+      avatar: contributor.avatar_url,
+      contributions: contributor.contributions,
+      x: x3,
+      y: y3,
+      fx: x3,
+      // Fix position initially
+      fy: y3,
+      // Fix position initially
+      vx: 0,
+      // Start with no velocity
+      vy: 0
+    };
+    const contributorLink = {
+      id: `link-repo-contributor-${contributor.id}`,
+      source: "repo",
+      target: `contributor-${contributor.id}`,
+      type: "contribution"
+    };
+    const contributorResources = {
+      nodes: [contributorNode],
+      links: [contributorLink]
+    };
+    this.addResources(contributorResources);
+    const allContributorNodes = this.allNodes.filter((n) => n.type === "contributor");
+    const allContributorLinks = this.allLinks.filter((l) => l.type === "contribution");
+    this.contributorsViz.updateWithAnimation({
+      nodes: allContributorNodes,
+      links: []
+      // Contributors don't create their own links
+    });
+    this.linksViz.updateWithAnimation({
+      nodes: [],
+      links: allContributorLinks
+    });
+    this.addNodeToSimulation(contributorNode, contributorLink);
+    setTimeout(() => {
+      const nodeInSim = this.allNodes.find((n) => n.id === contributorNode.id);
+      if (nodeInSim) {
+        nodeInSim.fx = null;
+        nodeInSim.fy = null;
+        console.log(`\u{1F513} Released fixed position for ${contributorNode.id}`);
+      }
+    }, 500);
+    setTimeout(() => {
+      this.addContributorsSequentially(contributors, index2 + 1);
+    }, 600);
+  }
+  addNodeToSimulation(node, link) {
+    console.log(`\u2795 Adding node ${node.id} to simulation gently`);
+    const currentAlpha = this.context.simulation.alpha();
+    this.context.simulation.nodes(this.allNodes);
+    if (link) {
+      const linkForce = this.context.simulation.force("link");
+      if (linkForce) {
+        linkForce.links(this.allLinks);
+      }
+    }
+    if (currentAlpha < 0.1) {
+      this.context.simulation.alpha(0.1).restart();
+    }
+  }
   updateSimulation() {
     console.log(`\u{1F504} Updating simulation with ${this.allNodes.length} nodes and ${this.allLinks.length} links`);
     this.context.simulation.nodes(this.allNodes);
@@ -3981,10 +4200,24 @@ var GitVisualizer = class {
     if (linkForce) {
       linkForce.links(this.allLinks);
     }
-    this.context.simulation.alpha(1).restart();
+    this.context.simulation.alpha(0.3).restart();
   }
   tick() {
-    this.context.container.selectAll(".repo-node, .contributor-node").attr("transform", (d) => `translate(${d.x || 0},${d.y || 0})`);
+    this.context.container.selectAll(".repo-node, .contributor-node").attr("transform", function(d) {
+      const currentTransform = select_default2(this).attr("transform") || "";
+      const hasScale = currentTransform.includes("scale");
+      const x3 = d.x || 0;
+      const y3 = d.y || 0;
+      if (hasScale && currentTransform.includes("scale(0)")) {
+        return currentTransform;
+      }
+      if (hasScale) {
+        const scaleMatch = currentTransform.match(/scale\([^)]+\)/);
+        const scale = scaleMatch ? scaleMatch[0] : "scale(1)";
+        return `translate(${x3},${y3}) ${scale}`;
+      }
+      return `translate(${x3},${y3})`;
+    });
     this.linksViz.updatePositions();
   }
   // Public methods for library usage
