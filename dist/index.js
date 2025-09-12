@@ -3650,48 +3650,296 @@ function zoom_default2() {
   return zoom;
 }
 
+// client/resources/base.ts
+var BaseVisualizationResource = class {
+  constructor(context, resourceType) {
+    this.context = context;
+    this.resourceType = resourceType;
+  }
+  /**
+   * Get the group element for this resource type
+   * Creates it if it doesn't exist
+   */
+  getResourceGroup() {
+    let group = this.context.container.select(`.${this.resourceType}-group`);
+    if (group.empty()) {
+      group = this.context.container.append("g").attr("class", `${this.resourceType}-group`);
+    }
+    return group;
+  }
+  /**
+   * Helper method to create unique IDs for elements
+   */
+  createElementId(prefix, id2) {
+    return `${this.resourceType}-${prefix}-${id2}`;
+  }
+  /**
+   * Helper method for drag behavior
+   */
+  createDragBehavior() {
+    const simulation = this.context.simulation;
+    return drag_default().on("start", (event, d) => {
+      const nodeData = d;
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      nodeData.fx = nodeData.x;
+      nodeData.fy = nodeData.y;
+    }).on("drag", (event, d) => {
+      const nodeData = d;
+      nodeData.fx = event.x;
+      nodeData.fy = event.y;
+    }).on("end", (event, d) => {
+      const nodeData = d;
+      if (!event.active) simulation.alphaTarget(0);
+      if (nodeData.type !== "repo") {
+        nodeData.fx = null;
+        nodeData.fy = null;
+      }
+    });
+  }
+  /**
+   * Helper method to create avatar patterns
+   */
+  createAvatarPattern(node, size) {
+    if (!node.avatar) return "";
+    const patternId = this.createElementId("avatar", node.id);
+    const defs = this.context.svg.select("defs").empty() ? this.context.svg.append("defs") : this.context.svg.select("defs");
+    defs.select(`#${patternId}`).remove();
+    defs.append("pattern").attr("id", patternId).attr("patternUnits", "objectBoundingBox").attr("width", 1).attr("height", 1).append("image").attr("href", node.avatar).attr("width", size).attr("height", size).attr("x", 0).attr("y", 0);
+    return `url(#${patternId})`;
+  }
+  /**
+   * Helper method to create node labels
+   */
+  createNodeLabel(parent, node, dy = 25) {
+    return parent.append("text").attr("class", "node-label").attr("dy", dy).style("fill", "#e6edf3").style("font-size", "12px").style("font-weight", "500").style("text-anchor", "middle").style("pointer-events", "none").text(node.name);
+  }
+};
+
+// client/resources/repository.ts
+var RepositoryVisualization = class extends BaseVisualizationResource {
+  constructor(context) {
+    super(context, "repository");
+  }
+  create(repoData) {
+    console.log("\u{1F3D7}\uFE0F Creating repository visualization...");
+    const repoNode = {
+      id: "repo",
+      type: "repo",
+      name: repoData.name,
+      x: this.context.width / 2,
+      y: this.context.height / 2,
+      fx: this.context.width / 2,
+      // Fixed position
+      fy: this.context.height / 2,
+      avatar: repoData.icon
+    };
+    return {
+      nodes: [repoNode],
+      links: []
+    };
+  }
+  update(resourceData) {
+    console.log("\u{1F504} Updating repository visualization...");
+    const group = this.getResourceGroup();
+    const nodes = group.selectAll(".repo-node").data(resourceData.nodes, (d) => d.id);
+    nodes.exit().remove();
+    const nodeEnter = nodes.enter().append("g").attr("class", "repo-node").call(this.createDragBehavior());
+    const nodeUpdate = nodes.merge(nodeEnter);
+    nodeUpdate.selectAll("*").remove();
+    nodeUpdate.each((d, i, nodes2) => {
+      const node = select_default2(nodes2[i]);
+      if (d.avatar) {
+        const fillPattern = this.createAvatarPattern(d, 50);
+        node.append("circle").attr("r", 25).style("fill", fillPattern).style("stroke", "#0969da").style("stroke-width", "2px");
+      } else {
+        node.append("circle").attr("r", 25).style("fill", "#1f6feb").style("stroke", "#0969da").style("stroke-width", "2px");
+        node.append("path").attr("d", "M-8,-8 L8,-8 L8,8 L-8,8 Z M-6,-6 L6,-6 M-6,-3 L6,-3 M-6,0 L6,0 M-6,3 L6,3 M-6,6 L6,6").style("fill", "none").style("stroke", "white").style("stroke-width", "1.5px");
+      }
+      this.createNodeLabel(node, d, 35);
+    });
+  }
+  destroy() {
+    console.log("\u{1F5D1}\uFE0F Destroying repository visualization...");
+    this.getResourceGroup().remove();
+  }
+};
+
+// client/resources/contributors.ts
+var ContributorsVisualization = class extends BaseVisualizationResource {
+  constructor(context) {
+    super(context, "contributors");
+  }
+  create(contributorsData) {
+    console.log(`\u{1F3D7}\uFE0F Creating contributors visualization for ${contributorsData.length} contributors...`);
+    const nodes = contributorsData.map((contributor) => ({
+      id: `contributor-${contributor.id}`,
+      type: "contributor",
+      name: contributor.login,
+      avatar: contributor.avatar_url,
+      contributions: contributor.contributions
+    }));
+    const links = contributorsData.map((contributor) => ({
+      id: `link-repo-contributor-${contributor.id}`,
+      source: "repo",
+      target: `contributor-${contributor.id}`,
+      type: "contribution"
+    }));
+    return {
+      nodes,
+      links
+    };
+  }
+  update(resourceData) {
+    console.log("\u{1F504} Updating contributors visualization...");
+    const group = this.getResourceGroup();
+    const nodes = group.selectAll(".contributor-node").data(resourceData.nodes, (d) => d.id);
+    nodes.exit().remove();
+    const nodeEnter = nodes.enter().append("g").attr("class", "contributor-node").call(this.createDragBehavior());
+    nodeEnter.each((d, i, nodes2) => {
+      const node = select_default2(nodes2[i]);
+      const fillPattern = this.createAvatarPattern(d, 30);
+      node.append("circle").attr("r", 15).style("fill", fillPattern || "#238636").style("stroke", "#1f6feb").style("stroke-width", "1.5px");
+      this.createNodeLabel(node, d, 25);
+    });
+    const nodeUpdate = nodes.merge(nodeEnter);
+    nodeUpdate.select("circle").style("fill", (d) => {
+      if (d.avatar) {
+        return this.createAvatarPattern(d, 30);
+      }
+      return "#238636";
+    });
+  }
+  destroy() {
+    console.log("\u{1F5D1}\uFE0F Destroying contributors visualization...");
+    this.getResourceGroup().remove();
+  }
+};
+
+// client/resources/links.ts
+var LinksVisualization = class extends BaseVisualizationResource {
+  constructor(context) {
+    super(context, "links");
+  }
+  create(linksData) {
+    console.log(`\u{1F3D7}\uFE0F Creating links visualization for ${linksData.length} links...`);
+    return {
+      nodes: [],
+      // Links don't create nodes
+      links: linksData
+    };
+  }
+  update(resourceData) {
+    console.log("\u{1F504} Updating links visualization...");
+    const group = this.getResourceGroup();
+    const links = group.selectAll(".link").data(resourceData.links, (d) => d.id);
+    links.exit().remove();
+    links.enter().append("line").attr("class", "link").style("stroke", (d) => this.getLinkColor(d.type)).style("stroke-width", (d) => this.getLinkWidth(d.type)).style("stroke-opacity", 0.8);
+  }
+  getLinkColor(linkType) {
+    switch (linkType) {
+      case "contribution":
+        return "#30363d";
+      case "commit":
+        return "#1f6feb";
+      case "branch":
+        return "#238636";
+      case "dependency":
+        return "#f85149";
+      default:
+        return "#30363d";
+    }
+  }
+  getLinkWidth(linkType) {
+    switch (linkType) {
+      case "contribution":
+        return "1.5px";
+      case "commit":
+        return "2px";
+      case "branch":
+        return "2.5px";
+      case "dependency":
+        return "1px";
+      default:
+        return "1.5px";
+    }
+  }
+  /**
+   * Update link positions based on node positions
+   * This should be called from the simulation tick function
+   */
+  updatePositions() {
+    const group = this.getResourceGroup();
+    group.selectAll(".link").attr("x1", (d) => d.source.x || 0).attr("y1", (d) => d.source.y || 0).attr("x2", (d) => d.target.x || 0).attr("y2", (d) => d.target.y || 0);
+  }
+  destroy() {
+    console.log("\u{1F5D1}\uFE0F Destroying links visualization...");
+    this.getResourceGroup().remove();
+  }
+};
+
 // client/index.ts
 var GitVisualizer = class {
   constructor() {
+    // Data storage
+    this.allNodes = [];
+    this.allLinks = [];
     this.width = window.innerWidth;
     this.height = window.innerHeight;
     this.svg = select_default2("#visualization");
     this.svg.attr("width", this.width).attr("height", this.height);
-    this.simulation = null;
-    this.nodes = [];
-    this.links = [];
     this.initializeVisualization();
   }
   initializeVisualization() {
     const zoom = zoom_default2().scaleExtent([0.1, 4]).on("zoom", (event) => {
-      this.container.attr("transform", event.transform.toString());
+      this.context.container.attr("transform", event.transform.toString());
     });
     this.svg.call(zoom);
-    this.container = this.svg.append("g");
-    this.linkGroup = this.container.append("g").attr("class", "links");
-    this.nodeGroup = this.container.append("g").attr("class", "nodes");
-    this.simulation = simulation_default().force(
-      "link",
-      link_default().id((d) => d.id).distance(100)
-    ).force("charge", manyBody_default().strength(-300)).force("center", center_default(this.width / 2, this.height / 2)).force("collision", collide_default().radius(35));
+    const container = this.svg.append("g").attr("class", "main-container");
+    const simulation = simulation_default().force("link", link_default().id((d) => d.id).distance(100)).force("charge", manyBody_default().strength(-300)).force("center", center_default(this.width / 2, this.height / 2)).force("collision", collide_default().radius(35));
+    this.context = {
+      svg: this.svg,
+      container,
+      simulation,
+      width: this.width,
+      height: this.height
+    };
+    this.repositoryViz = new RepositoryVisualization(this.context);
+    this.contributorsViz = new ContributorsVisualization(this.context);
+    this.linksViz = new LinksVisualization(this.context);
+    simulation.on("tick", this.tick.bind(this));
   }
   async visualize(owner2, repo2) {
     try {
       console.log(`\u{1F680} Visualizing ${owner2}/${repo2}...`);
-      this.nodes = [];
-      this.links = [];
+      this.clearVisualization();
       const data = await this.fetchRepoData(owner2, repo2);
-      console.log("\u{1F4E6} API Response:", { hasRepo: !!data.repo, hasContributors: !!data.contributors, hasIcon: !!data.icon, iconLength: data.icon?.length });
+      console.log("\u{1F4E6} API Response:", {
+        hasRepo: !!data.repo,
+        hasContributors: !!data.contributors,
+        hasIcon: !!data.icon,
+        iconLength: data.icon?.length
+      });
       if (data.error) {
         throw new Error(data.error);
       }
-      const repoName = data.repo?.full_name || `${owner2}/${repo2}`;
-      console.log("\u{1F3A8} Adding repo node with icon:", !!data.icon);
-      this.addRepoNode(repoName, data.icon);
-      if (data.contributors) {
-        this.addContributors(data.contributors);
+      if (data.repo || data.icon) {
+        const repoData = {
+          name: data.repo?.full_name || `${owner2}/${repo2}`,
+          icon: data.icon
+        };
+        const repoResources = this.repositoryViz.create(repoData);
+        this.addResources(repoResources);
+        this.repositoryViz.update(repoResources);
       }
-      this.updateVisualization();
+      if (data.contributors) {
+        const contributorResources = this.contributorsViz.create(data.contributors);
+        this.addResources(contributorResources);
+        this.contributorsViz.update(contributorResources);
+        const linksResources = this.linksViz.create(contributorResources.links);
+        this.addResources(linksResources);
+        this.linksViz.update(linksResources);
+      }
+      this.updateSimulation();
       console.log(`\u2705 Successfully visualized ${owner2}/${repo2}`);
     } catch (error) {
       console.error("Error visualizing repository:", error);
@@ -3710,107 +3958,52 @@ var GitVisualizer = class {
       })
     });
     if (!response.ok) {
-      throw new Error(
-        `API request failed: ${response.status} ${response.statusText}`
-      );
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
     }
     return response.json();
   }
-  addRepoNode(name, icon) {
-    const repoNode = {
-      id: "repo",
-      type: "repo",
-      name,
-      x: this.width / 2,
-      y: this.height / 2,
-      fx: this.width / 2,
-      fy: this.height / 2,
-      avatar: icon || void 0
-    };
-    this.nodes.push(repoNode);
+  clearVisualization() {
+    console.log("\u{1F9F9} Clearing visualization...");
+    this.allNodes = [];
+    this.allLinks = [];
+    this.repositoryViz.destroy();
+    this.contributorsViz.destroy();
+    this.linksViz.destroy();
   }
-  addContributors(contributors) {
-    contributors.forEach((contributor) => {
-      const contributorNode = {
-        id: `contributor-${contributor.id}`,
-        type: "contributor",
-        name: contributor.login,
-        avatar: contributor.avatar_url,
-        contributions: contributor.contributions
-      };
-      const link = {
-        source: "repo",
-        target: contributorNode.id
-      };
-      this.nodes.push(contributorNode);
-      this.links.push(link);
-    });
+  addResources(resources) {
+    this.allNodes.push(...resources.nodes);
+    this.allLinks.push(...resources.links);
   }
-  updateVisualization() {
-    console.log("\u{1F504} Updating visualization...");
-    const links = this.linkGroup.selectAll(".link").data(this.links, (d) => {
-      const sourceId = typeof d.source === "string" ? d.source : d.source.id;
-      const targetId = typeof d.target === "string" ? d.target : d.target.id;
-      return `${sourceId}-${targetId}`;
-    });
-    links.enter().append("line").attr("class", "link");
-    links.exit().remove();
-    const nodes = this.nodeGroup.selectAll(".node").data(this.nodes, (d) => d.id);
-    const nodeEnter = nodes.enter().append("g").attr("class", "node").call(
-      drag_default().on("start", this.dragstarted.bind(this)).on("drag", this.dragged.bind(this)).on("end", this.dragended.bind(this))
-    );
-    const nodeUpdate = nodes.merge(nodeEnter);
-    nodeUpdate.filter((d) => d.type === "repo").selectAll("*").remove();
-    const repoNodes = nodeUpdate.filter((d) => d.type === "repo");
-    repoNodes.filter((d) => !!d.avatar).append("defs").append("pattern").attr("id", (d) => `repo-avatar-${d.id}`).attr("patternUnits", "objectBoundingBox").attr("width", 1).attr("height", 1).append("image").attr("href", (d) => d.avatar || "").attr("width", 50).attr("height", 50).attr("x", 0).attr("y", 0);
-    repoNodes.append("circle").attr("r", 25).attr(
-      "fill",
-      (d) => d.avatar ? `url(#repo-avatar-${d.id})` : "#1f6feb"
-    ).attr("stroke", "#0969da").attr("stroke-width", 2);
-    repoNodes.filter((d) => !d.avatar).append("path").attr(
-      "d",
-      "M-8,-8 L8,-8 L8,8 L-8,8 Z M-6,-6 L6,-6 M-6,-3 L6,-3 M-6,0 L6,0 M-6,3 L6,3 M-6,6 L6,6"
-    ).attr("fill", "none").attr("stroke", "white").attr("stroke-width", "1.5");
-    repoNodes.append("text").attr("class", "node-label").attr("dy", 35).text((d) => d.name);
-    const contributorNodes = nodeEnter.filter(
-      (d) => d.type === "contributor"
-    );
-    contributorNodes.append("defs").append("pattern").attr("id", (d) => `avatar-${d.id}`).attr("patternUnits", "objectBoundingBox").attr("width", 1).attr("height", 1).append("image").attr("href", (d) => d.avatar || "").attr("width", 30).attr("height", 30).attr("x", 0).attr("y", 0);
-    contributorNodes.append("circle").attr("r", 15).attr("fill", (d) => `url(#avatar-${d.id})`).attr("stroke", "#1f6feb").attr("stroke-width", 1.5);
-    contributorNodes.append("text").attr("class", "node-label").attr("dy", 25).text((d) => d.name);
-    nodes.exit().remove();
-    if (this.simulation) {
-      this.simulation.nodes(this.nodes).on("tick", this.ticked.bind(this));
-      const linkForce = this.simulation.force("link");
-      if (linkForce) {
-        linkForce.links(this.links);
-      }
-      this.simulation.alpha(1).restart();
+  updateSimulation() {
+    console.log(`\u{1F504} Updating simulation with ${this.allNodes.length} nodes and ${this.allLinks.length} links`);
+    this.context.simulation.nodes(this.allNodes);
+    const linkForce = this.context.simulation.force("link");
+    if (linkForce) {
+      linkForce.links(this.allLinks);
+    }
+    this.context.simulation.alpha(1).restart();
+  }
+  tick() {
+    this.context.container.selectAll(".repo-node, .contributor-node").attr("transform", (d) => `translate(${d.x || 0},${d.y || 0})`);
+    this.linksViz.updatePositions();
+  }
+  // Public methods for library usage
+  setDimensions(width, height) {
+    this.width = width;
+    this.height = height;
+    this.context.width = width;
+    this.context.height = height;
+    this.svg.attr("width", width).attr("height", height);
+    if (this.context.simulation) {
+      this.context.simulation.force("center", center_default(width / 2, height / 2));
+      this.context.simulation.alpha(0.3).restart();
     }
   }
-  ticked() {
-    this.linkGroup.selectAll(".link").attr("x1", (d) => d.source.x || 0).attr("y1", (d) => d.source.y || 0).attr("x2", (d) => d.target.x || 0).attr("y2", (d) => d.target.y || 0);
-    this.nodeGroup.selectAll(".node").attr("transform", (d) => `translate(${d.x || 0},${d.y || 0})`);
-  }
-  dragstarted(event, d) {
-    if (!event.active && this.simulation) {
-      this.simulation.alphaTarget(0.3).restart();
+  destroy() {
+    if (this.context.simulation) {
+      this.context.simulation.stop();
     }
-    d.fx = d.x;
-    d.fy = d.y;
-  }
-  dragged(event, d) {
-    d.fx = event.x;
-    d.fy = event.y;
-  }
-  dragended(event, d) {
-    if (!event.active && this.simulation) {
-      this.simulation.alphaTarget(0);
-    }
-    if (d.type !== "repo") {
-      d.fx = null;
-      d.fy = null;
-    }
+    this.svg.selectAll("*").remove();
   }
 };
 var urlParams = new URLSearchParams(window.location.search);
@@ -3822,4 +4015,7 @@ if (owner && repo) {
 } else {
   console.error("Invalid repo format. Use: ?repo=owner/repo");
 }
+export {
+  GitVisualizer
+};
 //# sourceMappingURL=index.js.map

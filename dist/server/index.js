@@ -80,7 +80,10 @@ var IconsResource = class extends BaseResource {
   async getRepoIcon(owner, repo) {
     const cached = await this.getCached(owner, repo, "icon");
     if (cached !== void 0) {
-      console.log(`\u{1F4BE} Cache hit for ${owner}/${repo} icon:`, cached ? "Found" : "Not found");
+      console.log(
+        `\u{1F4BE} Cache hit for ${owner}/${repo} icon:`,
+        cached ? "Found" : "Not found"
+      );
       console.log(`\u{1F504} Clearing cache to retry (checking for rate limits)...`);
       this.cache.clear();
     }
@@ -98,7 +101,6 @@ var IconsResource = class extends BaseResource {
         return null;
       }
       console.log(`\u{1F4C2} Found ${rootContents.data.length} files in root`);
-      console.log(`\u{1F4C2} Root files:`, rootContents.data.map((f) => f.name).slice(0, 10));
       const iconFiles = rootContents.data.filter((file) => {
         const name = file.name.toLowerCase();
         const isIcon = name.includes("favicon") || name.includes("logo") || name.includes("icon") || name.startsWith("apple-touch") && name.includes("icon");
@@ -122,16 +124,22 @@ var IconsResource = class extends BaseResource {
               path: subdir
             });
             if (Array.isArray(subdirContents.data)) {
-              console.log(`\u{1F4C2} ${subdir}/ contents:`, subdirContents.data.map((f) => f.name));
               const subdirIcons = subdirContents.data.filter((file) => {
                 const name = file.name.toLowerCase();
                 const isIcon = name.includes("favicon") || name.includes("logo") || name.includes("icon");
                 if (isIcon) {
-                  console.log(`\u{1F3AF} Found potential icon in ${subdir}/: ${file.name}`);
+                  console.log(
+                    `\u{1F3AF} Found potential icon in ${subdir}/: ${file.name}`
+                  );
                 }
                 return isIcon;
               });
-              iconFiles.push(...subdirIcons.map((f) => ({ ...f, path: `${subdir}/${f.name}` })));
+              iconFiles.push(
+                ...subdirIcons.map((f) => ({
+                  ...f,
+                  path: `${subdir}/${f.name}`
+                }))
+              );
             }
           } catch (error) {
             console.log(`\u26A0\uFE0F  Could not access ${subdir}/ directory`);
@@ -141,7 +149,10 @@ var IconsResource = class extends BaseResource {
       }
       console.log(`\u{1F4CA} Total icon files found: ${iconFiles.length}`);
       const sortedIcons = this.sortIconsByResolution(iconFiles);
-      console.log("\u{1F3C6} Sorted icon priority:", sortedIcons.map((f) => f.path || f.name));
+      console.log(
+        "\u{1F3C6} Sorted icon priority:",
+        sortedIcons.map((f) => f.path || f.name)
+      );
       for (const iconFile of sortedIcons) {
         const filePath = iconFile.path || iconFile.name;
         console.log(`\u{1F4E5} Attempting to fetch: ${filePath}`);
