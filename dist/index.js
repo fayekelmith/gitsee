@@ -3276,6 +3276,8 @@ var GitVisualizer = class {
     // Data storage
     this.allNodes = [];
     this.allLinks = [];
+    // Collision detection system
+    this.occupiedSpaces = [];
     this.width = window.innerWidth;
     this.height = window.innerHeight;
     this.svg = select_default2("#visualization");
@@ -3300,10 +3302,64 @@ var GitVisualizer = class {
     this.linksViz["getResourceGroup"]();
   }
   /**
+   * 🔍 Collision Detection System
+   */
+  getNodeRadius(nodeType, contributions) {
+    if (nodeType === "repo") return 25;
+    const baseRadius = 16;
+    const maxRadius = 22;
+    const contribCount = contributions || 0;
+    return Math.min(baseRadius + contribCount * 0.1, maxRadius);
+  }
+  checkCollision(x, y, radius) {
+    return this.occupiedSpaces.some((space) => {
+      const dx = x - space.x;
+      const dy = y - space.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const minDistance = radius + space.radius + 10;
+      return distance < minDistance;
+    });
+  }
+  findNonCollidingPosition(nodeType, index, contributions) {
+    const radius = this.getNodeRadius(nodeType, contributions);
+    const centerX = this.width / 2;
+    const centerY = this.height / 2;
+    let position = this.calculateOrganicPositionRaw(nodeType, index);
+    if (!this.checkCollision(position.x, position.y, radius)) {
+      return position;
+    }
+    const spiralStep = 15;
+    let spiralRadius = radius + 20;
+    let attempts = 0;
+    const maxAttempts = 50;
+    while (attempts < maxAttempts) {
+      const angleStep = Math.PI * 2 / 12;
+      for (let i = 0; i < 12; i++) {
+        const angle = i * angleStep;
+        const testX = position.x + Math.cos(angle) * spiralRadius;
+        const testY = position.y + Math.sin(angle) * spiralRadius;
+        if (testX < radius || testX > this.width - radius || testY < radius || testY > this.height - radius) {
+          continue;
+        }
+        if (!this.checkCollision(testX, testY, radius)) {
+          console.log(`\u{1F300} Found collision-free position for ${nodeType} after ${attempts + 1} attempts`);
+          return { x: testX, y: testY };
+        }
+      }
+      spiralRadius += spiralStep;
+      attempts++;
+    }
+    console.warn(`\u26A0\uFE0F Could not find collision-free position for ${nodeType}, using original`);
+    return position;
+  }
+  registerOccupiedSpace(x, y, radius, nodeId) {
+    this.occupiedSpaces.push({ x, y, radius, nodeId });
+  }
+  /**
    * 🌱 Universal Organic Positioning System
    * Calculates natural, plant-like growth positions for any node type
    */
-  calculateOrganicPosition(nodeType, index) {
+  calculateOrganicPositionRaw(nodeType, index) {
     const centerX = this.width / 2;
     const centerY = this.height / 2;
     const zones = {
@@ -3338,6 +3394,10 @@ var GitVisualizer = class {
     console.log(`\u{1F331} ${nodeType}[${index}] positioned at (${Math.round(x)}, ${Math.round(y)}) - distance: ${Math.round(distance)}`);
     return { x, y };
   }
+  // Public interface that includes collision detection
+  calculateOrganicPosition(nodeType, index, contributions) {
+    return this.findNonCollidingPosition(nodeType, index, contributions);
+  }
   async visualize(owner2, repo2) {
     try {
       console.log(`\u{1F680} Visualizing ${owner2}/${repo2}...`);
@@ -3361,6 +3421,11 @@ var GitVisualizer = class {
         const repoResources = this.repositoryViz.create(repoData);
         this.addResources(repoResources);
         this.repositoryViz.update(repoResources);
+        const repoNode = repoResources.nodes[0];
+        if (repoNode) {
+          const repoRadius = this.getNodeRadius("repo");
+          this.registerOccupiedSpace(repoNode.x, repoNode.y, repoRadius, repoNode.id);
+        }
         console.log("\u{1F4CD} Repository node created at center");
       }
       if (data.icon) {
@@ -3406,6 +3471,7 @@ var GitVisualizer = class {
     console.log("\u{1F9F9} Clearing visualization...");
     this.allNodes = [];
     this.allLinks = [];
+    this.occupiedSpaces = [];
     this.repositoryViz.destroy();
     this.contributorsViz.destroy();
     this.linksViz.destroy();
@@ -3421,7 +3487,7 @@ var GitVisualizer = class {
     }
     const contributor = contributors[index];
     console.log(`\u{1F464} Adding contributor ${index + 1}/${contributors.length}: ${contributor.login}`);
-    const position = this.calculateOrganicPosition("contributor", index);
+    const position = this.calculateOrganicPosition("contributor", index, contributor.contributions);
     console.log(`\u{1F4CD} Positioning ${contributor.login} (${contributor.contributions} contributions) organically`);
     const contributorNode = {
       id: `contributor-${contributor.id}`,
@@ -3432,6 +3498,8 @@ var GitVisualizer = class {
       x: position.x,
       y: position.y
     };
+    const nodeRadius = this.getNodeRadius("contributor", contributor.contributions);
+    this.registerOccupiedSpace(position.x, position.y, nodeRadius, contributorNode.id);
     const contributorLink = {
       id: `link-repo-contributor-${contributor.id}`,
       source: "repo",
