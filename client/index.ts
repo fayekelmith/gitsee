@@ -9,7 +9,8 @@ import {
 import {
   RepositoryVisualization,
   ContributorsVisualization,
-  LinksVisualization
+  LinksVisualization,
+  FilesVisualization
 } from './resources/index.js';
 
 class GitVisualizer {
@@ -22,6 +23,7 @@ class GitVisualizer {
   private repositoryViz!: RepositoryVisualization;
   private contributorsViz!: ContributorsVisualization;
   private linksViz!: LinksVisualization;
+  private filesViz!: FilesVisualization;
   
   // Data storage
   private allNodes: NodeData[] = [];
@@ -73,6 +75,7 @@ class GitVisualizer {
     this.repositoryViz = new RepositoryVisualization(this.context);
     this.contributorsViz = new ContributorsVisualization(this.context);
     this.linksViz = new LinksVisualization(this.context);
+    this.filesViz = new FilesVisualization(this.context);
 
     // Create links group first to ensure it's at the bottom
     this.linksViz['getResourceGroup']();
@@ -83,6 +86,7 @@ class GitVisualizer {
    */
   private getNodeRadius(nodeType: string, contributions?: number): number {
     if (nodeType === 'repo') return 25;
+    if (nodeType === 'file') return 18; // Files are rectangular but use this for collision
     // For contributors, calculate size based on contributions
     const baseRadius = 16;
     const maxRadius = 22;
@@ -167,11 +171,11 @@ class GitVisualizer {
     const zones = {
       'repo': { min: 0, max: 0 },           // Center
       'contributor': { min: 80, max: 120 }, // Inner ring
-      'file': { min: 120, max: 160 },       // Future: key files
-      'story': { min: 160, max: 200 },      // Future: user stories
-      'function': { min: 200, max: 240 },   // Future: functions
-      'component': { min: 240, max: 280 },  // Future: components
-      'schema': { min: 280, max: 320 }      // Future: schemas
+      'file': { min: 140, max: 180 },       // Outer ring for files
+      'story': { min: 180, max: 220 },      // Future: user stories
+      'function': { min: 220, max: 260 },   // Future: functions
+      'component': { min: 260, max: 300 },  // Future: components
+      'schema': { min: 300, max: 340 }      // Future: schemas
     };
     
     const zone = zones[nodeType as keyof typeof zones] || zones['contributor'];
@@ -331,8 +335,17 @@ class GitVisualizer {
         const contributors = data.contributors.sort((a, b) => b.contributions - a.contributions);
         console.log('📊 Contributors sorted by contributions:', contributors.map(c => `${c.login}: ${c.contributions}`));
         
+        const contributorDelay = data.icon ? 1000 : 500;
         setTimeout(() => {
-          this.addContributorsSequentially(contributors, 0);
+          this.addContributorsSequentially(contributors, 0, () => {
+            // Step 4: Add files after all contributors are added
+            this.addFilesAfterContributors(data.files || []);
+          });
+        }, contributorDelay);
+      } else {
+        // If no contributors, add files directly
+        setTimeout(() => {
+          this.addFilesAfterContributors(data.files || []);
         }, data.icon ? 1000 : 500);
       }
 
@@ -351,7 +364,7 @@ class GitVisualizer {
       body: JSON.stringify({
         owner,
         repo,
-        data: ['repo_info', 'contributors', 'icon']
+        data: ['repo_info', 'contributors', 'icon', 'files']
       })
     });
 
@@ -373,6 +386,7 @@ class GitVisualizer {
     this.repositoryViz.destroy();
     this.contributorsViz.destroy();
     this.linksViz.destroy();
+    this.filesViz.destroy();
   }
 
   private addResources(resources: ResourceData): void {
@@ -380,9 +394,12 @@ class GitVisualizer {
     this.allLinks.push(...resources.links);
   }
 
-  private addContributorsSequentially(contributors: any[], index: number): void {
+  private addContributorsSequentially(contributors: any[], index: number, onComplete?: () => void): void {
     if (index >= contributors.length) {
       console.log('🎉 All contributors added!');
+      if (onComplete) {
+        onComplete();
+      }
       return;
     }
 
@@ -448,8 +465,82 @@ class GitVisualizer {
     
     // Add next contributor after configurable delay
     setTimeout(() => {
-      this.addContributorsSequentially(contributors, index + 1);
+      this.addContributorsSequentially(contributors, index + 1, onComplete);
     }, this.contributorDelay);
+  }
+
+  private addFilesAfterContributors(files: any[]): void {
+    if (!files || files.length === 0) {
+      console.log('📁 No files to add');
+      return;
+    }
+
+    console.log(`📁 Adding ${files.length} files to visualization...`);
+    
+    // Create file nodes with organic positioning
+    const fileNodes: NodeData[] = [];
+    const fileLinks: LinkData[] = [];
+
+    files.forEach((file, index) => {
+      // Calculate organic position for this file
+      const position = this.calculateOrganicPosition('file', index);
+      
+      const fileNode: NodeData = {
+        id: `file-${file.name}`,
+        type: 'file',
+        name: file.name,
+        path: file.path,
+        fileType: file.type,
+        x: position.x,
+        y: position.y
+      };
+
+      // Register this file's space to prevent overlaps
+      const nodeRadius = this.getNodeRadius('file');
+      this.registerOccupiedSpace(position.x, position.y, nodeRadius, fileNode.id);
+
+      fileNodes.push(fileNode);
+
+      // Create link from repo to file
+      fileLinks.push({
+        id: `link-repo-file-${file.name}`,
+        source: 'repo',
+        target: `file-${file.name}`,
+        type: 'file'
+      });
+
+      console.log(`📄 Positioned file: ${file.name} at (${Math.round(position.x)}, ${Math.round(position.y)})`);
+    });
+
+    const fileResources = {
+      nodes: fileNodes,
+      links: fileLinks
+    };
+
+    this.addResources(fileResources);
+    
+    // Update visualization with animated files
+    this.filesViz.updateWithAnimation({
+      nodes: fileNodes,
+      links: [] // Files don't create their own links in visualization
+    });
+    
+    // Update links with all file links
+    const allLinks = this.allLinks.filter(l => l.type === 'contribution' || l.type === 'file');
+    this.linksViz.updateWithAnimation({
+      nodes: [],
+      links: allLinks
+    });
+    
+    // Update link positions
+    this.linksViz.updatePositions(this.allNodes);
+    
+    // Final zoom out to accommodate files
+    setTimeout(() => {
+      this.gradualZoomOut();
+    }, 300);
+
+    console.log('✅ All files added to visualization!');
   }
 
   // 🌱 No more simulation methods needed - organic positioning is stable!

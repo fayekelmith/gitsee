@@ -6,7 +6,8 @@ import {
   IconsResource,
   RepositoryResource,
   CommitsResource,
-  BranchesResource
+  BranchesResource,
+  FilesResource
 } from "./resources/index.js";
 import {
   GitSeeRequest,
@@ -25,6 +26,7 @@ export class GitSeeHandler {
   private repository: RepositoryResource;
   private commits: CommitsResource;
   private branches: BranchesResource;
+  private files: FilesResource;
 
   constructor(options: GitSeeOptions = {}) {
     this.options = options;
@@ -40,6 +42,7 @@ export class GitSeeHandler {
     this.repository = new RepositoryResource(this.octokit, this.cache);
     this.commits = new CommitsResource(this.octokit, this.cache);
     this.branches = new BranchesResource(this.octokit, this.cache);
+    this.files = new FilesResource(this.octokit, this.cache);
   }
 
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -145,6 +148,12 @@ export class GitSeeHandler {
             console.log(`🔍 Fetching branches for ${owner}/${repo}...`);
             response.branches = await this.branches.getBranches(owner, repo);
             console.log(`🌿 Branches result: ${response.branches?.length || 0} found`);
+            break;
+            
+          case "files":
+            console.log(`🔍 Fetching key files for ${owner}/${repo}...`);
+            response.files = await this.files.getKeyFiles(owner, repo);
+            console.log(`📁 Files result: ${response.files?.length || 0} found`);
             break;
             
           default:

@@ -1,7 +1,7 @@
 export interface GitSeeRequest {
   owner: string;
   repo: string;
-  data: ('contributors' | 'icon' | 'repo_info' | 'commits' | 'branches')[];
+  data: ('contributors' | 'icon' | 'repo_info' | 'commits' | 'branches' | 'files')[];
 }
 
 export interface GitSeeResponse {
@@ -10,6 +10,7 @@ export interface GitSeeResponse {
   icon?: string | null;
   commits?: any[];
   branches?: any[];
+  files?: FileInfo[];
   error?: string;
   options?: {
     contributorDelay?: number;
@@ -79,4 +80,10 @@ export interface Branch {
     url: string;
   };
   protected: boolean;
+}
+
+export interface FileInfo {
+  name: string;
+  path: string;
+  type: 'package' | 'config' | 'docs' | 'build' | 'ci' | 'data' | 'other';
 }

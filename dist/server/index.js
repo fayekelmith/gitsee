@@ -105,7 +105,6 @@ var IconsResource = class extends BaseResource {
         const name = file.name.toLowerCase();
         const isIcon = name.includes("favicon") || name.includes("logo") || name.includes("icon") || name.startsWith("apple-touch") && name.includes("icon");
         if (isIcon) {
-          console.log(`\u{1F3AF} Found potential icon in root: ${file.name}`);
         }
         return isIcon;
       });
@@ -128,9 +127,6 @@ var IconsResource = class extends BaseResource {
                 const name = file.name.toLowerCase();
                 const isIcon = name.includes("favicon") || name.includes("logo") || name.includes("icon");
                 if (isIcon) {
-                  console.log(
-                    `\u{1F3AF} Found potential icon in ${subdir}/: ${file.name}`
-                  );
                 }
                 return isIcon;
               });
@@ -149,10 +145,6 @@ var IconsResource = class extends BaseResource {
       }
       console.log(`\u{1F4CA} Total icon files found: ${iconFiles.length}`);
       const sortedIcons = this.sortIconsByResolution(iconFiles);
-      console.log(
-        "\u{1F3C6} Sorted icon priority:",
-        sortedIcons.map((f) => f.path || f.name)
-      );
       for (const iconFile of sortedIcons) {
         const filePath = iconFile.path || iconFile.name;
         console.log(`\u{1F4E5} Attempting to fetch: ${filePath}`);
@@ -293,6 +285,92 @@ var BranchesResource = class extends BaseResource {
   }
 };
 
+// server/resources/files.ts
+var FilesResource = class extends BaseResource {
+  async getKeyFiles(owner, repo) {
+    const cached = await this.getCached(owner, repo, "files");
+    if (cached) {
+      console.log("\u{1F4C1} Using cached files data");
+      return cached;
+    }
+    console.log(`\u{1F50D} Fetching key files for ${owner}/${repo}...`);
+    const candidateFiles = [
+      // Package managers
+      { name: "package.json", type: "package" },
+      { name: "Cargo.toml", type: "package" },
+      { name: "go.mod", type: "package" },
+      { name: "setup.py", type: "package" },
+      { name: "requirements.txt", type: "package" },
+      { name: "pyproject.toml", type: "package" },
+      { name: "pom.xml", type: "package" },
+      { name: "build.gradle", type: "package" },
+      { name: "build.gradle.kts", type: "package" },
+      { name: "composer.json", type: "package" },
+      { name: "Gemfile", type: "package" },
+      { name: "pubspec.yaml", type: "package" },
+      // Documentation
+      { name: "README.md", type: "docs" },
+      { name: "readme.md", type: "docs" },
+      { name: "README.txt", type: "docs" },
+      { name: "README.rst", type: "docs" },
+      { name: "ARCHITECTURE.md", type: "docs" },
+      { name: "CONTRIBUTING.md", type: "docs" },
+      { name: "ROADMAP.md", type: "docs" },
+      { name: "API.md", type: "docs" },
+      { name: "CLAUDE.md", type: "docs" },
+      { name: "AGENTS.md", type: "docs" },
+      // Configuration files
+      { name: ".env.example", type: "config" },
+      // Database & schemas
+      { name: "schema.prisma", type: "data" },
+      { name: "schema.sql", type: "data" },
+      { name: "migrations.sql", type: "data" },
+      { name: "seeds.sql", type: "data" },
+      // Docker & deployment
+      { name: "Dockerfile", type: "build" },
+      { name: "docker-compose.yml", type: "build" },
+      { name: "docker-compose.yaml", type: "build" },
+      { name: "Makefile", type: "build" },
+      { name: "justfile", type: "build" },
+      { name: "CMakeLists.txt", type: "build" },
+      // Other important files
+      { name: "LICENSE", type: "other" },
+      { name: "LICENSE.md", type: "other" },
+      { name: "LICENSE.txt", type: "other" },
+      { name: ".gitignore", type: "other" },
+      { name: ".gitattributes", type: "other" },
+      { name: "CODEOWNERS", type: "other" },
+      { name: ".github/CODEOWNERS", type: "other" }
+    ];
+    const foundFiles = [];
+    const fileCheckPromises = candidateFiles.map(async (candidate) => {
+      try {
+        await this.octokit.repos.getContent({
+          owner,
+          repo,
+          path: candidate.name
+        });
+        console.log(`\u2705 Found file: ${candidate.name}`);
+        return {
+          name: candidate.name,
+          path: candidate.name,
+          type: candidate.type
+        };
+      } catch (error) {
+        if (error.status !== 404) {
+          console.warn(`\u26A0\uFE0F Error checking ${candidate.name}:`, error.message);
+        }
+        return null;
+      }
+    });
+    const results = await Promise.all(fileCheckPromises);
+    foundFiles.push(...results.filter((file) => file !== null));
+    console.log(`\u{1F4C1} Found ${foundFiles.length} key files in ${owner}/${repo}`);
+    this.setCached(owner, repo, "files", foundFiles);
+    return foundFiles;
+  }
+};
+
 // server/handler.ts
 var GitSeeHandler = class {
   constructor(options = {}) {
@@ -306,6 +384,7 @@ var GitSeeHandler = class {
     this.repository = new RepositoryResource(this.octokit, this.cache);
     this.commits = new CommitsResource(this.octokit, this.cache);
     this.branches = new BranchesResource(this.octokit, this.cache);
+    this.files = new FilesResource(this.octokit, this.cache);
   }
   async handle(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -390,6 +469,11 @@ var GitSeeHandler = class {
             console.log(`\u{1F50D} Fetching branches for ${owner}/${repo}...`);
             response.branches = await this.branches.getBranches(owner, repo);
             console.log(`\u{1F33F} Branches result: ${response.branches?.length || 0} found`);
+            break;
+          case "files":
+            console.log(`\u{1F50D} Fetching key files for ${owner}/${repo}...`);
+            response.files = await this.files.getKeyFiles(owner, repo);
+            console.log(`\u{1F4C1} Files result: ${response.files?.length || 0} found`);
             break;
           default:
             console.warn(`\u26A0\uFE0F  Unknown data type: ${dataType}`);

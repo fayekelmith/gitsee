@@ -2495,6 +2495,33 @@ function cubicInOut(t) {
   return ((t *= 2) <= 1 ? t * t * t : (t -= 2) * t * t + 2) / 2;
 }
 
+// node_modules/d3-ease/src/back.js
+var overshoot = 1.70158;
+var backIn = (function custom(s) {
+  s = +s;
+  function backIn2(t) {
+    return (t = +t) * t * (s * (t - 1) + t);
+  }
+  backIn2.overshoot = custom;
+  return backIn2;
+})(overshoot);
+var backOut = (function custom2(s) {
+  s = +s;
+  function backOut2(t) {
+    return --t * t * ((t + 1) * s + t) + 1;
+  }
+  backOut2.overshoot = custom2;
+  return backOut2;
+})(overshoot);
+var backInOut = (function custom3(s) {
+  s = +s;
+  function backInOut2(t) {
+    return ((t *= 2) < 1 ? t * t * ((s + 1) * t - s) : (t -= 2) * t * ((s + 1) * t + s) + 2) / 2;
+  }
+  backInOut2.overshoot = custom3;
+  return backInOut2;
+})(overshoot);
+
 // node_modules/d3-transition/src/selection/transition.js
 var defaultTiming = {
   time: null,
@@ -3004,7 +3031,10 @@ var BaseVisualizationResource = class {
       const nodeData = d;
       nodeData.x = event.x;
       nodeData.y = event.y;
-      select_default2(event.sourceEvent.target.closest("g")).attr("transform", `translate(${event.x},${event.y})`);
+      select_default2(event.sourceEvent.target.closest("g")).attr(
+        "transform",
+        `translate(${event.x},${event.y})`
+      );
     }).on("end", () => {
     });
   }
@@ -3024,7 +3054,8 @@ var BaseVisualizationResource = class {
    * Helper method to create node labels
    */
   createNodeLabel(parent, node, dy = 25) {
-    return parent.append("text").attr("class", "node-label").attr("dy", dy).style("fill", "#e6edf3").style("font-size", "12px").style("font-weight", "500").style("text-anchor", "middle").style("pointer-events", "none").text(node.name);
+    const textColor = node.type === "repo" ? "#e6edf3" : "#b6b6b6";
+    return parent.append("text").attr("class", "node-label").attr("dy", dy).style("fill", textColor).style("font-size", "12px").style("font-weight", "500").style("text-anchor", "middle").style("pointer-events", "none").text(node.name);
   }
 };
 
@@ -3275,6 +3306,61 @@ var LinksVisualization = class extends BaseVisualizationResource {
   }
 };
 
+// client/resources/files.ts
+var FilesVisualization = class extends BaseVisualizationResource {
+  constructor(context) {
+    super(context, "files");
+  }
+  create(files) {
+    const nodes = [];
+    files.forEach((file, index) => {
+      const node = {
+        id: `file-${file.name}`,
+        type: "file",
+        name: file.name
+        // Position will be set by organic positioning system
+      };
+      nodes.push(node);
+    });
+    return { nodes, links: [] };
+  }
+  update(resourceData) {
+    const group = this.getResourceGroup();
+    const fileNodes = group.selectAll(".file-node").data(resourceData.nodes, (d) => d.id);
+    fileNodes.exit().remove();
+    const fileEnter = fileNodes.enter().append("g").attr("class", "file-node");
+    fileEnter.append("rect").attr("width", 30).attr("height", 20).attr("rx", 3).attr("ry", 3).attr("fill", "#4A90E2").attr("stroke", "#2C5282").attr("stroke-width", 1.5).attr("x", -15).attr("y", -10);
+    fileEnter.append("text").attr("class", "file-icon").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "10px").attr("fill", "white").attr("font-weight", "bold").text("\u{1F4C4}");
+    fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 18).attr("font-size", "10px").attr("fill", "#333").attr("font-family", "monospace").text((d) => d.name);
+    const allFileNodes = fileEnter.merge(fileNodes);
+    allFileNodes.attr(
+      "transform",
+      (d) => d.x !== void 0 && d.y !== void 0 ? `translate(${d.x}, ${d.y})` : "translate(0,0)"
+    );
+  }
+  updateWithAnimation(resourceData) {
+    const group = this.getResourceGroup();
+    const fileNodes = group.selectAll(".file-node").data(resourceData.nodes, (d) => d.id);
+    fileNodes.exit().transition().duration(300).style("opacity", 0).remove();
+    const fileEnter = fileNodes.enter().append("g").attr("class", "file-node").style("opacity", 0);
+    fileEnter.append("rect").attr("width", 30).attr("height", 20).attr("rx", 3).attr("ry", 3).attr("fill", "#4A90E2").attr("stroke", "#2C5282").attr("stroke-width", 1.5).attr("x", -15).attr("y", -10);
+    fileEnter.append("text").attr("class", "file-icon").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "10px").attr("fill", "white").attr("font-weight", "bold").text("\u{1F4C4}");
+    fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 18).attr("font-size", "10px").attr("fill", "#333").attr("font-family", "monospace").text((d) => d.name);
+    const allFileNodes = fileEnter.merge(fileNodes);
+    allFileNodes.attr(
+      "transform",
+      (d) => d.x !== void 0 && d.y !== void 0 ? `translate(${d.x}, ${d.y})` : "translate(0,0)"
+    ).transition().duration(600).ease(backOut).style("opacity", 1);
+  }
+  destroy() {
+    const group = this.context.container.select(`.${this.getResourceType()}-group`);
+    group.remove();
+  }
+  getResourceType() {
+    return "files";
+  }
+};
+
 // client/index.ts
 var GitVisualizer = class {
   constructor() {
@@ -3308,6 +3394,7 @@ var GitVisualizer = class {
     this.repositoryViz = new RepositoryVisualization(this.context);
     this.contributorsViz = new ContributorsVisualization(this.context);
     this.linksViz = new LinksVisualization(this.context);
+    this.filesViz = new FilesVisualization(this.context);
     this.linksViz["getResourceGroup"]();
   }
   /**
@@ -3315,6 +3402,7 @@ var GitVisualizer = class {
    */
   getNodeRadius(nodeType, contributions) {
     if (nodeType === "repo") return 25;
+    if (nodeType === "file") return 18;
     const baseRadius = 16;
     const maxRadius = 22;
     const contribCount = contributions || 0;
@@ -3376,15 +3464,15 @@ var GitVisualizer = class {
       // Center
       "contributor": { min: 80, max: 120 },
       // Inner ring
-      "file": { min: 120, max: 160 },
-      // Future: key files
-      "story": { min: 160, max: 200 },
+      "file": { min: 140, max: 180 },
+      // Outer ring for files
+      "story": { min: 180, max: 220 },
       // Future: user stories
-      "function": { min: 200, max: 240 },
+      "function": { min: 220, max: 260 },
       // Future: functions
-      "component": { min: 240, max: 280 },
+      "component": { min: 260, max: 300 },
       // Future: components
-      "schema": { min: 280, max: 320 }
+      "schema": { min: 300, max: 340 }
       // Future: schemas
     };
     const zone = zones[nodeType] || zones["contributor"];
@@ -3487,8 +3575,15 @@ var GitVisualizer = class {
       if (data.contributors) {
         const contributors = data.contributors.sort((a, b) => b.contributions - a.contributions);
         console.log("\u{1F4CA} Contributors sorted by contributions:", contributors.map((c) => `${c.login}: ${c.contributions}`));
+        const contributorDelay = data.icon ? 1e3 : 500;
         setTimeout(() => {
-          this.addContributorsSequentially(contributors, 0);
+          this.addContributorsSequentially(contributors, 0, () => {
+            this.addFilesAfterContributors(data.files || []);
+          });
+        }, contributorDelay);
+      } else {
+        setTimeout(() => {
+          this.addFilesAfterContributors(data.files || []);
         }, data.icon ? 1e3 : 500);
       }
       console.log(`\u2705 Successfully started visualization for ${owner2}/${repo2}`);
@@ -3505,7 +3600,7 @@ var GitVisualizer = class {
       body: JSON.stringify({
         owner: owner2,
         repo: repo2,
-        data: ["repo_info", "contributors", "icon"]
+        data: ["repo_info", "contributors", "icon", "files"]
       })
     });
     if (!response.ok) {
@@ -3522,14 +3617,18 @@ var GitVisualizer = class {
     this.repositoryViz.destroy();
     this.contributorsViz.destroy();
     this.linksViz.destroy();
+    this.filesViz.destroy();
   }
   addResources(resources) {
     this.allNodes.push(...resources.nodes);
     this.allLinks.push(...resources.links);
   }
-  addContributorsSequentially(contributors, index) {
+  addContributorsSequentially(contributors, index, onComplete) {
     if (index >= contributors.length) {
       console.log("\u{1F389} All contributors added!");
+      if (onComplete) {
+        onComplete();
+      }
       return;
     }
     const contributor = contributors[index];
@@ -3574,8 +3673,59 @@ var GitVisualizer = class {
       this.gradualZoomOut();
     }, 200);
     setTimeout(() => {
-      this.addContributorsSequentially(contributors, index + 1);
+      this.addContributorsSequentially(contributors, index + 1, onComplete);
     }, this.contributorDelay);
+  }
+  addFilesAfterContributors(files) {
+    if (!files || files.length === 0) {
+      console.log("\u{1F4C1} No files to add");
+      return;
+    }
+    console.log(`\u{1F4C1} Adding ${files.length} files to visualization...`);
+    const fileNodes = [];
+    const fileLinks = [];
+    files.forEach((file, index) => {
+      const position = this.calculateOrganicPosition("file", index);
+      const fileNode = {
+        id: `file-${file.name}`,
+        type: "file",
+        name: file.name,
+        path: file.path,
+        fileType: file.type,
+        x: position.x,
+        y: position.y
+      };
+      const nodeRadius = this.getNodeRadius("file");
+      this.registerOccupiedSpace(position.x, position.y, nodeRadius, fileNode.id);
+      fileNodes.push(fileNode);
+      fileLinks.push({
+        id: `link-repo-file-${file.name}`,
+        source: "repo",
+        target: `file-${file.name}`,
+        type: "file"
+      });
+      console.log(`\u{1F4C4} Positioned file: ${file.name} at (${Math.round(position.x)}, ${Math.round(position.y)})`);
+    });
+    const fileResources = {
+      nodes: fileNodes,
+      links: fileLinks
+    };
+    this.addResources(fileResources);
+    this.filesViz.updateWithAnimation({
+      nodes: fileNodes,
+      links: []
+      // Files don't create their own links in visualization
+    });
+    const allLinks = this.allLinks.filter((l) => l.type === "contribution" || l.type === "file");
+    this.linksViz.updateWithAnimation({
+      nodes: [],
+      links: allLinks
+    });
+    this.linksViz.updatePositions(this.allNodes);
+    setTimeout(() => {
+      this.gradualZoomOut();
+    }, 300);
+    console.log("\u2705 All files added to visualization!");
   }
   // 🌱 No more simulation methods needed - organic positioning is stable!
   // Public methods for library usage
