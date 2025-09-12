@@ -2,6 +2,7 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import 'dotenv/config';
 import { createGitSeeHandler } from './dist/server/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

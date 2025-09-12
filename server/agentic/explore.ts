@@ -237,3 +237,12 @@ export async function get_context(
 }
 
 // Test code removed - use get_context() directly when needed
+setTimeout(() => {
+  return;
+  get_context(
+    "What are the key features of this codebase?",
+    "/Users/evanfeenstra/code/evanf/gitsee"
+  ).then((result) => {
+    console.log("Context:", result);
+  });
+}, 1000); // Keep the process alive for testing
