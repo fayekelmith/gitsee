@@ -11,7 +11,7 @@ import {
   StatsResource,
 } from "./resources/index.js";
 import { GitSeeRequest, GitSeeResponse, GitSeeOptions } from "./types/index.js";
-import { RepoCloner } from "./agentic/index.js";
+import { RepoCloner } from "./agent/index.js";
 
 export class GitSeeHandler {
   private octokit: Octokit;
