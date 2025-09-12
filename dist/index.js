@@ -2485,6 +2485,11 @@ Transition.prototype = transition.prototype = {
   [Symbol.iterator]: selection_prototype[Symbol.iterator]
 };
 
+// node_modules/d3-ease/src/quad.js
+function quadOut(t) {
+  return t * (2 - t);
+}
+
 // node_modules/d3-ease/src/cubic.js
 function cubicInOut(t) {
   return ((t *= 2) <= 1 ? t * t * t : (t -= 2) * t * t + 2) / 2;
@@ -3278,6 +3283,9 @@ var GitVisualizer = class {
     this.allLinks = [];
     // Collision detection system
     this.occupiedSpaces = [];
+    // Configurable timing
+    this.contributorDelay = 800;
+    this.currentZoom = 1;
     this.width = window.innerWidth;
     this.height = window.innerHeight;
     this.svg = select_default2("#visualization");
@@ -3293,6 +3301,7 @@ var GitVisualizer = class {
     this.context = {
       svg: this.svg,
       container,
+      zoom,
       width: this.width,
       height: this.height
     };
@@ -3316,7 +3325,7 @@ var GitVisualizer = class {
       const dx = x - space.x;
       const dy = y - space.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const minDistance = radius + space.radius + 10;
+      const minDistance = radius + space.radius + 20;
       return distance < minDistance;
     });
   }
@@ -3398,6 +3407,39 @@ var GitVisualizer = class {
   calculateOrganicPosition(nodeType, index, contributions) {
     return this.findNonCollidingPosition(nodeType, index, contributions);
   }
+  /**
+   * 🔍 Master Zoom System
+   * Gradually zooms out to fit the growing graph
+   */
+  calculateBoundingBox() {
+    if (this.allNodes.length === 0) {
+      return { minX: 0, maxX: this.width, minY: 0, maxY: this.height };
+    }
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    this.allNodes.forEach((node) => {
+      if (node.x !== void 0 && node.y !== void 0) {
+        const radius = this.getNodeRadius(node.type, node.contributions);
+        minX = Math.min(minX, node.x - radius);
+        maxX = Math.max(maxX, node.x + radius);
+        minY = Math.min(minY, node.y - radius);
+        maxY = Math.max(maxY, node.y + radius);
+      }
+    });
+    return { minX, maxX, minY, maxY };
+  }
+  // Track current zoom level
+  calculateGradualZoomOut() {
+    this.currentZoom *= 0.98;
+    return Math.max(this.currentZoom, 0.1);
+  }
+  gradualZoomOut() {
+    const targetZoom = this.calculateGradualZoomOut();
+    const repoX = this.width / 2;
+    const repoY = this.height / 2;
+    const transform2 = identity2.translate(repoX, repoY).scale(targetZoom).translate(-repoX, -repoY);
+    this.svg.transition().duration(1200).ease(quadOut).call(this.context.zoom.transform, transform2);
+    console.log(`\u{1F50D} Gradual zoom out to ${targetZoom.toFixed(2)}x (repo stays centered)`);
+  }
   async visualize(owner2, repo2) {
     try {
       console.log(`\u{1F680} Visualizing ${owner2}/${repo2}...`);
@@ -3411,6 +3453,10 @@ var GitVisualizer = class {
       });
       if (data.error) {
         throw new Error(data.error);
+      }
+      if (data.options?.contributorDelay) {
+        this.contributorDelay = data.options.contributorDelay;
+        console.log(`\u2699\uFE0F Using contributor delay: ${this.contributorDelay}ms`);
       }
       if (data.repo) {
         const repoData = {
@@ -3472,6 +3518,7 @@ var GitVisualizer = class {
     this.allNodes = [];
     this.allLinks = [];
     this.occupiedSpaces = [];
+    this.currentZoom = 1;
     this.repositoryViz.destroy();
     this.contributorsViz.destroy();
     this.linksViz.destroy();
@@ -3524,8 +3571,11 @@ var GitVisualizer = class {
     });
     this.linksViz.updatePositions(this.allNodes);
     setTimeout(() => {
+      this.gradualZoomOut();
+    }, 200);
+    setTimeout(() => {
       this.addContributorsSequentially(contributors, index + 1);
-    }, 400);
+    }, this.contributorDelay);
   }
   // 🌱 No more simulation methods needed - organic positioning is stable!
   // Public methods for library usage

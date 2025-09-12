@@ -35,6 +35,9 @@ class GitVisualizer {
     nodeId: string;
   }> = [];
 
+  // Configurable timing
+  private contributorDelay: number = 800;
+
   constructor() {
     this.width = window.innerWidth;
     this.height = window.innerHeight;
@@ -61,6 +64,7 @@ class GitVisualizer {
     this.context = {
       svg: this.svg,
       container,
+      zoom,
       width: this.width,
       height: this.height
     };
@@ -91,7 +95,7 @@ class GitVisualizer {
       const dx = x - space.x;
       const dy = y - space.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const minDistance = radius + space.radius + 10; // 10px buffer
+      const minDistance = radius + space.radius + 20; // 20px buffer for better spacing
       return distance < minDistance;
     });
   }
@@ -204,6 +208,62 @@ class GitVisualizer {
     return this.findNonCollidingPosition(nodeType, index, contributions);
   }
 
+  /**
+   * 🔍 Master Zoom System
+   * Gradually zooms out to fit the growing graph
+   */
+  private calculateBoundingBox(): { minX: number, maxX: number, minY: number, maxY: number } {
+    if (this.allNodes.length === 0) {
+      return { minX: 0, maxX: this.width, minY: 0, maxY: this.height };
+    }
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+    this.allNodes.forEach(node => {
+      if (node.x !== undefined && node.y !== undefined) {
+        const radius = this.getNodeRadius(node.type, node.contributions);
+        minX = Math.min(minX, node.x - radius);
+        maxX = Math.max(maxX, node.x + radius);
+        minY = Math.min(minY, node.y - radius);
+        maxY = Math.max(maxY, node.y + radius);
+      }
+    });
+
+    return { minX, maxX, minY, maxY };
+  }
+
+  private currentZoom: number = 1.0; // Track current zoom level
+
+  private calculateGradualZoomOut(): number {
+    // Much more gradual zoom out - reduce by 2% each time
+    this.currentZoom *= 0.98;
+    
+    // Don't go below 0.1x zoom
+    return Math.max(this.currentZoom, 0.1);
+  }
+
+  private gradualZoomOut(): void {
+    const targetZoom = this.calculateGradualZoomOut();
+    
+    // Keep repository at exact screen center - no recentering!
+    const repoX = this.width / 2;
+    const repoY = this.height / 2;
+    
+    const transform = d3.zoomIdentity
+      .translate(repoX, repoY)
+      .scale(targetZoom)
+      .translate(-repoX, -repoY);
+
+    // Very slow, smooth transition
+    this.svg
+      .transition()
+      .duration(1200)
+      .ease(d3.easeQuadOut)
+      .call(this.context.zoom.transform, transform);
+
+    console.log(`🔍 Gradual zoom out to ${targetZoom.toFixed(2)}x (repo stays centered)`);
+  }
+
   async visualize(owner: string, repo: string): Promise<void> {
     try {
       console.log(`🚀 Visualizing ${owner}/${repo}...`);
@@ -222,6 +282,12 @@ class GitVisualizer {
 
       if (data.error) {
         throw new Error(data.error);
+      }
+
+      // Extract visualization configuration from response
+      if (data.options?.contributorDelay) {
+        this.contributorDelay = data.options.contributorDelay;
+        console.log(`⚙️ Using contributor delay: ${this.contributorDelay}ms`);
       }
 
       // Step 1: Create repository visualization (without icon first)
@@ -301,6 +367,7 @@ class GitVisualizer {
     this.allNodes = [];
     this.allLinks = [];
     this.occupiedSpaces = []; // Clear collision tracking
+    this.currentZoom = 1.0; // Reset zoom level
     
     // Clear all resource visualizations
     this.repositoryViz.destroy();
@@ -374,10 +441,15 @@ class GitVisualizer {
     // Update link positions since we don't have a tick function anymore
     this.linksViz.updatePositions(this.allNodes);
     
-    // Add next contributor after delay (faster since no physics!)
+    // Gradually zoom out (keeping repo centered)
+    setTimeout(() => {
+      this.gradualZoomOut();
+    }, 200); // Small delay after the node appears
+    
+    // Add next contributor after configurable delay
     setTimeout(() => {
       this.addContributorsSequentially(contributors, index + 1);
-    }, 400);
+    }, this.contributorDelay);
   }
 
   // 🌱 No more simulation methods needed - organic positioning is stable!

@@ -28,11 +28,15 @@ export interface ApiResponse {
   commits?: any[];
   branches?: any[];
   error?: string;
+  options?: {
+    contributorDelay?: number;
+  };
 }
 
 export interface VisualizationContext {
   svg: any; // d3 selection
   container: any; // d3 selection  
+  zoom: any; // d3 zoom behavior
   width: number;
   height: number;
 }

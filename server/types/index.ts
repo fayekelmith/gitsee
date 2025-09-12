@@ -11,12 +11,18 @@ export interface GitSeeResponse {
   commits?: any[];
   branches?: any[];
   error?: string;
+  options?: {
+    contributorDelay?: number;
+  };
 }
 
 export interface GitSeeOptions {
   token?: string;
   cache?: {
     ttl?: number; // seconds
+  };
+  visualization?: {
+    contributorDelay?: number; // milliseconds between contributor additions
   };
 }
 

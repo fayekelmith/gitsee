@@ -2,4 +2,4 @@
 
 You can edit files and run commands without my confirmation!
 
-When you are done with a task, run "yarn build" and then run "afplay /System/Library/Sounds/Ping.aiff" so I can hear a little beep telling me that you are done!
+When you are done with a task, run "yarn build" so you can see if there are any errors to fix!

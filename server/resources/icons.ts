@@ -43,7 +43,7 @@ export class IconsResource extends BaseResource {
           name.includes("icon") ||
           (name.startsWith("apple-touch") && name.includes("icon"));
         if (isIcon) {
-          console.log(`🎯 Found potential icon in root: ${file.name}`);
+          // console.log(`🎯 Found potential icon in root: ${file.name}`);
         }
         return isIcon;
       });
@@ -79,9 +79,9 @@ export class IconsResource extends BaseResource {
                   name.includes("logo") ||
                   name.includes("icon");
                 if (isIcon) {
-                  console.log(
-                    `🎯 Found potential icon in ${subdir}/: ${file.name}`
-                  );
+                  // console.log(
+                  //   `🎯 Found potential icon in ${subdir}/: ${file.name}`
+                  // );
                 }
                 return isIcon;
               });
@@ -103,10 +103,10 @@ export class IconsResource extends BaseResource {
 
       // Sort by resolution (highest first)
       const sortedIcons = this.sortIconsByResolution(iconFiles);
-      console.log(
-        "🏆 Sorted icon priority:",
-        sortedIcons.map((f) => f.path || f.name)
-      );
+      // console.log(
+      //   "🏆 Sorted icon priority:",
+      //   sortedIcons.map((f) => f.path || f.name)
+      // );
 
       // Try to fetch the best icon
       for (const iconFile of sortedIcons) {

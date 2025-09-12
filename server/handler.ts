@@ -17,6 +17,7 @@ import {
 export class GitSeeHandler {
   private octokit: Octokit;
   private cache: GitSeeCache;
+  private options: GitSeeOptions;
   
   // Resource modules
   private contributors: ContributorsResource;
@@ -26,6 +27,7 @@ export class GitSeeHandler {
   private branches: BranchesResource;
 
   constructor(options: GitSeeOptions = {}) {
+    this.options = options;
     this.octokit = new Octokit({
       auth: options.token
     });
@@ -87,6 +89,18 @@ export class GitSeeHandler {
   private async processRequest(request: GitSeeRequest): Promise<GitSeeResponse> {
     const { owner, repo, data } = request;
     const response: GitSeeResponse = {};
+
+    // Add visualization options to response
+    if (this.options.visualization) {
+      response.options = {
+        contributorDelay: this.options.visualization.contributorDelay || 800 // Default 800ms for slower pace
+      };
+    } else {
+      // Default options
+      response.options = {
+        contributorDelay: 800
+      };
+    }
 
     // Validate input
     if (!owner || !repo) {

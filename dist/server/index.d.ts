@@ -13,11 +13,17 @@ interface GitSeeResponse {
     commits?: any[];
     branches?: any[];
     error?: string;
+    options?: {
+        contributorDelay?: number;
+    };
 }
 interface GitSeeOptions {
     token?: string;
     cache?: {
         ttl?: number;
+    };
+    visualization?: {
+        contributorDelay?: number;
     };
 }
 interface Contributor {
@@ -75,6 +81,7 @@ interface Branch {
 declare class GitSeeHandler {
     private octokit;
     private cache;
+    private options;
     private contributors;
     private icons;
     private repository;

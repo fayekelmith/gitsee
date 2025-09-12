@@ -296,6 +296,7 @@ var BranchesResource = class extends BaseResource {
 // server/handler.ts
 var GitSeeHandler = class {
   constructor(options = {}) {
+    this.options = options;
     this.octokit = new Octokit({
       auth: options.token
     });
@@ -345,6 +346,16 @@ var GitSeeHandler = class {
   async processRequest(request) {
     const { owner, repo, data } = request;
     const response = {};
+    if (this.options.visualization) {
+      response.options = {
+        contributorDelay: this.options.visualization.contributorDelay || 800
+        // Default 800ms for slower pace
+      };
+    } else {
+      response.options = {
+        contributorDelay: 800
+      };
+    }
     if (!owner || !repo) {
       throw new Error("Owner and repo are required");
     }
