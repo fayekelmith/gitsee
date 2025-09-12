@@ -5,7 +5,6 @@ import { z } from "zod";
 import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
-import { RepoCloner } from "./repo-cloner.js";
 
 function logStep(contents: any) {
   return;
@@ -25,13 +24,6 @@ function logStep(contents: any) {
       // console.log("TOOL RESULT", content.toolName, content.output);
     }
   }
-}
-
-// Global variable to store current repo context
-let currentRepoPath = "";
-
-export function setCurrentRepo(owner: string, repo: string) {
-  currentRepoPath = RepoCloner.getRepoPath(owner, repo);
 }
 
 // Utility function to execute shell commands
@@ -62,12 +54,12 @@ function execCommand(command: string, cwd: string): Promise<string> {
 }
 
 // Get repository map using git ls-tree and tree
-async function getRepoMap(): Promise<string> {
-  if (!currentRepoPath) {
-    return "No repository context set";
+async function getRepoMap(repoPath: string): Promise<string> {
+  if (!repoPath) {
+    return "No repository path provided";
   }
 
-  if (!fs.existsSync(currentRepoPath)) {
+  if (!fs.existsSync(repoPath)) {
     return "Repository not cloned yet";
   }
 
@@ -75,7 +67,7 @@ async function getRepoMap(): Promise<string> {
     // Use the exact command from the comment: git ls-tree -r --name-only HEAD | tree -L 3 --fromfile
     const result = await execCommand(
       "git ls-tree -r --name-only HEAD | tree -L 3 --fromfile",
-      currentRepoPath
+      repoPath
     );
     return result;
   } catch (error: any) {
@@ -84,12 +76,12 @@ async function getRepoMap(): Promise<string> {
 }
 
 // Get file summary by reading first 40 lines
-function getFileSummary(filePath: string): string {
-  if (!currentRepoPath) {
-    return "No repository context set";
+function getFileSummary(filePath: string, repoPath: string): string {
+  if (!repoPath) {
+    return "No repository path provided";
   }
 
-  const fullPath = path.join(currentRepoPath, filePath);
+  const fullPath = path.join(repoPath, filePath);
 
   if (!fs.existsSync(fullPath)) {
     return "File not found";
@@ -97,7 +89,13 @@ function getFileSummary(filePath: string): string {
 
   try {
     const content = fs.readFileSync(fullPath, "utf-8");
-    const lines = content.split("\n").slice(0, 40);
+    const lines = content
+      .split("\n")
+      .slice(0, 40)
+      .map((line) => {
+        // Limit each line to 200 characters to handle minified files
+        return line.length > 200 ? line.substring(0, 200) + "..." : line;
+      });
     return lines.join("\n");
   } catch (error: any) {
     return `Error reading file: ${error.message}`;
@@ -105,18 +103,21 @@ function getFileSummary(filePath: string): string {
 }
 
 // Fulltext search using ripgrep
-async function fulltextSearch(query: string): Promise<string> {
-  if (!currentRepoPath) {
-    return "No repository context set";
+async function fulltextSearch(
+  query: string,
+  repoPath: string
+): Promise<string> {
+  if (!repoPath) {
+    return "No repository path provided";
   }
 
-  if (!fs.existsSync(currentRepoPath)) {
+  if (!fs.existsSync(repoPath)) {
     return "Repository not cloned yet";
   }
 
   try {
     // Use ripgrep with context lines and line numbers
-    const result = await execCommand(`rg -C 2 -n "${query}"`, currentRepoPath);
+    const result = await execCommand(`rg -C 4 -n "${query}"`, repoPath);
     return result;
   } catch (error: any) {
     // Ripgrep returns exit code 1 when no matches found, which is not really an error
@@ -134,7 +135,8 @@ export interface GeneralContextResult {
 }
 
 export async function get_context(
-  prompt: string | ModelMessage[]
+  prompt: string | ModelMessage[],
+  repoPath: string
 ): Promise<string> {
   const provider = process.env.LLM_PROVIDER || "anthropic";
   const apiKey = getApiKeyForProvider(provider);
@@ -147,7 +149,7 @@ export async function get_context(
       inputSchema: z.object({}),
       execute: async () => {
         try {
-          return await getRepoMap();
+          return await getRepoMap(repoPath);
         } catch (e) {
           return "Could not retrieve repository map";
         }
@@ -166,7 +168,7 @@ export async function get_context(
       }),
       execute: async ({ file_path }: { file_path: string }) => {
         try {
-          return getFileSummary(file_path);
+          return getFileSummary(file_path, repoPath);
         } catch (e) {
           return "Bad file path";
         }
@@ -180,7 +182,7 @@ export async function get_context(
       }),
       execute: async ({ query }: { query: string }) => {
         try {
-          return await fulltextSearch(query);
+          return await fulltextSearch(query, repoPath);
         } catch (e) {
           return `Search failed: ${e}`;
         }
