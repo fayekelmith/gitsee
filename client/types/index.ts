@@ -4,8 +4,6 @@ export interface NodeData {
   name: string;
   x?: number;
   y?: number;
-  fx?: number | null;
-  fy?: number | null;
   avatar?: string;
   contributions?: number;
   // Additional fields for future node types
@@ -35,7 +33,6 @@ export interface ApiResponse {
 export interface VisualizationContext {
   svg: any; // d3 selection
   container: any; // d3 selection  
-  simulation: any; // d3 simulation
   width: number;
   height: number;
 }

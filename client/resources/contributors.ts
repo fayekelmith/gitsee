@@ -61,6 +61,11 @@ export class ContributorsVisualization extends BaseVisualizationResource {
       .enter()
       .append('g')
       .attr('class', 'contributor-node')
+      .attr('transform', (d: NodeData) => {
+        const x = d.x || 0;
+        const y = d.y || 0;
+        return `translate(${x},${y})`;
+      })
       .call(this.createDragBehavior());
 
     // Add circles with avatar patterns
@@ -127,6 +132,13 @@ export class ContributorsVisualization extends BaseVisualizationResource {
       })
       .style('opacity', 0)
       .call(this.createDragBehavior());
+
+    // Make sure existing nodes are also positioned correctly
+    nodes.attr('transform', (d: NodeData) => {
+      const x = d.x || 0;
+      const y = d.y || 0;
+      return `translate(${x},${y})`;
+    });
 
     // Add circles with avatar patterns to NEW nodes only
     nodeEnter.each((d: NodeData, i: number, nodes: any) => {

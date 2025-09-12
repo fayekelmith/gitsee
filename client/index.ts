@@ -46,26 +46,13 @@ class GitVisualizer {
 
     this.svg.call(zoom);
 
-    // Create main container and simulation
+    // Create main container (no more physics simulation!)
     const container = this.svg.append('g').attr('class', 'main-container');
-    const simulation = d3.forceSimulation()
-      .force('link', d3.forceLink().id((d: any) => d.id).distance(80).strength(0.5))
-      .force('charge', d3.forceManyBody().strength(-200))
-      .force('center', d3.forceCenter(this.width / 2, this.height / 2))
-      .force('collision', d3.forceCollide().radius((d: any) => {
-        // Dynamic collision radius based on node size
-        if (d.type === 'repo') return 30;
-        const contributions = d.contributions || 0;
-        return Math.min(16 + contributions * 0.1, 22) + 3; // Node radius + padding
-      }))
-      .force('x', d3.forceX(this.width / 2).strength(0.1))
-      .force('y', d3.forceY(this.height / 2).strength(0.1));
 
     // Create visualization context
     this.context = {
       svg: this.svg,
       container,
-      simulation,
       width: this.width,
       height: this.height
     };
@@ -74,9 +61,54 @@ class GitVisualizer {
     this.repositoryViz = new RepositoryVisualization(this.context);
     this.contributorsViz = new ContributorsVisualization(this.context);
     this.linksViz = new LinksVisualization(this.context);
+  }
 
-    // Set up simulation tick handler
-    simulation.on('tick', this.tick.bind(this));
+  /**
+   * 🌱 Universal Organic Positioning System
+   * Calculates natural, plant-like growth positions for any node type
+   */
+  private calculateOrganicPosition(nodeType: string, index: number, totalInType: number): { x: number, y: number } {
+    const centerX = this.width / 2;
+    const centerY = this.height / 2;
+    
+    // Zone distances by node type (expandable for future node types)
+    const zones = {
+      'repo': { min: 0, max: 0 },           // Center
+      'contributor': { min: 80, max: 120 }, // Inner ring
+      'file': { min: 120, max: 160 },       // Future: key files
+      'story': { min: 160, max: 200 },      // Future: user stories
+      'function': { min: 200, max: 240 },   // Future: functions
+      'component': { min: 240, max: 280 },  // Future: components
+      'schema': { min: 280, max: 320 }      // Future: schemas
+    };
+    
+    const zone = zones[nodeType] || zones['contributor'];
+    
+    // Repository stays at center
+    if (nodeType === 'repo') {
+      return { x: centerX, y: centerY };
+    }
+    
+    // Golden angle for natural spiral (~137.5 degrees)
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    
+    // Base angle with golden spiral + some randomness
+    const baseAngle = index * goldenAngle;
+    const randomOffset = (Math.random() - 0.5) * 0.5; // ±15 degrees randomness
+    const angle = baseAngle + randomOffset;
+    
+    // Distance with zone variation + randomness
+    const baseDistance = zone.min + (zone.max - zone.min) * Math.random();
+    const distanceVariation = (Math.random() - 0.5) * 40; // ±20px variation
+    const distance = baseDistance + distanceVariation;
+    
+    // Calculate position
+    const x = centerX + Math.cos(angle) * distance;
+    const y = centerY + Math.sin(angle) * distance;
+    
+    console.log(`🌱 ${nodeType}[${index}] positioned at (${Math.round(x)}, ${Math.round(y)}) - distance: ${Math.round(distance)}`);
+    
+    return { x, y };
   }
 
   async visualize(owner: string, repo: string): Promise<void> {
@@ -108,9 +140,8 @@ class GitVisualizer {
         const repoResources = this.repositoryViz.create(repoData);
         this.addResources(repoResources);
         this.repositoryViz.update(repoResources);
-        this.updateSimulation();
         
-        console.log('📍 Repository node created');
+        console.log('📍 Repository node created at center');
       }
 
       // Step 2: Add icon after delay
@@ -189,22 +220,10 @@ class GitVisualizer {
     const contributor = contributors[index];
     console.log(`👤 Adding contributor ${index + 1}/${contributors.length}: ${contributor.login}`);
 
-    // Get center position
-    const centerX = this.context.width / 2;
-    const centerY = this.context.height / 2;
+    // Calculate organic position for this contributor
+    const position = this.calculateOrganicPosition('contributor', index, contributors.length);
     
-    // Position this contributor in a circle around center
-    // Higher contributors (lower index) get closer positions
-    const angle = (index / contributors.length) * 2 * Math.PI;
-    const baseRadius = 100;
-    const radiusIncrement = 25;
-    const radius = baseRadius + Math.floor(index / 6) * radiusIncrement; // Groups of 6 per ring
-    
-    console.log(`📍 Positioning ${contributor.login} (${contributor.contributions} contributions) at radius ${radius}`);
-    
-    // Create contributor with proper positioning
-    const x = centerX + Math.cos(angle) * radius;
-    const y = centerY + Math.sin(angle) * radius;
+    console.log(`📍 Positioning ${contributor.login} (${contributor.contributions} contributions) organically`);
     
     const contributorNode: NodeData = {
       id: `contributor-${contributor.id}`,
@@ -212,12 +231,8 @@ class GitVisualizer {
       name: contributor.login,
       avatar: contributor.avatar_url,
       contributions: contributor.contributions,
-      x: x,
-      y: y,
-      fx: x, // Fix position initially
-      fy: y, // Fix position initially
-      vx: 0, // Start with no velocity
-      vy: 0
+      x: position.x,
+      y: position.y
     };
 
     const contributorLink: LinkData = {
@@ -250,92 +265,15 @@ class GitVisualizer {
       links: allContributorLinks
     });
     
-    // Add new node to simulation without disrupting existing ones
-    this.addNodeToSimulation(contributorNode, contributorLink);
+    // No simulation needed - positions are calculated and stable!
     
-    // Release the fixed position after animation completes
-    setTimeout(() => {
-      const nodeInSim = this.allNodes.find(n => n.id === contributorNode.id);
-      if (nodeInSim) {
-        nodeInSim.fx = null;
-        nodeInSim.fy = null;
-        console.log(`🔓 Released fixed position for ${contributorNode.id}`);
-      }
-    }, 500);
-    
-    // Add next contributor after delay (longer to let physics settle)
+    // Add next contributor after delay (faster since no physics!)
     setTimeout(() => {
       this.addContributorsSequentially(contributors, index + 1);
-    }, 600);
+    }, 400);
   }
 
-  private addNodeToSimulation(node: NodeData, link?: LinkData): void {
-    console.log(`➕ Adding node ${node.id} to simulation gently`);
-    
-    // Get current simulation state
-    const currentAlpha = this.context.simulation.alpha();
-    
-    // Update nodes in simulation
-    this.context.simulation.nodes(this.allNodes);
-    
-    // Update links if provided
-    if (link) {
-      const linkForce = this.context.simulation.force('link');
-      if (linkForce) {
-        linkForce.links(this.allLinks);
-      }
-    }
-    
-    // Only gently reheat the simulation if it was cooling down
-    if (currentAlpha < 0.1) {
-      this.context.simulation.alpha(0.1).restart();
-    }
-  }
-
-  private updateSimulation(): void {
-    console.log(`🔄 Updating simulation with ${this.allNodes.length} nodes and ${this.allLinks.length} links`);
-    
-    // Update simulation with all nodes and links
-    this.context.simulation
-      .nodes(this.allNodes);
-
-    const linkForce = this.context.simulation.force('link');
-    if (linkForce) {
-      linkForce.links(this.allLinks);
-    }
-
-    // Gentle restart - don't use full alpha to avoid nodes flying off
-    this.context.simulation.alpha(0.3).restart();
-  }
-
-  private tick(): void {
-    // Update all node positions, but preserve any existing scale transforms
-    this.context.container
-      .selectAll('.repo-node, .contributor-node')
-      .attr('transform', function(this: any, d: any) {
-        const currentTransform = d3.select(this).attr('transform') || '';
-        const hasScale = currentTransform.includes('scale');
-        const x = d.x || 0;
-        const y = d.y || 0;
-        
-        if (hasScale && currentTransform.includes('scale(0)')) {
-          // Don't update position during entrance animation
-          return currentTransform;
-        }
-        
-        // Update position while preserving any scale
-        if (hasScale) {
-          const scaleMatch = currentTransform.match(/scale\([^)]+\)/);
-          const scale = scaleMatch ? scaleMatch[0] : 'scale(1)';
-          return `translate(${x},${y}) ${scale}`;
-        }
-        
-        return `translate(${x},${y})`;
-      });
-
-    // Update link positions
-    this.linksViz.updatePositions();
-  }
+  // 🌱 No more simulation methods needed - organic positioning is stable!
 
   // Public methods for library usage
   public setDimensions(width: number, height: number): void {
@@ -346,16 +284,13 @@ class GitVisualizer {
     
     this.svg.attr('width', width).attr('height', height);
     
-    if (this.context.simulation) {
-      this.context.simulation.force('center', d3.forceCenter(width / 2, height / 2));
-      this.context.simulation.alpha(0.3).restart();
-    }
+    // Update context dimensions for organic positioning
+    this.context.width = width;
+    this.context.height = height;
   }
 
   public destroy(): void {
-    if (this.context.simulation) {
-      this.context.simulation.stop();
-    }
+    // Clean up visualization
     this.svg.selectAll('*').remove();
   }
 }

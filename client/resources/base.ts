@@ -49,31 +49,25 @@ export abstract class BaseVisualizationResource {
   }
 
   /**
-   * Helper method for drag behavior
+   * Helper method for drag behavior (simple drag without physics)
    */
   protected createDragBehavior(): any {
-    const simulation = this.context.simulation;
-    
     return d3.drag()
-      .on('start', (event: any, d: any) => {
-        const nodeData = d as NodeData;
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        nodeData.fx = nodeData.x;
-        nodeData.fy = nodeData.y;
+      .on('start', () => {
+        // Simple drag - just move the element
       })
       .on('drag', (event: any, d: any) => {
         const nodeData = d as NodeData;
-        nodeData.fx = event.x;
-        nodeData.fy = event.y;
+        // Update the node's position
+        nodeData.x = event.x;
+        nodeData.y = event.y;
+        
+        // Update the visual position immediately
+        d3.select(event.sourceEvent.target.closest('g'))
+          .attr('transform', `translate(${event.x},${event.y})`);
       })
-      .on('end', (event: any, d: any) => {
-        const nodeData = d as NodeData;
-        if (!event.active) simulation.alphaTarget(0);
-        // Only free non-fixed nodes
-        if (nodeData.type !== 'repo') {
-          nodeData.fx = null;
-          nodeData.fy = null;
-        }
+      .on('end', () => {
+        // Drag complete - position is already updated
       });
   }
 

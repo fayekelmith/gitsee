@@ -9,15 +9,19 @@ export class RepositoryVisualization extends BaseVisualizationResource {
 
   create(repoData: any): ResourceData {
     console.log('🏗️ Creating repository visualization...');
+    
+    const centerX = this.context.width / 2;
+    const centerY = this.context.height / 2;
+    
+    console.log(`📏 Context dimensions: ${this.context.width} x ${this.context.height}`);
+    console.log(`🎯 Positioning repository at center: (${centerX}, ${centerY})`);
 
     const repoNode: NodeData = {
       id: 'repo',
       type: 'repo',
       name: repoData.name,
-      x: this.context.width / 2,
-      y: this.context.height / 2,
-      fx: this.context.width / 2, // Fixed position
-      fy: this.context.height / 2,
+      x: centerX,
+      y: centerY,
       avatar: repoData.icon
     };
 
@@ -49,6 +53,14 @@ export class RepositoryVisualization extends BaseVisualizationResource {
 
     // Update existing + new nodes
     const nodeUpdate = nodes.merge(nodeEnter);
+
+    // Position all nodes at their calculated positions
+    nodeUpdate.attr('transform', (d: NodeData) => {
+      const x = d.x || 0;
+      const y = d.y || 0;
+      console.log(`🎯 Positioning repo node at (${x}, ${y})`);
+      return `translate(${x},${y})`;
+    });
 
     // Clear and rebuild (to handle icon changes)
     nodeUpdate.selectAll('*').remove();
