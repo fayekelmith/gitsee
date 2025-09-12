@@ -61,13 +61,16 @@ class GitVisualizer {
     this.repositoryViz = new RepositoryVisualization(this.context);
     this.contributorsViz = new ContributorsVisualization(this.context);
     this.linksViz = new LinksVisualization(this.context);
+
+    // Create links group first to ensure it's at the bottom
+    this.linksViz['getResourceGroup']();
   }
 
   /**
    * 🌱 Universal Organic Positioning System
    * Calculates natural, plant-like growth positions for any node type
    */
-  private calculateOrganicPosition(nodeType: string, index: number, totalInType: number): { x: number, y: number } {
+  private calculateOrganicPosition(nodeType: string, index: number): { x: number, y: number } {
     const centerX = this.width / 2;
     const centerY = this.height / 2;
     
@@ -82,7 +85,7 @@ class GitVisualizer {
       'schema': { min: 280, max: 320 }      // Future: schemas
     };
     
-    const zone = zones[nodeType] || zones['contributor'];
+    const zone = zones[nodeType as keyof typeof zones] || zones['contributor'];
     
     // Repository stays at center
     if (nodeType === 'repo') {
@@ -222,7 +225,7 @@ class GitVisualizer {
     console.log(`👤 Adding contributor ${index + 1}/${contributors.length}: ${contributor.login}`);
 
     // Calculate organic position for this contributor
-    const position = this.calculateOrganicPosition('contributor', index, contributors.length);
+    const position = this.calculateOrganicPosition('contributor', index);
     
     console.log(`📍 Positioning ${contributor.login} (${contributor.contributions} contributions) organically`);
     
@@ -266,7 +269,8 @@ class GitVisualizer {
       links: allContributorLinks
     });
     
-    // No simulation needed - positions are calculated and stable!
+    // Update link positions since we don't have a tick function anymore
+    this.linksViz.updatePositions(this.allNodes);
     
     // Add next contributor after delay (faster since no physics!)
     setTimeout(() => {

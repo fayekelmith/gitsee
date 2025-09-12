@@ -2970,12 +2970,17 @@ var BaseVisualizationResource = class {
   }
   /**
    * Get the group element for this resource type
-   * Creates it if it doesn't exist
+   * Creates it if it doesn't exist, but tries to maintain z-order
    */
   getResourceGroup() {
     let group = this.context.container.select(`.${this.resourceType}-group`);
     if (group.empty()) {
-      group = this.context.container.append("g").attr("class", `${this.resourceType}-group`);
+      if (this.resourceType === "links") {
+        const firstChild = this.context.container.node()?.firstChild;
+        group = this.context.container.insert("g", () => firstChild).attr("class", `${this.resourceType}-group`);
+      } else {
+        group = this.context.container.append("g").attr("class", `${this.resourceType}-group`);
+      }
     }
     return group;
   }
@@ -3237,11 +3242,27 @@ var LinksVisualization = class extends BaseVisualizationResource {
   }
   /**
    * Update link positions based on node positions
-   * This should be called from the simulation tick function
+   * Now works with string IDs and finds actual node positions
    */
-  updatePositions() {
+  updatePositions(allNodes = []) {
     const group = this.getResourceGroup();
-    group.selectAll(".link").attr("x1", (d) => d.source.x || 0).attr("y1", (d) => d.source.y || 0).attr("x2", (d) => d.target.x || 0).attr("y2", (d) => d.target.y || 0);
+    group.selectAll(".link").attr("x1", (d) => {
+      const sourceId = typeof d.source === "string" ? d.source : d.source.id;
+      const sourceNode = allNodes.find((n) => n.id === sourceId);
+      return sourceNode?.x || 0;
+    }).attr("y1", (d) => {
+      const sourceId = typeof d.source === "string" ? d.source : d.source.id;
+      const sourceNode = allNodes.find((n) => n.id === sourceId);
+      return sourceNode?.y || 0;
+    }).attr("x2", (d) => {
+      const targetId = typeof d.target === "string" ? d.target : d.target.id;
+      const targetNode = allNodes.find((n) => n.id === targetId);
+      return targetNode?.x || 0;
+    }).attr("y2", (d) => {
+      const targetId = typeof d.target === "string" ? d.target : d.target.id;
+      const targetNode = allNodes.find((n) => n.id === targetId);
+      return targetNode?.y || 0;
+    });
   }
   destroy() {
     console.log("\u{1F5D1}\uFE0F Destroying links visualization...");
@@ -3276,12 +3297,13 @@ var GitVisualizer = class {
     this.repositoryViz = new RepositoryVisualization(this.context);
     this.contributorsViz = new ContributorsVisualization(this.context);
     this.linksViz = new LinksVisualization(this.context);
+    this.linksViz["getResourceGroup"]();
   }
   /**
    * 🌱 Universal Organic Positioning System
    * Calculates natural, plant-like growth positions for any node type
    */
-  calculateOrganicPosition(nodeType, index, totalInType) {
+  calculateOrganicPosition(nodeType, index) {
     const centerX = this.width / 2;
     const centerY = this.height / 2;
     const zones = {
@@ -3399,7 +3421,7 @@ var GitVisualizer = class {
     }
     const contributor = contributors[index];
     console.log(`\u{1F464} Adding contributor ${index + 1}/${contributors.length}: ${contributor.login}`);
-    const position = this.calculateOrganicPosition("contributor", index, contributors.length);
+    const position = this.calculateOrganicPosition("contributor", index);
     console.log(`\u{1F4CD} Positioning ${contributor.login} (${contributor.contributions} contributions) organically`);
     const contributorNode = {
       id: `contributor-${contributor.id}`,
@@ -3432,6 +3454,7 @@ var GitVisualizer = class {
       nodes: [],
       links: allContributorLinks
     });
+    this.linksViz.updatePositions(this.allNodes);
     setTimeout(() => {
       this.addContributorsSequentially(contributors, index + 1);
     }, 400);

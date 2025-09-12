@@ -29,14 +29,24 @@ export abstract class BaseVisualizationResource {
 
   /**
    * Get the group element for this resource type
-   * Creates it if it doesn't exist
+   * Creates it if it doesn't exist, but tries to maintain z-order
    */
   protected getResourceGroup(): any {
     let group = this.context.container.select(`.${this.resourceType}-group`);
     if (group.empty()) {
-      group = this.context.container
-        .append('g')
-        .attr('class', `${this.resourceType}-group`);
+      // Check if this is the links group and if other groups exist
+      if (this.resourceType === 'links') {
+        // Links should be first - insert at the beginning
+        const firstChild = this.context.container.node()?.firstChild;
+        group = this.context.container
+          .insert('g', () => firstChild)
+          .attr('class', `${this.resourceType}-group`);
+      } else {
+        // Other groups can be appended normally
+        group = this.context.container
+          .append('g')
+          .attr('class', `${this.resourceType}-group`);
+      }
     }
     return group;
   }

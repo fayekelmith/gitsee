@@ -68,6 +68,8 @@ export class LinksVisualization extends BaseVisualizationResource {
       .style('stroke-opacity', 0.8);
       
     console.log(`✅ Links update complete. Total visible: ${links.merge(linksEnter).size()}`);
+    
+    // Note: Positions will be updated by the caller using updatePositions()
   }
 
   private getLinkColor(linkType?: string): string {
@@ -102,16 +104,32 @@ export class LinksVisualization extends BaseVisualizationResource {
 
   /**
    * Update link positions based on node positions
-   * This should be called from the simulation tick function
+   * Now works with string IDs and finds actual node positions
    */
-  updatePositions(): void {
+  updatePositions(allNodes: any[] = []): void {
     const group = this.getResourceGroup();
     
     group.selectAll('.link')
-      .attr('x1', (d: LinkData) => (d.source as any).x || 0)
-      .attr('y1', (d: LinkData) => (d.source as any).y || 0)
-      .attr('x2', (d: LinkData) => (d.target as any).x || 0)
-      .attr('y2', (d: LinkData) => (d.target as any).y || 0);
+      .attr('x1', (d: LinkData) => {
+        const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
+        const sourceNode = allNodes.find(n => n.id === sourceId);
+        return sourceNode?.x || 0;
+      })
+      .attr('y1', (d: LinkData) => {
+        const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
+        const sourceNode = allNodes.find(n => n.id === sourceId);
+        return sourceNode?.y || 0;
+      })
+      .attr('x2', (d: LinkData) => {
+        const targetId = typeof d.target === 'string' ? d.target : d.target.id;
+        const targetNode = allNodes.find(n => n.id === targetId);
+        return targetNode?.x || 0;
+      })
+      .attr('y2', (d: LinkData) => {
+        const targetId = typeof d.target === 'string' ? d.target : d.target.id;
+        const targetNode = allNodes.find(n => n.id === targetId);
+        return targetNode?.y || 0;
+      });
   }
 
   destroy(): void {
