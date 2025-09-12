@@ -3681,10 +3681,12 @@ var GitVisualizer = class {
       this.nodes = [];
       this.links = [];
       const data = await this.fetchRepoData(owner2, repo2);
+      console.log("\u{1F4E6} API Response:", { hasRepo: !!data.repo, hasContributors: !!data.contributors, hasIcon: !!data.icon, iconLength: data.icon?.length });
       if (data.error) {
         throw new Error(data.error);
       }
       const repoName = data.repo?.full_name || `${owner2}/${repo2}`;
+      console.log("\u{1F3A8} Adding repo node with icon:", !!data.icon);
       this.addRepoNode(repoName, data.icon);
       if (data.contributors) {
         this.addContributors(data.contributors);

@@ -146,7 +146,9 @@ export class GitSeeHandler {
           response.contributors = await this.getContributors(owner, repo);
           break;
         case "icon":
+          console.log(`🔍 Fetching icon for ${owner}/${repo}...`);
           response.icon = await this.getRepoIcon(owner, repo);
+          console.log(`📷 Icon result:`, response.icon ? 'Found' : 'Not found');
           break;
         case "commits":
           response.commits = await this.getCommits(owner, repo);
@@ -227,10 +229,18 @@ export class GitSeeHandler {
   ): Promise<string | null> {
     const cacheKey = `icon:${owner}/${repo}`;
     const cached = this.cache.get(cacheKey);
-    if (cached !== undefined) return cached; // null is a valid cached value
+    if (cached !== undefined) {
+      console.log(`💾 Cache hit for ${owner}/${repo} icon:`, cached ? 'Found' : 'Not found');
+      console.log(`🔄 Clearing cache to retry (checking for rate limits)...`);
+      this.cache.clear(); // Clear cache to retry
+      // Don't return cached, let it retry
+    }
+    
+    console.log(`🚀 Starting fresh icon fetch for ${owner}/${repo}`);
 
     try {
       // Get root directory contents
+      console.log(`📁 Getting root contents for ${owner}/${repo}...`);
       const rootContents = await this.octokit.rest.repos.getContent({
         owner,
         repo,
@@ -238,20 +248,28 @@ export class GitSeeHandler {
       });
 
       if (!Array.isArray(rootContents.data)) {
+        console.log(`❌ Root contents not an array`);
         this.cache.set(cacheKey, null);
         return null;
       }
 
+      console.log(`📂 Found ${rootContents.data.length} files in root`);
+      console.log(`📂 Root files:`, rootContents.data.map((f: any) => f.name).slice(0, 10));
+
       // Look for icon files
       const iconFiles = rootContents.data.filter((file: any) => {
         const name = file.name.toLowerCase();
-        return (
-          name.includes("favicon") ||
+        const isIcon = name.includes("favicon") ||
           name.includes("logo") ||
           name.includes("icon") ||
-          (name.startsWith("apple-touch") && name.includes("icon"))
-        );
+          (name.startsWith("apple-touch") && name.includes("icon"));
+        if (isIcon) {
+          console.log(`🎯 Found potential icon in root: ${file.name}`);
+        }
+        return isIcon;
       });
+
+      console.log(`📊 Found ${iconFiles.length} icon files in root`);
 
       // Check common subdirectories
       const subdirs = ["public", "assets", "static", "images", "img"];
@@ -315,8 +333,15 @@ export class GitSeeHandler {
 
       this.cache.set(cacheKey, null);
       return null;
-    } catch (error) {
-      console.error(`Error fetching repo icon for ${owner}/${repo}:`, error);
+    } catch (error: any) {
+      console.error(`💥 ERROR fetching repo icon for ${owner}/${repo}:`, error);
+      
+      // Check if it's a rate limit error
+      if (error.status === 403 || error.message?.includes('rate limit')) {
+        console.error(`⏱️  RATE LIMIT HIT! Error:`, error.message);
+        console.error(`🔑 Using token:`, !!this.octokit.auth);
+      }
+      
       this.cache.set(cacheKey, null);
       return null;
     }

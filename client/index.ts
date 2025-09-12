@@ -91,6 +91,7 @@ class GitVisualizer {
 
       // Fetch data from API
       const data = await this.fetchRepoData(owner, repo);
+      console.log('📦 API Response:', { hasRepo: !!data.repo, hasContributors: !!data.contributors, hasIcon: !!data.icon, iconLength: data.icon?.length });
 
       if (data.error) {
         throw new Error(data.error);
@@ -98,6 +99,7 @@ class GitVisualizer {
 
       // Add repo node
       const repoName = data.repo?.full_name || `${owner}/${repo}`;
+      console.log('🎨 Adding repo node with icon:', !!data.icon);
       this.addRepoNode(repoName, data.icon);
 
       // Add contributors
