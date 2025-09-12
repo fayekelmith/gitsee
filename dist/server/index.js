@@ -606,220 +606,106 @@ RepoCloner.BASE_PATH = "/tmp/gitsee";
 // server/agentic/explore.ts
 import { generateText, tool, hasToolCall } from "ai";
 import { getModel, getApiKeyForProvider } from "aieo";
-
-// server/agentic/prompts.ts
-var GENERAL_EXPLORER = `
-You are a codebase exploration assistant. Use the provided tools to explore the codebase and answer the user's question. Focus on general language and framework first, then specific core libraries, integrations, and features. Try to understand the core functionallity (user stories) of the codebase. Explore files, functions, and component names to understand the main user stories, pages, UX components, or workflows in the application.
-`;
-var GENERAL_FINAL_ANSWER_DESCRIPTION = `
-
-Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF YOUR EXPLORATION.
-
-Return a simple JSON object with the following fields:
-
-- "summary": a 1-4 sentence short synopsis of the codebase.
-- "key_files": an array of the core package and LLM agent files. Focus on package files like package.json, and core markdown files. DO NOT include code files unless they are central to the codebase, such as the main DB schema file.
-- "features": an array of 20 - 50 core user stories, one sentence each. Each one should be focused on ONE SINGLE user flow... DO NOT flesh these out for not reason!! Keep them short and to the point.
-
-{
-  "summary": "This is a next.js project with a postgres database and a github oauth implementation",
-  "key_files": ["package.json", "README.md", "CLAUDE.md", "AGENTS.md"],
-  "features": ["User login with github oauth.", "Tasks component with LLM chat implementation, for working on a code repository.", "User Journeys page with an interactive iframe browser."]
-}
-`;
-
-// server/agentic/explore.ts
 import { z } from "zod";
 import { spawn as spawn2 } from "child_process";
-import * as fs2 from "fs";
-import * as path2 from "path";
-function logStep(contents) {
-  if (!Array.isArray(contents)) return;
-  for (const content of contents) {
-    if (content.type === "tool-call") {
-      if (content.toolName === "final_answer") {
-        console.log("FINAL ANSWER:", content.input.answer);
-      } else {
-        console.log("TOOL CALL:", content.toolName, ":", content.input);
-      }
-    }
-    if (content.type === "tool-result") {
-      if (content.toolName !== "repo_overview") {
-        console.log(content.output);
-      }
-    }
-  }
-}
-function execCommand(command, cwd) {
+function execCommand(command, cwd, timeoutMs = 1e4) {
+  console.log(
+    `\u2699\uFE0F [execCommand] Starting command: "${command}" in directory: ${cwd} with timeout: ${timeoutMs}ms`
+  );
   return new Promise((resolve, reject) => {
-    const [cmd, ...args] = command.split(" ");
-    const process2 = spawn2(cmd, args, { cwd, shell: true });
+    const parts = command.split(" ");
+    const rgIndex = parts.findIndex((part) => part === "rg" || part.endsWith("/rg"));
+    if (rgIndex === -1) {
+      reject(new Error("Not a ripgrep command"));
+      return;
+    }
+    const args = parts.slice(rgIndex + 1).map((arg) => {
+      if (arg.startsWith('"') && arg.endsWith('"') || arg.startsWith("'") && arg.endsWith("'")) {
+        return arg.slice(1, -1);
+      }
+      return arg;
+    });
+    args.push("./");
+    console.log(`\u2699\uFE0F [execCommand] Spawning: rg with args:`, args);
+    const process2 = spawn2("rg", args, {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"]
+      // Ignore stdin, pipe stdout/stderr
+    });
     let stdout = "";
     let stderr = "";
+    let resolved = false;
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        console.log(`\u2699\uFE0F [execCommand] Command timed out after ${timeoutMs}ms, killing process`);
+        process2.kill("SIGKILL");
+        resolved = true;
+        reject(new Error(`Command timed out after ${timeoutMs}ms`));
+      }
+    }, timeoutMs);
     process2.stdout.on("data", (data) => {
-      stdout += data.toString();
+      const chunk = data.toString();
+      console.log(`\u2699\uFE0F [execCommand] stdout chunk received, length: ${chunk.length}`);
+      stdout += chunk;
+      if (stdout.length > 1e4) {
+        console.log(`\u2699\uFE0F [execCommand] Output too large (${stdout.length} chars), killing process`);
+        process2.kill("SIGKILL");
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          const truncated = stdout.substring(0, 1e4) + "\n\n[... output truncated due to size limit ...]";
+          console.log(`\u2699\uFE0F [execCommand] Resolving with truncated output`);
+          resolve(truncated);
+        }
+        return;
+      }
     });
     process2.stderr.on("data", (data) => {
-      stderr += data.toString();
+      const chunk = data.toString();
+      console.log(`\u2699\uFE0F [execCommand] stderr chunk received, length: ${chunk.length}`);
+      stderr += chunk;
     });
     process2.on("close", (code) => {
-      if (code === 0) {
-        resolve(stdout);
-      } else {
-        reject(new Error(`Command failed with code ${code}: ${stderr}`));
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        console.log(`\u2699\uFE0F [execCommand] Process closed with code: ${code}`);
+        if (code === 0) {
+          console.log(`\u2699\uFE0F [execCommand] Command succeeded, stdout length: ${stdout.length}`);
+          if (stdout.length > 1e4) {
+            const truncated = stdout.substring(0, 1e4) + "\n\n[... output truncated to 10,000 characters ...]";
+            console.log(`\u2699\uFE0F [execCommand] Output truncated from ${stdout.length} to 10,000 characters`);
+            resolve(truncated);
+          } else {
+            resolve(stdout);
+          }
+        } else if (code === 1) {
+          console.log(`\u2699\uFE0F [execCommand] No matches found (exit code 1)`);
+          resolve("No matches found");
+        } else {
+          console.log(`\u2699\uFE0F [execCommand] Command failed with stderr: ${stderr}`);
+          reject(new Error(`Command failed with code ${code}: ${stderr}`));
+        }
+      }
+    });
+    process2.on("error", (error) => {
+      if (!resolved) {
+        resolved = true;
+        clearTimeout(timeout);
+        console.log(`\u2699\uFE0F [execCommand] Process error:`, error);
+        reject(error);
       }
     });
   });
-}
-async function getRepoMap(repoPath) {
-  if (!repoPath) {
-    return "No repository path provided";
-  }
-  if (!fs2.existsSync(repoPath)) {
-    return "Repository not cloned yet";
-  }
-  try {
-    const result = await execCommand(
-      "git ls-tree -r --name-only HEAD | tree -L 3 --fromfile",
-      repoPath
-    );
-    return result;
-  } catch (error) {
-    return `Error getting repo map: ${error.message}`;
-  }
-}
-function getFileSummary(filePath, repoPath) {
-  if (!repoPath) {
-    return "No repository path provided";
-  }
-  const fullPath = path2.join(repoPath, filePath);
-  if (!fs2.existsSync(fullPath)) {
-    return "File not found";
-  }
-  try {
-    const content = fs2.readFileSync(fullPath, "utf-8");
-    const lines = content.split("\n").slice(0, 40).map((line) => {
-      return line.length > 200 ? line.substring(0, 200) + "..." : line;
-    });
-    return lines.join("\n");
-  } catch (error) {
-    return `Error reading file: ${error.message}`;
-  }
-}
-async function fulltextSearch(query, repoPath) {
-  if (!repoPath) {
-    return "No repository path provided";
-  }
-  if (!fs2.existsSync(repoPath)) {
-    return "Repository not cloned yet";
-  }
-  try {
-    const result = await execCommand(`rg -C 4 -n "${query}"`, repoPath);
-    return result;
-  } catch (error) {
-    if (error.message.includes("code 1")) {
-      return `No matches found for "${query}"`;
-    }
-    return `Error searching: ${error.message}`;
-  }
-}
-async function get_context(prompt, repoPath) {
-  const provider = process.env.LLM_PROVIDER || "anthropic";
-  const apiKey = getApiKeyForProvider(provider);
-  const model = await getModel(provider, apiKey);
-  const tools = {
-    repo_overview: tool({
-      description: "Get a high-level view of the codebase architecture and structure. Use this to understand the project layout and identify where specific functionality might be located. Call this when you need to: 1) Orient yourself in an unfamiliar codebase, 2) Locate which directories/files might contain relevant code for a user's question, 3) Understand the overall project structure before diving deeper. Don't call this if you already know which specific files you need to examine.",
-      inputSchema: z.object({}),
-      execute: async () => {
-        try {
-          return await getRepoMap(repoPath);
-        } catch (e) {
-          return "Could not retrieve repository map";
-        }
-      }
-    }),
-    file_summary: tool({
-      description: "Get a summary of what a specific file contains and its role in the codebase. Use this when you have identified a potentially relevant file and need to understand: 1) What functions/components it exports, 2) What its main responsibility is, 3) Whether it's worth exploring further for the user's question. Functions, imports, and top-level variables will be returned with their name and first 10 lines of code. If a summary can't be generated, the first 40 lines of the file will be returned. Call this with a hypothesis like 'This file probably handles user authentication' or 'This looks like the main dashboard component'. Don't call this to browse random files.",
-      inputSchema: z.object({
-        file_path: z.string().describe("Path to the file to summarize"),
-        hypothesis: z.string().describe(
-          "What you think this file might contain or handle, based on its name/location"
-        )
-      }),
-      execute: async ({ file_path }) => {
-        try {
-          return getFileSummary(file_path, repoPath);
-        } catch (e) {
-          return "Bad file path";
-        }
-      }
-    }),
-    fulltext_search: tool({
-      description: `Search the entire codebase for a specific term. Use this when you need to find a specific function, component, or file. Call this when the user provided specific text that might be present in the codebase. For example, if the query is 'Add a subtitle to the User Journeys page', you could call this with the query "User Journeys". Don't call this if you do not have specific text to search for`,
-      inputSchema: z.object({
-        query: z.string().describe("The term to search for")
-      }),
-      execute: async ({ query }) => {
-        try {
-          return await fulltextSearch(query, repoPath);
-        } catch (e) {
-          return `Search failed: ${e}`;
-        }
-      }
-    }),
-    final_answer: tool({
-      // The tool that signals the end of the process
-      description: GENERAL_FINAL_ANSWER_DESCRIPTION,
-      inputSchema: z.object({ answer: z.string() }),
-      execute: async ({ answer }) => answer
-    })
-  };
-  const system = GENERAL_EXPLORER;
-  const { steps } = await generateText({
-    model,
-    tools,
-    prompt,
-    system,
-    stopWhen: hasToolCall("final_answer"),
-    onStepFinish: (sf) => {
-      logStep(sf.content);
-    }
-  });
-  let final = "";
-  let lastText = "";
-  for (const step of steps) {
-    for (const item of step.content) {
-      if (item.type === "text" && item.text && item.text.trim().length > 0) {
-        lastText = item.text.trim();
-      }
-    }
-  }
-  steps.reverse();
-  for (const step of steps) {
-    const final_answer = step.content.find((c) => {
-      return c.type === "tool-result" && c.toolName === "final_answer";
-    });
-    if (final_answer) {
-      final = final_answer.output;
-    }
-  }
-  if (!final && lastText) {
-    console.warn(
-      "No final_answer tool call detected; falling back to last reasoning text."
-    );
-    final = `${lastText}
-
-(Note: Model did not invoke final_answer tool; using last reasoning text as answer.)`;
-  }
-  return final;
 }
 setTimeout(() => {
-  get_context(
-    "What are the key features of this codebase?",
-    "/Users/evanfeenstra/code/evanf/gitsee"
-  ).then((result) => {
-    console.log("Context:", result);
+  const cmd = `rg --glob '!dist' --ignore-file .gitignore -C 2 -n --max-count 10 --max-columns 200 "visualization"`;
+  execCommand(cmd, "/Users/evanfeenstra/code/evanf/gitsee", 5e3).then(
+    (result) => {
+      console.log("Search Result:", result);
+    }
+  ).catch((error) => {
+    console.log("Search Error:", error.message);
   });
 }, 1e3);
 
