@@ -1,0 +1,34 @@
+{
+  "name": "gitsee",
+  "version": "1.0.0",
+  "description": "Git repository visualizer using D3.js graph visualization",
+  "main": "src/main.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build", 
+    "preview": "vite preview",
+    "server": "tsx server/example.ts",
+    "lint": "eslint src --ext .js,.ts",
+    "format": "prettier --write src/**/*.{js,ts,html,css}"
+  },
+  "keywords": ["git", "visualization", "d3", "graph", "repository"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "d3": "^7.8.5",
+    "d3-force": "^3.0.0",
+    "d3-selection": "^3.0.0",
+    "d3-zoom": "^3.0.0",
+    "isomorphic-git": "^1.25.0",
+    "@octokit/rest": "^20.0.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.0.0",
+    "@types/d3": "^7.4.0",
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0"
+  }
+}
