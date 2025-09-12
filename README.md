@@ -1,3 +1,3 @@
 # gitsee
 
-![Screenshot](dist/screenshot.png)
+![Screenshot](screenshot.png)
