@@ -15,6 +15,7 @@ import {
   GitSeeResponse,
   GitSeeOptions
 } from "./types/index.js";
+import { RepoCloner } from "./agentic/index.js";
 
 export class GitSeeHandler {
   private octokit: Octokit;
@@ -95,6 +96,10 @@ export class GitSeeHandler {
   private async processRequest(request: GitSeeRequest): Promise<GitSeeResponse> {
     const { owner, repo, data } = request;
     const response: GitSeeResponse = {};
+
+    // 🚀 AGENTIC: Start background clone immediately (fire-and-forget)
+    console.log(`🔄 Starting background clone for ${owner}/${repo}...`);
+    RepoCloner.cloneInBackground(owner, repo);
 
     // Add visualization options to response
     if (this.options.visualization) {

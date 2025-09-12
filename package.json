@@ -20,20 +20,24 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.15",
     "@octokit/rest": "^20.0.0",
+    "ai": "^5.0.42",
+    "aieo": "^0.1.24",
     "d3": "^7.8.5",
     "d3-force": "^3.0.0",
     "d3-selection": "^3.0.0",
     "d3-zoom": "^3.0.0",
-    "isomorphic-git": "^1.25.0"
+    "isomorphic-git": "^1.25.0",
+    "zod": "^4.1.8"
   },
   "devDependencies": {
     "@types/d3": "^7.4.0",
     "@types/node": "^20.19.13",
     "eslint": "^8.57.0",
     "prettier": "^3.0.0",
+    "tsup": "^8.0.0",
     "tsx": "^4.0.0",
-    "typescript": "^5.0.0",
-    "tsup": "^8.0.0"
+    "typescript": "^5.0.0"
   }
 }
