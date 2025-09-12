@@ -322,6 +322,7 @@ var FilesResource = class extends BaseResource {
       // Configuration files
       { name: ".env.example", type: "config" },
       // Database & schemas
+      { name: "prisma/schema.prisma", type: "data" },
       { name: "schema.prisma", type: "data" },
       { name: "schema.sql", type: "data" },
       { name: "migrations.sql", type: "data" },
@@ -337,8 +338,6 @@ var FilesResource = class extends BaseResource {
       { name: "LICENSE", type: "other" },
       { name: "LICENSE.md", type: "other" },
       { name: "LICENSE.txt", type: "other" },
-      { name: ".gitignore", type: "other" },
-      { name: ".gitattributes", type: "other" },
       { name: "CODEOWNERS", type: "other" },
       { name: ".github/CODEOWNERS", type: "other" }
     ];

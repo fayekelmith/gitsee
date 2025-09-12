@@ -49,6 +49,7 @@ export class FilesResource extends BaseResource {
       { name: ".env.example", type: "config" as const },
 
       // Database & schemas
+      { name: "prisma/schema.prisma", type: "data" as const },
       { name: "schema.prisma", type: "data" as const },
       { name: "schema.sql", type: "data" as const },
       { name: "migrations.sql", type: "data" as const },
@@ -66,8 +67,6 @@ export class FilesResource extends BaseResource {
       { name: "LICENSE", type: "other" as const },
       { name: "LICENSE.md", type: "other" as const },
       { name: "LICENSE.txt", type: "other" as const },
-      { name: ".gitignore", type: "other" as const },
-      { name: ".gitattributes", type: "other" as const },
       { name: "CODEOWNERS", type: "other" as const },
       { name: ".github/CODEOWNERS", type: "other" as const },
     ];
@@ -100,7 +99,7 @@ export class FilesResource extends BaseResource {
 
     // Wait for all checks to complete and filter out null results
     const results = await Promise.all(fileCheckPromises);
-    foundFiles.push(...results.filter(file => file !== null));
+    foundFiles.push(...results.filter((file) => file !== null));
 
     console.log(`📁 Found ${foundFiles.length} key files in ${owner}/${repo}`);
 

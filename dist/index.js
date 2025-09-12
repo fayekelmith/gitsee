@@ -3329,9 +3329,8 @@ var FilesVisualization = class extends BaseVisualizationResource {
     const fileNodes = group.selectAll(".file-node").data(resourceData.nodes, (d) => d.id);
     fileNodes.exit().remove();
     const fileEnter = fileNodes.enter().append("g").attr("class", "file-node");
-    fileEnter.append("rect").attr("width", 30).attr("height", 20).attr("rx", 3).attr("ry", 3).attr("fill", "#4A90E2").attr("stroke", "#2C5282").attr("stroke-width", 1.5).attr("x", -15).attr("y", -10);
-    fileEnter.append("text").attr("class", "file-icon").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "10px").attr("fill", "white").attr("font-weight", "bold").text("\u{1F4C4}");
-    fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 18).attr("font-size", "10px").attr("fill", "#333").attr("font-family", "monospace").text((d) => d.name);
+    fileEnter.append("path").attr("class", "file-icon").attr("d", "M-8,-10 L3,-10 L8,-5 L8,10 L-8,10 Z M3,-10 L3,-5 L8,-5").attr("fill", "#666666").attr("stroke", "white").attr("stroke-width", "1.5").attr("stroke-linejoin", "round");
+    fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 22).attr("font-size", "11px").attr("fill", "#b6b6b6").attr("font-family", "system-ui, -apple-system, sans-serif").attr("font-weight", "500").text((d) => d.name);
     const allFileNodes = fileEnter.merge(fileNodes);
     allFileNodes.attr(
       "transform",
@@ -3343,9 +3342,8 @@ var FilesVisualization = class extends BaseVisualizationResource {
     const fileNodes = group.selectAll(".file-node").data(resourceData.nodes, (d) => d.id);
     fileNodes.exit().transition().duration(300).style("opacity", 0).remove();
     const fileEnter = fileNodes.enter().append("g").attr("class", "file-node").style("opacity", 0);
-    fileEnter.append("rect").attr("width", 30).attr("height", 20).attr("rx", 3).attr("ry", 3).attr("fill", "#4A90E2").attr("stroke", "#2C5282").attr("stroke-width", 1.5).attr("x", -15).attr("y", -10);
-    fileEnter.append("text").attr("class", "file-icon").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "10px").attr("fill", "white").attr("font-weight", "bold").text("\u{1F4C4}");
-    fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 18).attr("font-size", "10px").attr("fill", "#333").attr("font-family", "monospace").text((d) => d.name);
+    fileEnter.append("path").attr("class", "file-icon").attr("d", "M-8,-10 L3,-10 L8,-5 L8,10 L-8,10 Z M3,-10 L3,-5 L8,-5").attr("fill", "#666666").attr("stroke", "white").attr("stroke-width", "1.5").attr("stroke-linejoin", "round");
+    fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 22).attr("font-size", "11px").attr("fill", "#b6b6b6").attr("font-family", "system-ui, -apple-system, sans-serif").attr("font-weight", "500").text((d) => d.name);
     const allFileNodes = fileEnter.merge(fileNodes);
     allFileNodes.attr(
       "transform",
@@ -3353,7 +3351,9 @@ var FilesVisualization = class extends BaseVisualizationResource {
     ).transition().duration(600).ease(backOut).style("opacity", 1);
   }
   destroy() {
-    const group = this.context.container.select(`.${this.getResourceType()}-group`);
+    const group = this.context.container.select(
+      `.${this.getResourceType()}-group`
+    );
     group.remove();
   }
   getResourceType() {
@@ -3439,14 +3439,18 @@ var GitVisualizer = class {
           continue;
         }
         if (!this.checkCollision(testX, testY, radius)) {
-          console.log(`\u{1F300} Found collision-free position for ${nodeType} after ${attempts + 1} attempts`);
+          console.log(
+            `\u{1F300} Found collision-free position for ${nodeType} after ${attempts + 1} attempts`
+          );
           return { x: testX, y: testY };
         }
       }
       spiralRadius += spiralStep;
       attempts++;
     }
-    console.warn(`\u26A0\uFE0F Could not find collision-free position for ${nodeType}, using original`);
+    console.warn(
+      `\u26A0\uFE0F Could not find collision-free position for ${nodeType}, using original`
+    );
     return position;
   }
   registerOccupiedSpace(x, y, radius, nodeId) {
@@ -3460,19 +3464,19 @@ var GitVisualizer = class {
     const centerX = this.width / 2;
     const centerY = this.height / 2;
     const zones = {
-      "repo": { min: 0, max: 0 },
+      repo: { min: 0, max: 0 },
       // Center
-      "contributor": { min: 80, max: 120 },
+      contributor: { min: 80, max: 120 },
       // Inner ring
-      "file": { min: 140, max: 180 },
+      file: { min: 140, max: 180 },
       // Outer ring for files
-      "story": { min: 180, max: 220 },
+      story: { min: 180, max: 220 },
       // Future: user stories
-      "function": { min: 220, max: 260 },
+      function: { min: 220, max: 260 },
       // Future: functions
-      "component": { min: 260, max: 300 },
+      component: { min: 260, max: 300 },
       // Future: components
-      "schema": { min: 300, max: 340 }
+      schema: { min: 300, max: 340 }
       // Future: schemas
     };
     const zone = zones[nodeType] || zones["contributor"];
@@ -3488,36 +3492,18 @@ var GitVisualizer = class {
     const distance = baseDistance + distanceVariation;
     const x = centerX + Math.cos(angle) * distance;
     const y = centerY + Math.sin(angle) * distance;
-    console.log(`\u{1F331} ${nodeType}[${index}] positioned at (${Math.round(x)}, ${Math.round(y)}) - distance: ${Math.round(distance)}`);
+    console.log(
+      `\u{1F331} ${nodeType}[${index}] positioned at (${Math.round(x)}, ${Math.round(y)}) - distance: ${Math.round(distance)}`
+    );
     return { x, y };
   }
   // Public interface that includes collision detection
   calculateOrganicPosition(nodeType, index, contributions) {
     return this.findNonCollidingPosition(nodeType, index, contributions);
   }
-  /**
-   * 🔍 Master Zoom System
-   * Gradually zooms out to fit the growing graph
-   */
-  calculateBoundingBox() {
-    if (this.allNodes.length === 0) {
-      return { minX: 0, maxX: this.width, minY: 0, maxY: this.height };
-    }
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    this.allNodes.forEach((node) => {
-      if (node.x !== void 0 && node.y !== void 0) {
-        const radius = this.getNodeRadius(node.type, node.contributions);
-        minX = Math.min(minX, node.x - radius);
-        maxX = Math.max(maxX, node.x + radius);
-        minY = Math.min(minY, node.y - radius);
-        maxY = Math.max(maxY, node.y + radius);
-      }
-    });
-    return { minX, maxX, minY, maxY };
-  }
   // Track current zoom level
   calculateGradualZoomOut() {
-    this.currentZoom *= 0.98;
+    this.currentZoom *= 0.99;
     return Math.max(this.currentZoom, 0.1);
   }
   gradualZoomOut() {
@@ -3526,7 +3512,9 @@ var GitVisualizer = class {
     const repoY = this.height / 2;
     const transform2 = identity2.translate(repoX, repoY).scale(targetZoom).translate(-repoX, -repoY);
     this.svg.transition().duration(1200).ease(quadOut).call(this.context.zoom.transform, transform2);
-    console.log(`\u{1F50D} Gradual zoom out to ${targetZoom.toFixed(2)}x (repo stays centered)`);
+    console.log(
+      `\u{1F50D} Gradual zoom out to ${targetZoom.toFixed(2)}x (repo stays centered)`
+    );
   }
   async visualize(owner2, repo2) {
     try {
@@ -3558,7 +3546,12 @@ var GitVisualizer = class {
         const repoNode = repoResources.nodes[0];
         if (repoNode) {
           const repoRadius = this.getNodeRadius("repo");
-          this.registerOccupiedSpace(repoNode.x, repoNode.y, repoRadius, repoNode.id);
+          this.registerOccupiedSpace(
+            repoNode.x,
+            repoNode.y,
+            repoRadius,
+            repoNode.id
+          );
         }
         console.log("\u{1F4CD} Repository node created at center");
       }
@@ -3573,8 +3566,13 @@ var GitVisualizer = class {
         }, 500);
       }
       if (data.contributors) {
-        const contributors = data.contributors.sort((a, b) => b.contributions - a.contributions);
-        console.log("\u{1F4CA} Contributors sorted by contributions:", contributors.map((c) => `${c.login}: ${c.contributions}`));
+        const contributors = data.contributors.sort(
+          (a, b) => b.contributions - a.contributions
+        );
+        console.log(
+          "\u{1F4CA} Contributors sorted by contributions:",
+          contributors.map((c) => `${c.login}: ${c.contributions}`)
+        );
         const contributorDelay = data.icon ? 1e3 : 500;
         setTimeout(() => {
           this.addContributorsSequentially(contributors, 0, () => {
@@ -3582,9 +3580,12 @@ var GitVisualizer = class {
           });
         }, contributorDelay);
       } else {
-        setTimeout(() => {
-          this.addFilesAfterContributors(data.files || []);
-        }, data.icon ? 1e3 : 500);
+        setTimeout(
+          () => {
+            this.addFilesAfterContributors(data.files || []);
+          },
+          data.icon ? 1e3 : 500
+        );
       }
       console.log(`\u2705 Successfully started visualization for ${owner2}/${repo2}`);
     } catch (error) {
@@ -3604,7 +3605,9 @@ var GitVisualizer = class {
       })
     });
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `API request failed: ${response.status} ${response.statusText}`
+      );
     }
     return response.json();
   }
@@ -3632,9 +3635,17 @@ var GitVisualizer = class {
       return;
     }
     const contributor = contributors[index];
-    console.log(`\u{1F464} Adding contributor ${index + 1}/${contributors.length}: ${contributor.login}`);
-    const position = this.calculateOrganicPosition("contributor", index, contributor.contributions);
-    console.log(`\u{1F4CD} Positioning ${contributor.login} (${contributor.contributions} contributions) organically`);
+    console.log(
+      `\u{1F464} Adding contributor ${index + 1}/${contributors.length}: ${contributor.login}`
+    );
+    const position = this.calculateOrganicPosition(
+      "contributor",
+      index,
+      contributor.contributions
+    );
+    console.log(
+      `\u{1F4CD} Positioning ${contributor.login} (${contributor.contributions} contributions) organically`
+    );
     const contributorNode = {
       id: `contributor-${contributor.id}`,
       type: "contributor",
@@ -3644,8 +3655,16 @@ var GitVisualizer = class {
       x: position.x,
       y: position.y
     };
-    const nodeRadius = this.getNodeRadius("contributor", contributor.contributions);
-    this.registerOccupiedSpace(position.x, position.y, nodeRadius, contributorNode.id);
+    const nodeRadius = this.getNodeRadius(
+      "contributor",
+      contributor.contributions
+    );
+    this.registerOccupiedSpace(
+      position.x,
+      position.y,
+      nodeRadius,
+      contributorNode.id
+    );
     const contributorLink = {
       id: `link-repo-contributor-${contributor.id}`,
       source: "repo",
@@ -3657,8 +3676,12 @@ var GitVisualizer = class {
       links: [contributorLink]
     };
     this.addResources(contributorResources);
-    const allContributorNodes = this.allNodes.filter((n) => n.type === "contributor");
-    const allContributorLinks = this.allLinks.filter((l) => l.type === "contribution");
+    const allContributorNodes = this.allNodes.filter(
+      (n) => n.type === "contributor"
+    );
+    const allContributorLinks = this.allLinks.filter(
+      (l) => l.type === "contribution"
+    );
     this.contributorsViz.updateWithAnimation({
       nodes: allContributorNodes,
       links: []
@@ -3681,7 +3704,9 @@ var GitVisualizer = class {
       console.log("\u{1F4C1} No files to add");
       return;
     }
-    console.log(`\u{1F4C1} Adding ${files.length} files to visualization one by one...`);
+    console.log(
+      `\u{1F4C1} Adding ${files.length} files to visualization one by one...`
+    );
     setTimeout(() => {
       this.addFilesSequentially(files, 0);
     }, 500);
@@ -3694,7 +3719,9 @@ var GitVisualizer = class {
     const file = files[index];
     console.log(`\u{1F4C4} Adding file ${index + 1}/${files.length}: ${file.name}`);
     const position = this.calculateOrganicPosition("file", index);
-    console.log(`\u{1F4CD} Positioning ${file.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`);
+    console.log(
+      `\u{1F4CD} Positioning ${file.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`
+    );
     const fileNode = {
       id: `file-${file.name}`,
       type: "file",
@@ -3723,7 +3750,9 @@ var GitVisualizer = class {
       links: []
       // Files don't create their own links in visualization
     });
-    const allLinks = this.allLinks.filter((l) => l.type === "contribution" || l.type === "file");
+    const allLinks = this.allLinks.filter(
+      (l) => l.type === "contribution" || l.type === "file"
+    );
     this.linksViz.updateWithAnimation({
       nodes: [],
       links: allLinks
