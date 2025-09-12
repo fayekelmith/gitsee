@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig([
-  // Server build
+  // Server build - bundle all server files
   {
     entry: ["server/index.ts"],
     format: ["esm"],
@@ -10,6 +10,7 @@ export default defineConfig([
     dts: true,
     sourcemap: true,
     clean: false,
+    splitting: false, // Bundle everything into single file
   },
   // Client build  
   {

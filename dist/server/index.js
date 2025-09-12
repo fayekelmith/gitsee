@@ -1,5 +1,7 @@
-// server/index.ts
+// server/handler.ts
 import { Octokit } from "@octokit/rest";
+
+// server/utils/cache.ts
 var GitSeeCache = class {
   constructor(ttl = 300) {
     this.cache = /* @__PURE__ */ new Map();
@@ -24,135 +26,59 @@ var GitSeeCache = class {
     this.cache.clear();
   }
 };
-var GitSeeHandler = class {
-  constructor(options = {}) {
-    this.octokit = new Octokit({
-      auth: options.token
-    });
-    this.cache = new GitSeeCache(options.cache?.ttl);
+
+// server/resources/base.ts
+var BaseResource = class {
+  constructor(octokit, cache) {
+    this.octokit = octokit;
+    this.cache = cache;
   }
-  async handle(req, res) {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    if (req.method === "OPTIONS") {
-      res.writeHead(200);
-      res.end();
-      return;
-    }
-    if (req.method !== "POST") {
-      res.writeHead(405, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Method not allowed" }));
-      return;
-    }
-    try {
-      const body = await this.parseRequestBody(req);
-      const request = JSON.parse(body);
-      const response = await this.processRequest(request);
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify(response));
-    } catch (error) {
-      console.error("GitSee handler error:", error);
-      res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(
-        JSON.stringify({
-          error: error instanceof Error ? error.message : "Internal server error"
-        })
-      );
-    }
+  getCacheKey(owner, repo, type) {
+    return `${type}:${owner}/${repo}`;
   }
-  async parseRequestBody(req) {
-    return new Promise((resolve, reject) => {
-      let body = "";
-      req.on("data", (chunk) => body += chunk);
-      req.on("end", () => resolve(body));
-      req.on("error", reject);
-    });
+  async getCached(owner, repo, type) {
+    const cacheKey = this.getCacheKey(owner, repo, type);
+    return this.cache.get(cacheKey);
   }
-  async processRequest(request) {
-    const { owner, repo, data } = request;
-    const response = {};
-    if (!owner || !repo) {
-      throw new Error("Owner and repo are required");
-    }
-    if (!Array.isArray(data) || data.length === 0) {
-      throw new Error("Data array is required and must not be empty");
-    }
-    for (const dataType of data) {
-      switch (dataType) {
-        case "repo_info":
-          response.repo = await this.getRepoInfo(owner, repo);
-          break;
-        case "contributors":
-          response.contributors = await this.getContributors(owner, repo);
-          break;
-        case "icon":
-          console.log(`\u{1F50D} Fetching icon for ${owner}/${repo}...`);
-          response.icon = await this.getRepoIcon(owner, repo);
-          console.log(`\u{1F4F7} Icon result:`, response.icon ? "Found" : "Not found");
-          break;
-        case "commits":
-          response.commits = await this.getCommits(owner, repo);
-          break;
-        case "branches":
-          response.branches = await this.getBranches(owner, repo);
-          break;
-        default:
-          console.warn(`Unknown data type: ${dataType}`);
-      }
-    }
-    return response;
-  }
-  async getRepoInfo(owner, repo) {
-    const cacheKey = `repo:${owner}/${repo}`;
-    const cached = this.cache.get(cacheKey);
-    if (cached) return cached;
-    const response = await this.octokit.rest.repos.get({ owner, repo });
-    const data = response.data;
+  setCached(owner, repo, type, data) {
+    const cacheKey = this.getCacheKey(owner, repo, type);
     this.cache.set(cacheKey, data);
-    return data;
   }
+};
+
+// server/resources/contributors.ts
+var ContributorsResource = class extends BaseResource {
   async getContributors(owner, repo) {
-    const cacheKey = `contributors:${owner}/${repo}`;
-    const cached = this.cache.get(cacheKey);
-    if (cached) return cached;
-    const response = await this.octokit.rest.repos.listContributors({
-      owner,
-      repo,
-      per_page: 50
-    });
-    const data = response.data;
-    this.cache.set(cacheKey, data);
-    return data;
+    const cached = await this.getCached(owner, repo, "contributors");
+    if (cached) {
+      console.log(`\u{1F4BE} Cache hit for contributors: ${owner}/${repo}`);
+      return cached;
+    }
+    console.log(`\u{1F4E1} Fetching contributors for ${owner}/${repo}...`);
+    try {
+      const response = await this.octokit.rest.repos.listContributors({
+        owner,
+        repo,
+        per_page: 50
+      });
+      const contributors = response.data;
+      console.log(`\u{1F465} Found ${contributors.length} contributors`);
+      this.setCached(owner, repo, "contributors", contributors);
+      return contributors;
+    } catch (error) {
+      console.error(`\u{1F4A5} Error fetching contributors for ${owner}/${repo}:`, error.message);
+      if (error.status === 403 || error.message?.includes("rate limit")) {
+        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for contributors! Using token:`, !!this.octokit.auth);
+      }
+      throw error;
+    }
   }
-  async getCommits(owner, repo) {
-    const cacheKey = `commits:${owner}/${repo}`;
-    const cached = this.cache.get(cacheKey);
-    if (cached) return cached;
-    const response = await this.octokit.rest.repos.listCommits({
-      owner,
-      repo,
-      per_page: 50
-    });
-    const data = response.data;
-    this.cache.set(cacheKey, data);
-    return data;
-  }
-  async getBranches(owner, repo) {
-    const cacheKey = `branches:${owner}/${repo}`;
-    const cached = this.cache.get(cacheKey);
-    if (cached) return cached;
-    const response = await this.octokit.rest.repos.listBranches({
-      owner,
-      repo
-    });
-    const data = response.data;
-    this.cache.set(cacheKey, data);
-    return data;
-  }
+};
+
+// server/resources/icons.ts
+var IconsResource = class extends BaseResource {
   async getRepoIcon(owner, repo) {
-    const cacheKey = `icon:${owner}/${repo}`;
-    const cached = this.cache.get(cacheKey);
+    const cached = await this.getCached(owner, repo, "icon");
     if (cached !== void 0) {
       console.log(`\u{1F4BE} Cache hit for ${owner}/${repo} icon:`, cached ? "Found" : "Not found");
       console.log(`\u{1F504} Clearing cache to retry (checking for rate limits)...`);
@@ -168,7 +94,7 @@ var GitSeeHandler = class {
       });
       if (!Array.isArray(rootContents.data)) {
         console.log(`\u274C Root contents not an array`);
-        this.cache.set(cacheKey, null);
+        this.setCached(owner, repo, "icon", null);
         return null;
       }
       console.log(`\u{1F4C2} Found ${rootContents.data.length} files in root`);
@@ -188,6 +114,7 @@ var GitSeeHandler = class {
           (item) => item.name === subdir && item.type === "dir"
         );
         if (subdirExists) {
+          console.log(`\u{1F4C2} Checking ${subdir}/ directory...`);
           try {
             const subdirContents = await this.octokit.rest.repos.getContent({
               owner,
@@ -195,40 +122,51 @@ var GitSeeHandler = class {
               path: subdir
             });
             if (Array.isArray(subdirContents.data)) {
+              console.log(`\u{1F4C2} ${subdir}/ contents:`, subdirContents.data.map((f) => f.name));
               const subdirIcons = subdirContents.data.filter((file) => {
                 const name = file.name.toLowerCase();
-                return name.includes("favicon") || name.includes("logo") || name.includes("icon");
+                const isIcon = name.includes("favicon") || name.includes("logo") || name.includes("icon");
+                if (isIcon) {
+                  console.log(`\u{1F3AF} Found potential icon in ${subdir}/: ${file.name}`);
+                }
+                return isIcon;
               });
-              iconFiles.push(
-                ...subdirIcons.map((f) => ({
-                  ...f,
-                  path: `${subdir}/${f.name}`
-                }))
-              );
+              iconFiles.push(...subdirIcons.map((f) => ({ ...f, path: `${subdir}/${f.name}` })));
             }
           } catch (error) {
+            console.log(`\u26A0\uFE0F  Could not access ${subdir}/ directory`);
             continue;
           }
         }
       }
+      console.log(`\u{1F4CA} Total icon files found: ${iconFiles.length}`);
       const sortedIcons = this.sortIconsByResolution(iconFiles);
+      console.log("\u{1F3C6} Sorted icon priority:", sortedIcons.map((f) => f.path || f.name));
       for (const iconFile of sortedIcons) {
+        const filePath = iconFile.path || iconFile.name;
+        console.log(`\u{1F4E5} Attempting to fetch: ${filePath}`);
         try {
           const iconResponse = await this.octokit.rest.repos.getContent({
             owner,
             repo,
-            path: iconFile.path || iconFile.name
+            path: filePath
           });
           if ("content" in iconResponse.data && iconResponse.data.content) {
             const iconData = `data:image/png;base64,${iconResponse.data.content}`;
-            this.cache.set(cacheKey, iconData);
+            console.log(`\u2705 Successfully loaded icon: ${filePath}`);
+            console.log(`\u{1F4CA} Icon data length: ${iconData.length} chars`);
+            this.setCached(owner, repo, "icon", iconData);
             return iconData;
+          } else {
+            console.log(`\u274C No content in response for: ${filePath}`);
           }
         } catch (error) {
+          console.log(`\u274C Failed to load: ${filePath}`);
           continue;
         }
       }
-      this.cache.set(cacheKey, null);
+      console.log("\u274C No icons could be loaded");
+      this.setCached(owner, repo, "icon", null);
       return null;
     } catch (error) {
       console.error(`\u{1F4A5} ERROR fetching repo icon for ${owner}/${repo}:`, error);
@@ -236,7 +174,7 @@ var GitSeeHandler = class {
         console.error(`\u23F1\uFE0F  RATE LIMIT HIT! Error:`, error.message);
         console.error(`\u{1F511} Using token:`, !!this.octokit.auth);
       }
-      this.cache.set(cacheKey, null);
+      this.setCached(owner, repo, "icon", null);
       return null;
     }
   }
@@ -261,12 +199,199 @@ var GitSeeHandler = class {
     });
   }
 };
+
+// server/resources/repository.ts
+var RepositoryResource = class extends BaseResource {
+  async getRepoInfo(owner, repo) {
+    const cached = await this.getCached(owner, repo, "repo");
+    if (cached) {
+      console.log(`\u{1F4BE} Cache hit for repo info: ${owner}/${repo}`);
+      return cached;
+    }
+    console.log(`\u{1F4E1} Fetching repository info for ${owner}/${repo}...`);
+    try {
+      const response = await this.octokit.rest.repos.get({ owner, repo });
+      const repoData = response.data;
+      console.log(`\u{1F4CB} Repository info loaded: ${repoData.full_name}`);
+      this.setCached(owner, repo, "repo", repoData);
+      return repoData;
+    } catch (error) {
+      console.error(`\u{1F4A5} Error fetching repository info for ${owner}/${repo}:`, error.message);
+      if (error.status === 403 || error.message?.includes("rate limit")) {
+        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for repository! Using token:`, !!this.octokit.auth);
+      }
+      throw error;
+    }
+  }
+};
+
+// server/resources/commits.ts
+var CommitsResource = class extends BaseResource {
+  async getCommits(owner, repo) {
+    const cached = await this.getCached(owner, repo, "commits");
+    if (cached) {
+      console.log(`\u{1F4BE} Cache hit for commits: ${owner}/${repo}`);
+      return cached;
+    }
+    console.log(`\u{1F4E1} Fetching commits for ${owner}/${repo}...`);
+    try {
+      const response = await this.octokit.rest.repos.listCommits({
+        owner,
+        repo,
+        per_page: 50
+      });
+      const commits = response.data;
+      console.log(`\u{1F4DD} Found ${commits.length} commits`);
+      this.setCached(owner, repo, "commits", commits);
+      return commits;
+    } catch (error) {
+      console.error(`\u{1F4A5} Error fetching commits for ${owner}/${repo}:`, error.message);
+      if (error.status === 403 || error.message?.includes("rate limit")) {
+        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for commits! Using token:`, !!this.octokit.auth);
+      }
+      throw error;
+    }
+  }
+};
+
+// server/resources/branches.ts
+var BranchesResource = class extends BaseResource {
+  async getBranches(owner, repo) {
+    const cached = await this.getCached(owner, repo, "branches");
+    if (cached) {
+      console.log(`\u{1F4BE} Cache hit for branches: ${owner}/${repo}`);
+      return cached;
+    }
+    console.log(`\u{1F4E1} Fetching branches for ${owner}/${repo}...`);
+    try {
+      const response = await this.octokit.rest.repos.listBranches({
+        owner,
+        repo
+      });
+      const branches = response.data;
+      console.log(`\u{1F33F} Found ${branches.length} branches`);
+      this.setCached(owner, repo, "branches", branches);
+      return branches;
+    } catch (error) {
+      console.error(`\u{1F4A5} Error fetching branches for ${owner}/${repo}:`, error.message);
+      if (error.status === 403 || error.message?.includes("rate limit")) {
+        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for branches! Using token:`, !!this.octokit.auth);
+      }
+      throw error;
+    }
+  }
+};
+
+// server/handler.ts
+var GitSeeHandler = class {
+  constructor(options = {}) {
+    this.octokit = new Octokit({
+      auth: options.token
+    });
+    this.cache = new GitSeeCache(options.cache?.ttl);
+    this.contributors = new ContributorsResource(this.octokit, this.cache);
+    this.icons = new IconsResource(this.octokit, this.cache);
+    this.repository = new RepositoryResource(this.octokit, this.cache);
+    this.commits = new CommitsResource(this.octokit, this.cache);
+    this.branches = new BranchesResource(this.octokit, this.cache);
+  }
+  async handle(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    if (req.method === "OPTIONS") {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+    try {
+      const body = await this.parseRequestBody(req);
+      const request = JSON.parse(body);
+      const response = await this.processRequest(request);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(response));
+    } catch (error) {
+      console.error("GitSee handler error:", error);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        error: error instanceof Error ? error.message : "Internal server error"
+      }));
+    }
+  }
+  async parseRequestBody(req) {
+    return new Promise((resolve, reject) => {
+      let body = "";
+      req.on("data", (chunk) => body += chunk);
+      req.on("end", () => resolve(body));
+      req.on("error", reject);
+    });
+  }
+  async processRequest(request) {
+    const { owner, repo, data } = request;
+    const response = {};
+    if (!owner || !repo) {
+      throw new Error("Owner and repo are required");
+    }
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("Data array is required and must not be empty");
+    }
+    console.log(`\u{1F50D} Processing request for ${owner}/${repo} with data: [${data.join(", ")}]`);
+    for (const dataType of data) {
+      try {
+        switch (dataType) {
+          case "repo_info":
+            console.log(`\u{1F50D} Fetching repository info for ${owner}/${repo}...`);
+            response.repo = await this.repository.getRepoInfo(owner, repo);
+            console.log(`\u{1F4CB} Repository info result: Found`);
+            break;
+          case "contributors":
+            console.log(`\u{1F50D} Fetching contributors for ${owner}/${repo}...`);
+            response.contributors = await this.contributors.getContributors(owner, repo);
+            console.log(`\u{1F465} Contributors result: ${response.contributors?.length || 0} found`);
+            break;
+          case "icon":
+            console.log(`\u{1F50D} Fetching icon for ${owner}/${repo}...`);
+            response.icon = await this.icons.getRepoIcon(owner, repo);
+            console.log(`\u{1F4F7} Icon result:`, response.icon ? "Found" : "Not found");
+            break;
+          case "commits":
+            console.log(`\u{1F50D} Fetching commits for ${owner}/${repo}...`);
+            response.commits = await this.commits.getCommits(owner, repo);
+            console.log(`\u{1F4DD} Commits result: ${response.commits?.length || 0} found`);
+            break;
+          case "branches":
+            console.log(`\u{1F50D} Fetching branches for ${owner}/${repo}...`);
+            response.branches = await this.branches.getBranches(owner, repo);
+            console.log(`\u{1F33F} Branches result: ${response.branches?.length || 0} found`);
+            break;
+          default:
+            console.warn(`\u26A0\uFE0F  Unknown data type: ${dataType}`);
+        }
+      } catch (error) {
+        console.error(`\u{1F4A5} Error processing ${dataType} for ${owner}/${repo}:`, error);
+      }
+    }
+    return response;
+  }
+};
 function createGitSeeHandler(options = {}) {
   const handler = new GitSeeHandler(options);
   return (req, res) => handler.handle(req, res);
 }
 export {
+  BaseResource,
+  BranchesResource,
+  CommitsResource,
+  ContributorsResource,
+  GitSeeCache,
   GitSeeHandler,
+  IconsResource,
+  RepositoryResource,
   createGitSeeHandler
 };
 //# sourceMappingURL=index.js.map

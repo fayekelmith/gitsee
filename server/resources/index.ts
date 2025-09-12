@@ -1,0 +1,6 @@
+export { BaseResource } from "./base.js";
+export { ContributorsResource } from "./contributors.js";
+export { IconsResource } from "./icons.js";
+export { RepositoryResource } from "./repository.js";
+export { CommitsResource } from "./commits.js";
+export { BranchesResource } from "./branches.js";
