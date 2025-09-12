@@ -159,7 +159,7 @@ export async function get_context(
 }
 
 setTimeout(() => {
-  // return;
+  return;
   get_context(
     "What are the key features of this codebase?",
     "/Users/evanfeenstra/code/sphinx2/hive",

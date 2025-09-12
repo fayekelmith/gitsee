@@ -50,9 +50,14 @@ export class StatsVisualization extends BaseVisualizationResource {
       .append('g')
       .attr('class', 'stat-node');
     
-    // Add background circles for stats
-    statEnter.append('circle')
-      .attr('r', 20)
+    // Add background rectangles for stats
+    statEnter.append('rect')
+      .attr('width', 40)
+      .attr('height', 30)
+      .attr('x', -20)
+      .attr('y', -15)
+      .attr('rx', 4)
+      .attr('ry', 4)
       .attr('fill', '#2D3748')
       .attr('stroke', '#4A5568')
       .attr('stroke-width', '2');
@@ -96,9 +101,14 @@ export class StatsVisualization extends BaseVisualizationResource {
       .attr('class', 'stat-node')
       .style('opacity', 0); // Start invisible
     
-    // Add background circles for stats
-    statEnter.append('circle')
-      .attr('r', 20)
+    // Add background rectangles for stats
+    statEnter.append('rect')
+      .attr('width', 40)
+      .attr('height', 30)
+      .attr('x', -20)
+      .attr('y', -15)
+      .attr('rx', 4)
+      .attr('ry', 4)
       .attr('fill', '#2D3748')
       .attr('stroke', '#4A5568')
       .attr('stroke-width', '2');

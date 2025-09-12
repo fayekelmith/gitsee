@@ -3103,18 +3103,18 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
     nodeEnter.each((d, i, nodes2) => {
       const node = select_default2(nodes2[i]);
       if (d.avatar) {
-        const repoRadius = 25;
+        const repoRadius = 35;
         const fillPattern = this.createAvatarPattern(d, repoRadius);
-        const circle = node.append("circle").attr("r", repoRadius).style("fill", fillPattern).style("stroke", "#0969da").style("stroke-width", "2px");
+        const circle = node.append("circle").attr("r", repoRadius).style("fill", fillPattern);
         circle.style("opacity", 0.7).transition().duration(300).style("opacity", 1);
       } else {
-        node.append("circle").attr("r", 25).style("fill", "#1f6feb").style("stroke", "#0969da").style("stroke-width", "2px");
+        node.append("circle").attr("r", 35).style("fill", "#1f6feb").style("stroke", "#0969da").style("stroke-width", "2px");
         node.append("path").attr(
           "d",
           "M-8,-8 L8,-8 L8,8 L-8,8 Z M-6,-6 L6,-6 M-6,-3 L6,-3 M-6,0 L6,0 M-6,3 L6,3 M-6,6 L6,6"
         ).style("fill", "none").style("stroke", "white").style("stroke-width", "1.5px");
       }
-      this.createNodeLabel(node, d, 35);
+      this.createNodeLabel(node, d, 45);
     });
     nodes.each((d, i, nodeElements) => {
       const node = select_default2(nodeElements[i]);
@@ -3124,9 +3124,9 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
         if (!currentFill || currentFill.indexOf("url(") === -1) {
           console.log("\u{1F5BC}\uFE0F Updating existing repo node with avatar");
           node.select("path").remove();
-          const repoRadius = 25;
+          const repoRadius = 35;
           const fillPattern = this.createAvatarPattern(d, repoRadius);
-          existingCircle.style("fill", fillPattern).style("opacity", 0.7).transition().duration(300).style("opacity", 1);
+          existingCircle.style("fill", fillPattern).style("stroke", "none").style("opacity", 0.7).transition().duration(300).style("opacity", 1);
         }
       }
     });
@@ -3414,7 +3414,7 @@ var StatsVisualization = class extends BaseVisualizationResource {
     const statNodes = group.selectAll(".stat-node").data(resourceData.nodes, (d) => d.id);
     statNodes.exit().remove();
     const statEnter = statNodes.enter().append("g").attr("class", "stat-node");
-    statEnter.append("circle").attr("r", 20).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+    statEnter.append("rect").attr("width", 40).attr("height", 30).attr("x", -20).attr("y", -15).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
     statEnter.append("text").attr("class", "stat-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
     const allStatNodes = statEnter.merge(statNodes);
     allStatNodes.attr(
@@ -3427,7 +3427,7 @@ var StatsVisualization = class extends BaseVisualizationResource {
     const statNodes = group.selectAll(".stat-node").data(resourceData.nodes, (d) => d.id);
     statNodes.exit().transition().duration(300).style("opacity", 0).remove();
     const statEnter = statNodes.enter().append("g").attr("class", "stat-node").style("opacity", 0);
-    statEnter.append("circle").attr("r", 20).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+    statEnter.append("rect").attr("width", 40).attr("height", 30).attr("x", -20).attr("y", -15).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
     statEnter.append("text").attr("class", "stat-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
     const allStatNodes = statEnter.merge(statNodes);
     allStatNodes.attr(
@@ -3452,8 +3452,23 @@ var GitVisualizer = class {
     this.allLinks = [];
     // Collision detection system
     this.occupiedSpaces = [];
-    // Configurable timing
+    // Configurable timing and animation
     this.nodeDelay = 800;
+    this.zoomSpeed = 1;
+    // 1 = normal, 2 = faster, 0.5 = slower
+    // Spiral positioning configuration - distances from base radius
+    this.spiralDistances = {
+      repo: 40,
+      // Repository nodes (not used much since repo is centered)
+      contributor: 40,
+      // Contributors start close to center  
+      stat: 40,
+      // Stats close to center
+      file: 80,
+      // Files farther out for better separation
+      default: 40
+      // Fallback for any other node types
+    };
     this.currentZoom = 1;
     this.width = window.innerWidth;
     this.height = window.innerHeight;
@@ -3485,7 +3500,7 @@ var GitVisualizer = class {
    * 🔍 Collision Detection System
    */
   getNodeRadius(nodeType, contributions) {
-    if (nodeType === "repo") return 25;
+    if (nodeType === "repo") return 35;
     if (nodeType === "file") return 18;
     if (nodeType === "stat") return 22;
     const baseRadius = 16;
@@ -3511,7 +3526,8 @@ var GitVisualizer = class {
       return position;
     }
     const spiralStep = 20;
-    let spiralRadius = radius + 40;
+    const spiralDistance = this.spiralDistances[nodeType] || this.spiralDistances.default;
+    let spiralRadius = radius + spiralDistance;
     let attempts = 0;
     const maxAttempts = 50;
     while (attempts < maxAttempts) {
@@ -3590,7 +3606,8 @@ var GitVisualizer = class {
   }
   // Track current zoom level
   calculateGradualZoomOut() {
-    this.currentZoom *= 0.99;
+    const zoomFactor = 1 - this.zoomSpeed * 0.01;
+    this.currentZoom *= zoomFactor;
     return Math.max(this.currentZoom, 0.1);
   }
   gradualZoomOut() {
@@ -3842,7 +3859,7 @@ var GitVisualizer = class {
       (n) => n.type === "contributor"
     );
     const allContributorLinks = this.allLinks.filter(
-      (l) => l.type === "contribution"
+      (l) => l.type === "contribution" || l.type === "stat"
     );
     this.contributorsViz.updateWithAnimation({
       nodes: allContributorNodes,
@@ -3913,7 +3930,7 @@ var GitVisualizer = class {
       // Files don't create their own links in visualization
     });
     const allLinks = this.allLinks.filter(
-      (l) => l.type === "contribution" || l.type === "file"
+      (l) => l.type === "contribution" || l.type === "file" || l.type === "stat"
     );
     this.linksViz.updateWithAnimation({
       nodes: [],

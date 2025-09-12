@@ -454,7 +454,7 @@ var StatsResource = class extends BaseResource {
   }
 };
 
-// server/agentic/repo-cloner.ts
+// server/agent/repo-cloner.ts
 import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
@@ -603,11 +603,11 @@ var RepoCloner = class {
 };
 RepoCloner.BASE_PATH = "/tmp/gitsee";
 
-// server/agentic/explore.ts
+// server/agent/explore.ts
 import { generateText, tool, hasToolCall } from "ai";
 import { getModel, getApiKeyForProvider } from "aieo";
 
-// server/agentic/prompts.ts
+// server/agent/prompts.ts
 var FIRST_PASS_EXPLORER = `
 You are a codebase exploration assistant. Use the provided tools to quickly explore the codebase and get a high-level understanding. DONT GO DEEP. Focus on general language and framework, specific core libraries, integrations, and features. Try to understand the main user story of the codebase just by looking at the file structure. YOU NEED TO RETURN AN ANSWER AS FAST AS POSSIBLE! So the best approach is 3-4 tool calls only: 1) repo_overview 2) file_summary of the package.json (or other main package file), 3) The main router file of page/endpoint names, ONLY if you can identify it first try, and 4) final_answer. DO NOT GO DEEPER THAN THIS.
 `;
@@ -648,10 +648,10 @@ Return a simple JSON object with the following fields:
 }
 `;
 
-// server/agentic/explore.ts
+// server/agent/explore.ts
 import { z } from "zod";
 
-// server/agentic/tools.ts
+// server/agent/tools.ts
 import { spawn as spawn2 } from "child_process";
 import * as fs2 from "fs";
 import * as path2 from "path";
@@ -789,7 +789,7 @@ async function fulltextSearch(query, repoPath) {
   }
 }
 
-// server/agentic/explore.ts
+// server/agent/explore.ts
 function logStep(contents) {
   if (!Array.isArray(contents)) return;
   for (const content of contents) {
@@ -908,6 +908,7 @@ async function get_context(prompt, repoPath, mode = "general") {
   return final;
 }
 setTimeout(() => {
+  return;
   get_context(
     "What are the key features of this codebase?",
     "/Users/evanfeenstra/code/sphinx2/hive",

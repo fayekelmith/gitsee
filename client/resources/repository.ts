@@ -70,14 +70,12 @@ export class RepositoryVisualization extends BaseVisualizationResource {
 
       if (d.avatar) {
         // Create avatar pattern and use it as fill (pass radius, not diameter)
-        const repoRadius = 25;
+        const repoRadius = 35;
         const fillPattern = this.createAvatarPattern(d, repoRadius);
         const circle = node
           .append("circle")
           .attr("r", repoRadius)
-          .style("fill", fillPattern)
-          .style("stroke", "#0969da")
-          .style("stroke-width", "2px");
+          .style("fill", fillPattern);
 
         // Add subtle pulse animation for icon loading
         circle
@@ -89,7 +87,7 @@ export class RepositoryVisualization extends BaseVisualizationResource {
         // Default repo styling with fallback icon
         node
           .append("circle")
-          .attr("r", 25)
+          .attr("r", 35)
           .style("fill", "#1f6feb")
           .style("stroke", "#0969da")
           .style("stroke-width", "2px");
@@ -107,7 +105,7 @@ export class RepositoryVisualization extends BaseVisualizationResource {
       }
 
       // Add label
-      this.createNodeLabel(node, d, 35);
+      this.createNodeLabel(node, d, 45);
     });
 
     // Update existing nodes that now have avatars (for icon loading)
@@ -124,10 +122,11 @@ export class RepositoryVisualization extends BaseVisualizationResource {
           // Remove the fallback GitHub folder icon first
           node.select("path").remove();
 
-          const repoRadius = 25;
+          const repoRadius = 35;
           const fillPattern = this.createAvatarPattern(d, repoRadius);
           existingCircle
             .style("fill", fillPattern)
+            .style("stroke", "none")
             .style("opacity", 0.7)
             .transition()
             .duration(300)

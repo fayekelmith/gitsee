@@ -39,8 +39,18 @@ class GitVisualizer {
     nodeId: string;
   }> = [];
 
-  // Configurable timing
+  // Configurable timing and animation
   private nodeDelay: number = 800;
+  private zoomSpeed: number = 1; // 1 = normal, 2 = faster, 0.5 = slower
+
+  // Spiral positioning configuration - distances from base radius
+  private spiralDistances = {
+    repo: 40,        // Repository nodes (not used much since repo is centered)
+    contributor: 40, // Contributors start close to center  
+    stat: 40,        // Stats close to center
+    file: 80,        // Files farther out for better separation
+    default: 40      // Fallback for any other node types
+  };
 
   constructor() {
     this.width = window.innerWidth;
@@ -89,7 +99,7 @@ class GitVisualizer {
    * 🔍 Collision Detection System
    */
   private getNodeRadius(nodeType: string, contributions?: number): number {
-    if (nodeType === "repo") return 25;
+    if (nodeType === "repo") return 35;
     if (nodeType === "file") return 18; // Files are rectangular but use this for collision
     if (nodeType === "stat") return 22; // Stats are circles
     // For contributors, calculate size based on contributions
@@ -128,7 +138,9 @@ class GitVisualizer {
 
     // If collision, try spiraling outward from the original position
     const spiralStep = 20;
-    let spiralRadius = radius + 40;
+    // Use configured spiral distance for this node type
+    const spiralDistance = this.spiralDistances[nodeType as keyof typeof this.spiralDistances] || this.spiralDistances.default;
+    let spiralRadius = radius + spiralDistance;
     let attempts = 0;
     const maxAttempts = 50;
 
@@ -243,8 +255,9 @@ class GitVisualizer {
   private currentZoom: number = 1.0; // Track current zoom level
 
   private calculateGradualZoomOut(): number {
-    // Much more gradual zoom out - reduce by 1% each time
-    this.currentZoom *= 0.99;
+    // Configurable zoom speed - zoomSpeed of 1 = 1% reduction, 2 = 2% reduction, etc.
+    const zoomFactor = 1 - (this.zoomSpeed * 0.01);
+    this.currentZoom *= zoomFactor;
 
     // Don't go below 0.1x zoom
     return Math.max(this.currentZoom, 0.1);
@@ -594,7 +607,7 @@ class GitVisualizer {
       (n) => n.type === "contributor"
     );
     const allContributorLinks = this.allLinks.filter(
-      (l) => l.type === "contribution"
+      (l) => l.type === "contribution" || l.type === "stat"
     );
 
     // Update visualization with all contributors (so previous ones don't disappear)
@@ -603,7 +616,7 @@ class GitVisualizer {
       links: [], // Contributors don't create their own links
     });
 
-    // Update links with all contributor links
+    // Update links with all contributor links + stat links
     this.linksViz.updateWithAnimation({
       nodes: [],
       links: allContributorLinks,
@@ -690,9 +703,9 @@ class GitVisualizer {
       links: [], // Files don't create their own links in visualization
     });
 
-    // Update links with all file links + contribution links
+    // Update links with all file links + contribution links + stat links
     const allLinks = this.allLinks.filter(
-      (l) => l.type === "contribution" || l.type === "file"
+      (l) => l.type === "contribution" || l.type === "file" || l.type === "stat"
     );
     this.linksViz.updateWithAnimation({
       nodes: [],
