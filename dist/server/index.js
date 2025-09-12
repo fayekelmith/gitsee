@@ -630,17 +630,11 @@ Return a simple JSON object with the following fields:
 
 // server/agentic/explore.ts
 import { z } from "zod";
+
+// server/agentic/tools.ts
 import { spawn as spawn2 } from "child_process";
 import * as fs2 from "fs";
 import * as path2 from "path";
-function logStep(contents) {
-  if (!Array.isArray(contents)) return;
-  for (const content of contents) {
-    if (content.type === "tool-call" && content.toolName !== "final_answer") {
-      console.log("TOOL CALL:", content.toolName, ":", content.input);
-    }
-  }
-}
 function execCommand(command, cwd, timeoutMs = 1e4) {
   return new Promise((resolve, reject) => {
     const parts = command.split(" ");
@@ -774,7 +768,18 @@ async function fulltextSearch(query, repoPath) {
     return `Error searching: ${error.message}`;
   }
 }
+
+// server/agentic/explore.ts
+function logStep(contents) {
+  if (!Array.isArray(contents)) return;
+  for (const content of contents) {
+    if (content.type === "tool-call" && content.toolName !== "final_answer") {
+      console.log("TOOL CALL:", content.toolName, ":", content.input);
+    }
+  }
+}
 async function get_context(prompt, repoPath) {
+  const startTime = Date.now();
   const provider = process.env.LLM_PROVIDER || "anthropic";
   const apiKey = getApiKeyForProvider(provider);
   const model = await getModel(provider, apiKey);
@@ -860,6 +865,11 @@ async function get_context(prompt, repoPath) {
 
 (Note: Model did not invoke final_answer tool; using last reasoning text as answer.)`;
   }
+  const endTime = Date.now();
+  const duration = endTime - startTime;
+  console.log(
+    `\u23F1\uFE0F get_context completed in ${duration}ms (${(duration / 1e3).toFixed(2)}s)`
+  );
   return final;
 }
 setTimeout(() => {
