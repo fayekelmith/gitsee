@@ -7,7 +7,7 @@ export class IconsResource extends BaseResource {
     if (cached !== undefined) {
       console.log(
         `💾 Cache hit for ${owner}/${repo} icon:`,
-        cached ? "Found" : "Not found"
+        cached ? "Found" : "Not found",
       );
       console.log(`🔄 Clearing cache to retry (checking for rate limits)...`);
       this.cache.clear(); // Clear cache to retry
@@ -54,7 +54,7 @@ export class IconsResource extends BaseResource {
       const subdirs = ["public", "assets", "static", "images", "img"];
       for (const subdir of subdirs) {
         const subdirExists = rootContents.data.find(
-          (item: any) => item.name === subdir && item.type === "dir"
+          (item: any) => item.name === subdir && item.type === "dir",
         );
 
         if (subdirExists) {
@@ -89,7 +89,7 @@ export class IconsResource extends BaseResource {
                 ...subdirIcons.map((f: any) => ({
                   ...f,
                   path: `${subdir}/${f.name}`,
-                }))
+                })),
               );
             }
           } catch (error) {

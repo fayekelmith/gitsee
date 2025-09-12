@@ -1,6 +1,6 @@
 export interface NodeData {
   id: string;
-  type: 'repo' | 'contributor' | 'commit' | 'branch' | 'file';
+  type: "repo" | "contributor" | "commit" | "branch" | "file";
   name: string;
   x?: number;
   y?: number;
@@ -10,7 +10,7 @@ export interface NodeData {
   sha?: string; // for commits
   path?: string; // for files
   protected?: boolean; // for branches
-  fileType?: 'package' | 'config' | 'docs' | 'build' | 'ci' | 'data' | 'other'; // for files
+  fileType?: "package" | "config" | "docs" | "build" | "ci" | "data" | "other"; // for files
   [key: string]: any; // Allow additional properties
 }
 
@@ -18,7 +18,7 @@ export interface LinkData {
   id: string;
   source: string | NodeData;
   target: string | NodeData;
-  type?: 'contribution' | 'commit' | 'branch' | 'dependency' | 'file';
+  type?: "contribution" | "commit" | "branch" | "dependency" | "file";
   strength?: number;
 }
 
@@ -37,7 +37,7 @@ export interface ApiResponse {
 
 export interface VisualizationContext {
   svg: any; // d3 selection
-  container: any; // d3 selection  
+  container: any; // d3 selection
   zoom: any; // d3 zoom behavior
   width: number;
   height: number;

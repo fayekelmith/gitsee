@@ -17,7 +17,7 @@ export abstract class BaseResource {
   protected async getCached<T>(
     owner: string,
     repo: string,
-    type: string
+    type: string,
   ): Promise<T | undefined> {
     const cacheKey = this.getCacheKey(owner, repo, type);
     return this.cache.get(cacheKey);
@@ -27,7 +27,7 @@ export abstract class BaseResource {
     owner: string,
     repo: string,
     type: string,
-    data: T
+    data: T,
   ): void {
     const cacheKey = this.getCacheKey(owner, repo, type);
     this.cache.set(cacheKey, data);

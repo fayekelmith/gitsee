@@ -81,7 +81,7 @@ export abstract class BaseVisualizationResource {
         // Update the visual position immediately
         d3.select(event.sourceEvent.target.closest("g")).attr(
           "transform",
-          `translate(${event.x},${event.y})`
+          `translate(${event.x},${event.y})`,
         );
       })
       .on("end", () => {

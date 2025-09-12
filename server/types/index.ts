@@ -1,7 +1,14 @@
 export interface GitSeeRequest {
   owner: string;
   repo: string;
-  data: ('contributors' | 'icon' | 'repo_info' | 'commits' | 'branches' | 'files')[];
+  data: (
+    | "contributors"
+    | "icon"
+    | "repo_info"
+    | "commits"
+    | "branches"
+    | "files"
+  )[];
 }
 
 export interface GitSeeResponse {
@@ -85,5 +92,5 @@ export interface Branch {
 export interface FileInfo {
   name: string;
   path: string;
-  type: 'package' | 'config' | 'docs' | 'build' | 'ci' | 'data' | 'other';
+  type: "package" | "config" | "docs" | "build" | "ci" | "data" | "other";
 }

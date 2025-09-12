@@ -4,7 +4,7 @@ import { Repository } from "../types/index.js";
 export class RepositoryResource extends BaseResource {
   async getRepoInfo(owner: string, repo: string): Promise<Repository> {
     // Check cache first
-    const cached = await this.getCached<Repository>(owner, repo, 'repo');
+    const cached = await this.getCached<Repository>(owner, repo, "repo");
     if (cached) {
       console.log(`💾 Cache hit for repo info: ${owner}/${repo}`);
       return cached;
@@ -19,17 +19,23 @@ export class RepositoryResource extends BaseResource {
       console.log(`📋 Repository info loaded: ${repoData.full_name}`);
 
       // Cache the result
-      this.setCached(owner, repo, 'repo', repoData);
+      this.setCached(owner, repo, "repo", repoData);
 
       return repoData;
     } catch (error: any) {
-      console.error(`💥 Error fetching repository info for ${owner}/${repo}:`, error.message);
-      
+      console.error(
+        `💥 Error fetching repository info for ${owner}/${repo}:`,
+        error.message,
+      );
+
       // Check if it's a rate limit error
-      if (error.status === 403 || error.message?.includes('rate limit')) {
-        console.error(`⏱️  RATE LIMIT HIT for repository! Using token:`, !!this.octokit.auth);
+      if (error.status === 403 || error.message?.includes("rate limit")) {
+        console.error(
+          `⏱️  RATE LIMIT HIT for repository! Using token:`,
+          !!this.octokit.auth,
+        );
       }
-      
+
       throw error;
     }
   }

@@ -8,7 +8,7 @@
     "build": "tsup",
     "dev": "npm run build && node dev-server.js",
     "lint": "eslint client server --ext .js,.ts",
-    "format": "prettier --write client/**/*.{js,ts} server/**/*.{js,ts}"
+    "format": "prettier --write client/**/*.ts server/**/*.ts"
   },
   "keywords": [
     "git",

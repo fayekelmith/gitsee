@@ -63,7 +63,7 @@ export class FilesVisualization extends BaseVisualizationResource {
     allFileNodes.attr("transform", (d: NodeData) =>
       d.x !== undefined && d.y !== undefined
         ? `translate(${d.x}, ${d.y})`
-        : "translate(0,0)"
+        : "translate(0,0)",
     );
   }
 
@@ -113,7 +113,7 @@ export class FilesVisualization extends BaseVisualizationResource {
       .attr("transform", (d: NodeData) =>
         d.x !== undefined && d.y !== undefined
           ? `translate(${d.x}, ${d.y})`
-          : "translate(0,0)"
+          : "translate(0,0)",
       )
       .transition()
       .duration(600)
@@ -123,7 +123,7 @@ export class FilesVisualization extends BaseVisualizationResource {
 
   destroy(): void {
     const group = this.context.container.select(
-      `.${this.getResourceType()}-group`
+      `.${this.getResourceType()}-group`,
     );
     group.remove();
   }
