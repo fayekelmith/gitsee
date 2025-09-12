@@ -1,103 +1,54 @@
-import { IncomingMessage, ServerResponse } from "http";
+// server/index.ts
 import { Octokit } from "@octokit/rest";
-
-interface GitSeeRequest {
-  owner: string;
-  repo: string;
-  data: ("contributors" | "icon" | "repo_info" | "commits" | "branches")[];
-}
-
-interface GitSeeResponse {
-  repo?: any;
-  contributors?: any[];
-  icon?: string | null;
-  commits?: any[];
-  branches?: any[];
-  error?: string;
-}
-
-interface GitSeeOptions {
-  token?: string;
-  cache?: {
-    ttl?: number; // seconds
-  };
-}
-
-// Simple in-memory cache
-interface CacheEntry {
-  data: any;
-  expires: number;
-}
-
-class GitSeeCache {
-  private cache = new Map<string, CacheEntry>();
-  private ttl: number;
-
-  constructor(ttl: number = 300) {
-    // 5 minutes default
-    this.ttl = ttl * 1000; // convert to ms
+var GitSeeCache = class {
+  constructor(ttl = 300) {
+    this.cache = /* @__PURE__ */ new Map();
+    this.ttl = ttl * 1e3;
   }
-
-  get(key: string): any | null {
+  get(key) {
     const entry = this.cache.get(key);
     if (!entry) return null;
-
     if (Date.now() > entry.expires) {
       this.cache.delete(key);
       return null;
     }
-
     return entry.data;
   }
-
-  set(key: string, data: any): void {
+  set(key, data) {
     this.cache.set(key, {
       data,
-      expires: Date.now() + this.ttl,
+      expires: Date.now() + this.ttl
     });
   }
-
-  clear(): void {
+  clear() {
     this.cache.clear();
   }
-}
-
-export class GitSeeHandler {
-  private octokit: Octokit;
-  private cache: GitSeeCache;
-
-  constructor(options: GitSeeOptions = {}) {
+};
+var GitSeeHandler = class {
+  constructor(options = {}) {
     this.octokit = new Octokit({
-      auth: options.token,
+      auth: options.token
     });
-
     this.cache = new GitSeeCache(options.cache?.ttl);
   }
-
-  async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    // Set CORS headers
+  async handle(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
     if (req.method === "OPTIONS") {
       res.writeHead(200);
       res.end();
       return;
     }
-
     if (req.method !== "POST") {
       res.writeHead(405, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Method not allowed" }));
       return;
     }
-
     try {
       const body = await this.parseRequestBody(req);
-      const request: GitSeeRequest = JSON.parse(body);
-
+      const request = JSON.parse(body);
       const response = await this.processRequest(request);
-
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(response));
     } catch (error) {
@@ -105,38 +56,28 @@ export class GitSeeHandler {
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({
-          error:
-            error instanceof Error ? error.message : "Internal server error",
+          error: error instanceof Error ? error.message : "Internal server error"
         })
       );
     }
   }
-
-  private async parseRequestBody(req: IncomingMessage): Promise<string> {
+  async parseRequestBody(req) {
     return new Promise((resolve, reject) => {
       let body = "";
-      req.on("data", (chunk: any) => (body += chunk));
+      req.on("data", (chunk) => body += chunk);
       req.on("end", () => resolve(body));
       req.on("error", reject);
     });
   }
-
-  private async processRequest(
-    request: GitSeeRequest
-  ): Promise<GitSeeResponse> {
+  async processRequest(request) {
     const { owner, repo, data } = request;
-    const response: GitSeeResponse = {};
-
-    // Validate input
+    const response = {};
     if (!owner || !repo) {
       throw new Error("Owner and repo are required");
     }
-
     if (!Array.isArray(data) || data.length === 0) {
       throw new Error("Data array is required and must not be empty");
     }
-
-    // Process each requested data type
     for (const dataType of data) {
       switch (dataType) {
         case "repo_info":
@@ -158,151 +99,110 @@ export class GitSeeHandler {
           console.warn(`Unknown data type: ${dataType}`);
       }
     }
-
     return response;
   }
-
-  private async getRepoInfo(owner: string, repo: string): Promise<any> {
+  async getRepoInfo(owner, repo) {
     const cacheKey = `repo:${owner}/${repo}`;
     const cached = this.cache.get(cacheKey);
     if (cached) return cached;
-
     const response = await this.octokit.rest.repos.get({ owner, repo });
     const data = response.data;
-
     this.cache.set(cacheKey, data);
     return data;
   }
-
-  private async getContributors(owner: string, repo: string): Promise<any[]> {
+  async getContributors(owner, repo) {
     const cacheKey = `contributors:${owner}/${repo}`;
     const cached = this.cache.get(cacheKey);
     if (cached) return cached;
-
     const response = await this.octokit.rest.repos.listContributors({
       owner,
       repo,
-      per_page: 50,
+      per_page: 50
     });
     const data = response.data;
-
     this.cache.set(cacheKey, data);
     return data;
   }
-
-  private async getCommits(owner: string, repo: string): Promise<any[]> {
+  async getCommits(owner, repo) {
     const cacheKey = `commits:${owner}/${repo}`;
     const cached = this.cache.get(cacheKey);
     if (cached) return cached;
-
     const response = await this.octokit.rest.repos.listCommits({
       owner,
       repo,
-      per_page: 50,
+      per_page: 50
     });
     const data = response.data;
-
     this.cache.set(cacheKey, data);
     return data;
   }
-
-  private async getBranches(owner: string, repo: string): Promise<any[]> {
+  async getBranches(owner, repo) {
     const cacheKey = `branches:${owner}/${repo}`;
     const cached = this.cache.get(cacheKey);
     if (cached) return cached;
-
     const response = await this.octokit.rest.repos.listBranches({
       owner,
-      repo,
+      repo
     });
     const data = response.data;
-
     this.cache.set(cacheKey, data);
     return data;
   }
-
-  private async getRepoIcon(
-    owner: string,
-    repo: string
-  ): Promise<string | null> {
+  async getRepoIcon(owner, repo) {
     const cacheKey = `icon:${owner}/${repo}`;
     const cached = this.cache.get(cacheKey);
-    if (cached !== undefined) return cached; // null is a valid cached value
-
+    if (cached !== void 0) return cached;
     try {
-      // Get root directory contents
       const rootContents = await this.octokit.rest.repos.getContent({
         owner,
         repo,
-        path: "",
+        path: ""
       });
-
       if (!Array.isArray(rootContents.data)) {
         this.cache.set(cacheKey, null);
         return null;
       }
-
-      // Look for icon files
-      const iconFiles = rootContents.data.filter((file: any) => {
+      const iconFiles = rootContents.data.filter((file) => {
         const name = file.name.toLowerCase();
-        return (
-          name.includes("favicon") ||
-          name.includes("logo") ||
-          name.includes("icon") ||
-          (name.startsWith("apple-touch") && name.includes("icon"))
-        );
+        return name.includes("favicon") || name.includes("logo") || name.includes("icon") || name.startsWith("apple-touch") && name.includes("icon");
       });
-
-      // Check common subdirectories
       const subdirs = ["public", "assets", "static", "images", "img"];
       for (const subdir of subdirs) {
         const subdirExists = rootContents.data.find(
-          (item: any) => item.name === subdir && item.type === "dir"
+          (item) => item.name === subdir && item.type === "dir"
         );
-
         if (subdirExists) {
           try {
             const subdirContents = await this.octokit.rest.repos.getContent({
               owner,
               repo,
-              path: subdir,
+              path: subdir
             });
-
             if (Array.isArray(subdirContents.data)) {
-              const subdirIcons = subdirContents.data.filter((file: any) => {
+              const subdirIcons = subdirContents.data.filter((file) => {
                 const name = file.name.toLowerCase();
-                return (
-                  name.includes("favicon") ||
-                  name.includes("logo") ||
-                  name.includes("icon")
-                );
+                return name.includes("favicon") || name.includes("logo") || name.includes("icon");
               });
               iconFiles.push(
-                ...subdirIcons.map((f: any) => ({
+                ...subdirIcons.map((f) => ({
                   ...f,
-                  path: `${subdir}/${f.name}`,
+                  path: `${subdir}/${f.name}`
                 }))
               );
             }
           } catch (error) {
-            // Continue if subdirectory access fails
             continue;
           }
         }
       }
-
-      // Sort by resolution (highest first)
       const sortedIcons = this.sortIconsByResolution(iconFiles);
-
-      // Try to fetch the best icon
       for (const iconFile of sortedIcons) {
         try {
           const iconResponse = await this.octokit.rest.repos.getContent({
             owner,
             repo,
-            path: iconFile.path || iconFile.name,
+            path: iconFile.path || iconFile.name
           });
-
           if ("content" in iconResponse.data && iconResponse.data.content) {
             const iconData = `data:image/png;base64,${iconResponse.data.content}`;
             this.cache.set(cacheKey, iconData);
@@ -312,7 +212,6 @@ export class GitSeeHandler {
           continue;
         }
       }
-
       this.cache.set(cacheKey, null);
       return null;
     } catch (error) {
@@ -321,16 +220,13 @@ export class GitSeeHandler {
       return null;
     }
   }
-
-  private sortIconsByResolution(iconFiles: any[]): any[] {
+  sortIconsByResolution(iconFiles) {
     return iconFiles.sort((a, b) => {
       const aName = a.name.toLowerCase();
       const bName = b.name.toLowerCase();
-
-      const getResolution = (name: string) => {
+      const getResolution = (name) => {
         const match = name.match(/(\d+)x\d+/);
         if (match) return parseInt(match[1]);
-
         if (name.includes("512")) return 512;
         if (name.includes("256")) return 256;
         if (name.includes("192")) return 192;
@@ -339,18 +235,18 @@ export class GitSeeHandler {
         if (name.includes("android-chrome")) return 192;
         if (name === "favicon.ico") return 64;
         if (name.includes("logo")) return 100;
-
         return 50;
       };
-
-      return getResolution(bName) - getResolution(aName); // Higher first
+      return getResolution(bName) - getResolution(aName);
     });
   }
-}
-
-// Factory function for easy integration
-export function createGitSeeHandler(options: GitSeeOptions = {}) {
+};
+function createGitSeeHandler(options = {}) {
   const handler = new GitSeeHandler(options);
-  return (req: IncomingMessage, res: ServerResponse) =>
-    handler.handle(req, res);
+  return (req, res) => handler.handle(req, res);
 }
+export {
+  GitSeeHandler,
+  createGitSeeHandler
+};
+//# sourceMappingURL=index.js.map

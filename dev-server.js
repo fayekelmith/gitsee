@@ -1,0 +1,70 @@
+import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createGitSeeHandler } from './dist/server/index.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Create the GitSee handler
+const gitSeeHandler = createGitSeeHandler({
+  token: process.env.GITHUB_TOKEN,
+  cache: { ttl: 300 }
+});
+
+// Simple static file server
+const mimeTypes = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.jpg': 'image/jpg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.wav': 'audio/wav',
+  '.mp4': 'video/mp4',
+  '.woff': 'application/font-woff',
+  '.ttf': 'application/font-ttf',
+  '.eot': 'application/vnd.ms-fontobject',
+  '.otf': 'application/font-otf',
+  '.wasm': 'application/wasm'
+};
+
+const server = http.createServer(async (req, res) => {
+  console.log(`${req.method} ${req.url}`);
+
+  // Handle GitSee API
+  if (req.url === '/api/gitsee') {
+    return gitSeeHandler(req, res);
+  }
+
+  // Handle static files
+  let filePath = req.url === '/' ? '/index.html' : req.url;
+  const fullPath = path.join(__dirname, filePath);
+
+  try {
+    const data = fs.readFileSync(fullPath);
+    const ext = path.extname(fullPath);
+    const mimeType = mimeTypes[ext] || 'text/plain';
+
+    res.writeHead(200, { 'Content-Type': mimeType });
+    res.end(data);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not Found');
+    } else {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('Server Error');
+    }
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, () => {
+  console.log(`🚀 GitSee dev server running on http://localhost:${PORT}`);
+  console.log(`📝 Set GITHUB_TOKEN environment variable for full functionality`);
+  console.log(`🔗 Try: http://localhost:${PORT}/?repo=stakwork/hive`);
+});

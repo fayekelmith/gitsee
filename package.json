@@ -5,30 +5,35 @@
   "main": "src/main.ts",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build", 
-    "preview": "vite preview",
-    "server": "tsx server/example.ts",
-    "lint": "eslint src --ext .js,.ts",
-    "format": "prettier --write src/**/*.{js,ts,html,css}"
+    "build": "tsup",
+    "dev": "npm run build && node dev-server.js",
+    "lint": "eslint client server --ext .js,.ts",
+    "format": "prettier --write client/**/*.{js,ts} server/**/*.{js,ts}"
   },
-  "keywords": ["git", "visualization", "d3", "graph", "repository"],
+  "keywords": [
+    "git",
+    "visualization",
+    "d3",
+    "graph",
+    "repository"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@octokit/rest": "^20.0.0",
     "d3": "^7.8.5",
     "d3-force": "^3.0.0",
     "d3-selection": "^3.0.0",
     "d3-zoom": "^3.0.0",
-    "isomorphic-git": "^1.25.0",
-    "@octokit/rest": "^20.0.0"
+    "isomorphic-git": "^1.25.0"
   },
   "devDependencies": {
-    "vite": "^5.0.0",
+    "@types/d3": "^7.4.0",
+    "@types/node": "^20.19.13",
     "eslint": "^8.57.0",
     "prettier": "^3.0.0",
-    "@types/d3": "^7.4.0",
+    "tsx": "^4.0.0",
     "typescript": "^5.0.0",
-    "tsx": "^4.0.0"
+    "tsup": "^8.0.0"
   }
 }
