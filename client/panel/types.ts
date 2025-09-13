@@ -1,11 +1,12 @@
 export interface PanelSection {
   title: string;
-  type: 'text' | 'stats' | 'content';
+  type: "text" | "stats" | "content";
   data?: any;
 }
 
 export interface PanelContent {
-  name: string;           // Required for all nodes
+  name: string; // Required for all nodes
+  avatar?: string; // Optional avatar URL for contributors
   sections: PanelSection[];
 }
 

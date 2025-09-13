@@ -75,7 +75,10 @@ export class StatsVisualization extends BaseVisualizationResource {
     statNodes.exit().remove();
 
     // Add new nodes
-    const statEnter = statNodes.enter().append("g").attr("class", "gitsee-node stat-node");
+    const statEnter = statNodes
+      .enter()
+      .append("g")
+      .attr("class", "gitsee-node stat-node");
 
     // Add stat values (the number/text) first so we can measure them
     const textElements = statEnter
@@ -128,7 +131,7 @@ export class StatsVisualization extends BaseVisualizationResource {
           type: "repo",
           name: this.repoData?.name || "Repository",
           x: 0,
-          y: 0
+          y: 0,
         };
         this.onNodeClick!(repoNode);
       });
@@ -209,10 +212,10 @@ export class StatsVisualization extends BaseVisualizationResource {
         // Create a fake repo node to trigger repo panel display
         const repoNode: NodeData = {
           id: "repo",
-          type: "repo", 
+          type: "repo",
           name: this.repoData?.name || "Repository",
           x: 0,
-          y: 0
+          y: 0,
         };
         this.onNodeClick!(repoNode);
       });

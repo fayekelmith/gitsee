@@ -3,7 +3,12 @@ import { PanelContent, PanelSection } from "./types.js";
 
 export class DetailPanel {
   private panel!: d3.Selection<HTMLDivElement, unknown, HTMLElement, unknown>;
-  private contentContainer!: d3.Selection<HTMLDivElement, unknown, HTMLElement, unknown>;
+  private contentContainer!: d3.Selection<
+    HTMLDivElement,
+    unknown,
+    HTMLElement,
+    unknown
+  >;
   private isVisible: boolean = false;
 
   constructor() {
@@ -13,7 +18,8 @@ export class DetailPanel {
 
   private createPanel(): void {
     // Create the floating panel
-    this.panel = d3.select("body")
+    this.panel = d3
+      .select("body")
       .append("div")
       .attr("class", "gitsee-detail-panel")
       .style("position", "fixed")
@@ -51,12 +57,12 @@ export class DetailPanel {
       .style("line-height", "1")
       .style("transition", "all 0.2s ease")
       .text("×")
-      .on("mouseover", function() {
+      .on("mouseover", function () {
         d3.select(this)
           .style("background", "#30363d")
           .style("color", "#e6edf3");
       })
-      .on("mouseout", function() {
+      .on("mouseout", function () {
         d3.select(this)
           .style("background", "transparent")
           .style("color", "#7d8590");
@@ -84,17 +90,49 @@ export class DetailPanel {
       .attr("class", "node-header")
       .style("margin-bottom", "20px");
 
-    header
-      .append("h2")
-      .style("margin", "0 0 8px 0")
-      .style("color", "#e6edf3")
-      .style("font-size", "20px")
-      .style("font-weight", "600")
-      .style("font-family", "system-ui, -apple-system, sans-serif")
-      .text(content.name);
+    // Check if this content has an avatar (from node data)
+    const hasAvatar = content.avatar;
+
+    if (hasAvatar) {
+      // Create header with avatar and name side by side
+      const headerFlex = header
+        .style("display", "flex")
+        .style("align-items", "center")
+        .style("gap", "12px");
+
+      // Add avatar
+      headerFlex
+        .append("img")
+        .attr("src", content.avatar)
+        .attr("alt", `${content.name} avatar`)
+        .style("width", "40px")
+        .style("height", "40px")
+        .style("border-radius", "50%")
+        .style("border", "2px solid #30363d");
+
+      // Add name
+      headerFlex
+        .append("h2")
+        .style("margin", "0")
+        .style("color", "#e6edf3")
+        .style("font-size", "20px")
+        .style("font-weight", "600")
+        .style("font-family", "system-ui, -apple-system, sans-serif")
+        .text(content.name);
+    } else {
+      // Regular header without avatar
+      header
+        .append("h2")
+        .style("margin", "0 0 8px 0")
+        .style("color", "#e6edf3")
+        .style("font-size", "20px")
+        .style("font-weight", "600")
+        .style("font-family", "system-ui, -apple-system, sans-serif")
+        .text(content.name);
+    }
 
     // Render each section
-    content.sections.forEach(section => {
+    content.sections.forEach((section) => {
       this.renderSection(section);
     });
   }
@@ -118,13 +156,13 @@ export class DetailPanel {
 
     // Render section content based on type
     switch (section.type) {
-      case 'text':
+      case "text":
         this.renderTextSection(sectionContainer, section.data);
         break;
-      case 'stats':
+      case "stats":
         this.renderStatsSection(sectionContainer, section.data);
         break;
-      case 'content':
+      case "content":
         this.renderContentSection(sectionContainer, section.data);
         break;
     }
@@ -148,7 +186,7 @@ export class DetailPanel {
       .style("grid-template-columns", "1fr 1fr")
       .style("gap", "12px");
 
-    stats.forEach(stat => {
+    stats.forEach((stat) => {
       const statItem = statsGrid
         .append("div")
         .style("background", "#161b22")
@@ -194,10 +232,10 @@ export class DetailPanel {
 
   private injectStyles(): void {
     // Check if styles are already injected
-    if (document.getElementById('gitsee-panel-styles')) return;
-    
-    const styleSheet = document.createElement('style');
-    styleSheet.id = 'gitsee-panel-styles';
+    if (document.getElementById("gitsee-panel-styles")) return;
+
+    const styleSheet = document.createElement("style");
+    styleSheet.id = "gitsee-panel-styles";
     styleSheet.textContent = `
       .gitsee-detail-panel {
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -242,14 +280,12 @@ export class DetailPanel {
 
   public show(): void {
     this.isVisible = true;
-    this.panel
-      .style("transform", "translateX(0)");
+    this.panel.style("transform", "translateX(0)");
   }
 
   public hide(): void {
     this.isVisible = false;
-    this.panel
-      .style("transform", "translateX(-100%)");
+    this.panel.style("transform", "translateX(-100%)");
   }
 
   public toggle(): void {
@@ -262,9 +298,9 @@ export class DetailPanel {
 
   public destroy(): void {
     this.panel.remove();
-    
+
     // Remove injected styles if no other instances exist
-    const styleSheet = document.getElementById('gitsee-panel-styles');
+    const styleSheet = document.getElementById("gitsee-panel-styles");
     if (styleSheet) {
       styleSheet.remove();
     }

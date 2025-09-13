@@ -3199,8 +3199,9 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
 
 // client/resources/contributors.ts
 var ContributorsVisualization = class extends BaseVisualizationResource {
-  constructor(context) {
+  constructor(context, onNodeClick) {
     super(context, "contributors");
+    this.onNodeClick = onNodeClick;
   }
   create(contributorsData) {
     console.log(
@@ -3253,6 +3254,12 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
       this.createNodeLabel(node, d, radius + 15);
     });
     this.addHoverEffects(nodeEnter);
+    if (this.onNodeClick) {
+      nodeEnter.on("click", (event, d) => {
+        event.stopPropagation();
+        this.onNodeClick(d);
+      });
+    }
   }
   updateWithAnimation(resourceData) {
     console.log(
@@ -3281,6 +3288,12 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
       this.createNodeLabel(node, d, radius + 15);
     });
     this.addHoverEffects(nodeEnter);
+    if (this.onNodeClick) {
+      nodeEnter.on("click", (event, d) => {
+        event.stopPropagation();
+        this.onNodeClick(d);
+      });
+    }
     nodeEnter.transition().duration(400).style("opacity", 1).attr("transform", (d) => {
       const x = d.x || 0;
       const y = d.y || 0;
@@ -3311,6 +3324,23 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
       group.select("circle").transition().duration(200).style("filter", "none").style("stroke-width", "2px").style("stroke", "#1f6feb");
       group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
     });
+  }
+  getPanelContent(nodeData, contributorData) {
+    console.log("\u{1F50D} Contributor data:", nodeData);
+    console.log("\u{1F50D} Additional contributor data:", contributorData);
+    const sections = [];
+    if (nodeData.contributions) {
+      sections.push({
+        title: "Contributions",
+        type: "text",
+        data: `${nodeData.contributions} contributions to this repository`
+      });
+    }
+    return {
+      name: nodeData.name || "Contributor",
+      avatar: nodeData.avatar,
+      sections
+    };
   }
 };
 
@@ -3683,7 +3713,14 @@ var DetailPanel = class {
   updateContent(content) {
     this.contentContainer.selectAll("*").remove();
     const header = this.contentContainer.append("div").attr("class", "node-header").style("margin-bottom", "20px");
-    header.append("h2").style("margin", "0 0 8px 0").style("color", "#e6edf3").style("font-size", "20px").style("font-weight", "600").style("font-family", "system-ui, -apple-system, sans-serif").text(content.name);
+    const hasAvatar = content.avatar;
+    if (hasAvatar) {
+      const headerFlex = header.style("display", "flex").style("align-items", "center").style("gap", "12px");
+      headerFlex.append("img").attr("src", content.avatar).attr("alt", `${content.name} avatar`).style("width", "40px").style("height", "40px").style("border-radius", "50%").style("border", "2px solid #30363d");
+      headerFlex.append("h2").style("margin", "0").style("color", "#e6edf3").style("font-size", "20px").style("font-weight", "600").style("font-family", "system-ui, -apple-system, sans-serif").text(content.name);
+    } else {
+      header.append("h2").style("margin", "0 0 8px 0").style("color", "#e6edf3").style("font-size", "20px").style("font-weight", "600").style("font-family", "system-ui, -apple-system, sans-serif").text(content.name);
+    }
     content.sections.forEach((section) => {
       this.renderSection(section);
     });
@@ -3804,7 +3841,7 @@ var GitVisualizer = class {
       repo: 40,
       // Repository nodes (not used much since repo is centered)
       contributor: 40,
-      // Contributors start close to center  
+      // Contributors start close to center
       stat: 40,
       // Stats close to center
       file: 80,
@@ -3839,12 +3876,22 @@ var GitVisualizer = class {
       width: this.width,
       height: this.height
     };
-    this.repositoryViz = new RepositoryVisualization(this.context, (nodeData) => {
+    this.repositoryViz = new RepositoryVisualization(
+      this.context,
+      (nodeData) => {
+        this.showNodePanel(nodeData);
+      }
+    );
+    this.contributorsViz = new ContributorsVisualization(
+      this.context,
+      (nodeData) => {
+        this.showNodePanel(nodeData);
+      }
+    );
+    this.linksViz = new LinksVisualization(this.context);
+    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
       this.showNodePanel(nodeData);
     });
-    this.contributorsViz = new ContributorsVisualization(this.context);
-    this.linksViz = new LinksVisualization(this.context);
-    this.filesViz = new FilesVisualization(this.context);
     this.statsViz = new StatsVisualization(this.context, (nodeData) => {
       this.showNodePanel(nodeData);
     });
@@ -4031,15 +4078,27 @@ var GitVisualizer = class {
         }, 500);
       }
       if (data.stats) {
-        setTimeout(() => {
-          this.addStatsAfterIcon(data.stats, () => {
-            this.addContributorsAfterStats(data.contributors || [], data.files || []);
-          });
-        }, data.icon ? 1e3 : 500);
+        setTimeout(
+          () => {
+            this.addStatsAfterIcon(data.stats, () => {
+              this.addContributorsAfterStats(
+                data.contributors || [],
+                data.files || []
+              );
+            });
+          },
+          data.icon ? 1e3 : 500
+        );
       } else {
-        setTimeout(() => {
-          this.addContributorsAfterStats(data.contributors || [], data.files || []);
-        }, data.icon ? 1e3 : 500);
+        setTimeout(
+          () => {
+            this.addContributorsAfterStats(
+              data.contributors || [],
+              data.files || []
+            );
+          },
+          data.icon ? 1e3 : 500
+        );
       }
       console.log(`\u2705 Successfully started visualization for ${owner2}/${repo2}`);
     } catch (error) {
@@ -4094,10 +4153,30 @@ var GitVisualizer = class {
   }
   addStatsSequentially(stats, index, onComplete) {
     const statItems = [
-      { id: "stat-stars", name: `${stats.stars} \u2B50`, label: "Stars", value: stats.stars },
-      { id: "stat-prs", name: `${stats.totalPRs} PRs`, label: "Pull Requests", value: stats.totalPRs },
-      { id: "stat-commits", name: `${stats.totalCommits} commits`, label: "Total Commits", value: stats.totalCommits },
-      { id: "stat-age", name: `${stats.ageInYears}y old`, label: "Repository Age", value: stats.ageInYears }
+      {
+        id: "stat-stars",
+        name: `${stats.stars} \u2B50`,
+        label: "Stars",
+        value: stats.stars
+      },
+      {
+        id: "stat-prs",
+        name: `${stats.totalPRs} PRs`,
+        label: "Pull Requests",
+        value: stats.totalPRs
+      },
+      {
+        id: "stat-commits",
+        name: `${stats.totalCommits} commits`,
+        label: "Total Commits",
+        value: stats.totalCommits
+      },
+      {
+        id: "stat-age",
+        name: `${stats.ageInYears}y old`,
+        label: "Repository Age",
+        value: stats.ageInYears
+      }
     ];
     if (index >= statItems.length) {
       console.log("\u{1F389} All stats added!");
@@ -4107,9 +4186,13 @@ var GitVisualizer = class {
       return;
     }
     const stat = statItems[index];
-    console.log(`\u{1F4CA} Adding stat ${index + 1}/${statItems.length}: ${stat.name}`);
+    console.log(
+      `\u{1F4CA} Adding stat ${index + 1}/${statItems.length}: ${stat.name}`
+    );
     const position = this.calculateOrganicPosition("stat", index);
-    console.log(`\u{1F4CD} Positioning ${stat.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`);
+    console.log(
+      `\u{1F4CD} Positioning ${stat.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`
+    );
     const statNode = {
       id: stat.id,
       type: "stat",
@@ -4137,7 +4220,9 @@ var GitVisualizer = class {
       nodes: allStatNodes,
       links: []
     });
-    const allLinks = this.allLinks.filter((l) => l.type === "contribution" || l.type === "stat" || l.type === "file");
+    const allLinks = this.allLinks.filter(
+      (l) => l.type === "contribution" || l.type === "stat" || l.type === "file"
+    );
     this.linksViz.updateWithAnimation({
       nodes: [],
       links: allLinks
@@ -4158,8 +4243,13 @@ var GitVisualizer = class {
       }, 500);
       return;
     }
-    const sortedContributors = contributors.sort((a, b) => b.contributions - a.contributions);
-    console.log("\u{1F4CA} Contributors sorted by contributions:", sortedContributors.map((c) => `${c.login}: ${c.contributions}`));
+    const sortedContributors = contributors.sort(
+      (a, b) => b.contributions - a.contributions
+    );
+    console.log(
+      "\u{1F4CA} Contributors sorted by contributions:",
+      sortedContributors.map((c) => `${c.login}: ${c.contributions}`)
+    );
     setTimeout(() => {
       this.addContributorsSequentially(sortedContributors, 0, () => {
         this.addFilesAfterContributors(files);
@@ -4186,6 +4276,7 @@ var GitVisualizer = class {
     console.log(
       `\u{1F4CD} Positioning ${contributor.login} (${contributor.contributions} contributions) organically`
     );
+    console.log("====================", contributor);
     const contributorNode = {
       id: `contributor-${contributor.id}`,
       type: "contributor",
@@ -4344,12 +4435,22 @@ var GitVisualizer = class {
     let content;
     if (nodeData.type === "repo" || !nodeData.type) {
       const statsNodes = this.allNodes.filter((n) => n.type === "stat");
-      content = this.repositoryViz.getPanelContent(nodeData, this.currentRepoData, statsNodes);
+      content = this.repositoryViz.getPanelContent(
+        nodeData,
+        this.currentRepoData,
+        statsNodes
+      );
     } else if (nodeData.type === "file") {
       content = this.filesViz.getPanelContent(nodeData);
+    } else if (nodeData.type === "contributor") {
+      content = this.contributorsViz.getPanelContent(nodeData);
     } else {
       const statsNodes = this.allNodes.filter((n) => n.type === "stat");
-      content = this.repositoryViz.getPanelContent(nodeData, this.currentRepoData, statsNodes);
+      content = this.repositoryViz.getPanelContent(
+        nodeData,
+        this.currentRepoData,
+        statsNodes
+      );
     }
     this.detailPanel.updateContent(content);
     this.detailPanel.show();

@@ -18,10 +18,10 @@ export class RepositoryVisualization extends BaseVisualizationResource {
     const centerY = this.context.height / 2;
 
     console.log(
-      `📏 Context dimensions: ${this.context.width} x ${this.context.height}`
+      `📏 Context dimensions: ${this.context.width} x ${this.context.height}`,
     );
     console.log(
-      `🎯 Positioning repository at center: (${centerX}, ${centerY})`
+      `🎯 Positioning repository at center: (${centerX}, ${centerY})`,
     );
 
     const repoNode: NodeData = {
@@ -101,7 +101,7 @@ export class RepositoryVisualization extends BaseVisualizationResource {
           .append("path")
           .attr(
             "d",
-            "M-8,-8 L8,-8 L8,8 L-8,8 Z M-6,-6 L6,-6 M-6,-3 L6,-3 M-6,0 L6,0 M-6,3 L6,3 M-6,6 L6,6"
+            "M-8,-8 L8,-8 L8,8 L-8,8 Z M-6,-6 L6,-6 M-6,-3 L6,-3 M-6,0 L6,0 M-6,3 L6,3 M-6,6 L6,6",
           )
           .style("fill", "none")
           .style("stroke", "white")
@@ -209,7 +209,7 @@ export class RepositoryVisualization extends BaseVisualizationResource {
   public getPanelContent(
     nodeData: NodeData,
     repoData?: any,
-    statsNodes?: NodeData[]
+    statsNodes?: NodeData[],
   ): PanelContent {
     // Build stats from actual stats nodes if available
     const statsData: any[] = [];

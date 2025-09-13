@@ -1,10 +1,14 @@
 import * as d3 from "d3";
 import { BaseVisualizationResource } from "./base.js";
 import { NodeData, LinkData, ResourceData } from "../types/index.js";
+import { PanelContent, PanelSection } from "../panel/types.js";
 
 export class ContributorsVisualization extends BaseVisualizationResource {
-  constructor(context: any) {
+  private onNodeClick?: (nodeData: NodeData) => void;
+
+  constructor(context: any, onNodeClick?: (nodeData: NodeData) => void) {
     super(context, "contributors");
+    this.onNodeClick = onNodeClick;
   }
 
   create(contributorsData: any[]): ResourceData {
@@ -98,6 +102,14 @@ export class ContributorsVisualization extends BaseVisualizationResource {
     // Add hover effects to new contributor nodes
     this.addHoverEffects(nodeEnter);
 
+    // Add click handlers to new contributor nodes
+    if (this.onNodeClick) {
+      nodeEnter.on("click", (event: any, d: NodeData) => {
+        event.stopPropagation();
+        this.onNodeClick!(d);
+      });
+    }
+
     // Only create visual elements for NEW nodes - don't touch existing ones
     // Existing nodes already have their circles and patterns - leave them alone!
   }
@@ -164,6 +176,14 @@ export class ContributorsVisualization extends BaseVisualizationResource {
 
     // Add hover effects to new contributor nodes
     this.addHoverEffects(nodeEnter);
+
+    // Add click handlers to new contributor nodes
+    if (this.onNodeClick) {
+      nodeEnter.on("click", (event: any, d: NodeData) => {
+        event.stopPropagation();
+        this.onNodeClick!(d);
+      });
+    }
 
     // Animate entrance - scale from 0 to 1 while keeping position (only NEW nodes)
     nodeEnter
@@ -239,5 +259,31 @@ export class ContributorsVisualization extends BaseVisualizationResource {
         // Return text to original color
         group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
       });
+  }
+
+  public getPanelContent(
+    nodeData: NodeData,
+    contributorData?: any,
+  ): PanelContent {
+    // Console log the contributor data for inspection
+    console.log("🔍 Contributor data:", nodeData);
+    console.log("🔍 Additional contributor data:", contributorData);
+
+    const sections: PanelSection[] = [];
+
+    // Add contributions info if available
+    if (nodeData.contributions) {
+      sections.push({
+        title: "Contributions",
+        type: "text" as const,
+        data: `${nodeData.contributions} contributions to this repository`,
+      });
+    }
+
+    return {
+      name: nodeData.name || "Contributor",
+      avatar: nodeData.avatar,
+      sections: sections,
+    };
   }
 }

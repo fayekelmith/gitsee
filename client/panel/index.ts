@@ -1,1 +1,1 @@
-export { DetailPanel } from './DetailPanel.js';
+export { DetailPanel } from "./DetailPanel.js";

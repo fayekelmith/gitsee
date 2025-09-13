@@ -27,7 +27,7 @@ class GitVisualizer {
   private linksViz!: LinksVisualization;
   private filesViz!: FilesVisualization;
   private statsViz!: StatsVisualization;
-  
+
   // Detail panel
   private detailPanel!: DetailPanel;
 
@@ -50,26 +50,26 @@ class GitVisualizer {
 
   // Spiral positioning configuration - distances from base radius
   private spiralDistances = {
-    repo: 40,        // Repository nodes (not used much since repo is centered)
-    contributor: 40, // Contributors start close to center  
-    stat: 40,        // Stats close to center
-    file: 80,        // Files farther out for better separation
-    default: 40      // Fallback for any other node types
+    repo: 40, // Repository nodes (not used much since repo is centered)
+    contributor: 40, // Contributors start close to center
+    stat: 40, // Stats close to center
+    file: 80, // Files farther out for better separation
+    default: 40, // Fallback for any other node types
   };
 
   constructor(containerSelector: string = "#visualization") {
     const container = d3.select(containerSelector);
     const containerNode = container.node() as Element;
-    
+
     if (!containerNode) {
       throw new Error(`Container element not found: ${containerSelector}`);
     }
-    
+
     // Get dimensions from container element, not window
     const rect = containerNode.getBoundingClientRect();
     this.width = rect.width || 800; // fallback width
     this.height = rect.height || 600; // fallback height
-    
+
     this.svg = container;
     this.svg.attr("width", this.width).attr("height", this.height);
 
@@ -103,13 +103,25 @@ class GitVisualizer {
     };
 
     // Initialize resource visualizations
-    this.repositoryViz = new RepositoryVisualization(this.context, (nodeData) => {
-      // Show detail panel when repo node is clicked
+    this.repositoryViz = new RepositoryVisualization(
+      this.context,
+      (nodeData) => {
+        // Show detail panel when repo node is clicked
+        this.showNodePanel(nodeData);
+      }
+    );
+    this.contributorsViz = new ContributorsVisualization(
+      this.context,
+      (nodeData) => {
+        // Show contributor panel when contributor node is clicked
+        this.showNodePanel(nodeData);
+      }
+    );
+    this.linksViz = new LinksVisualization(this.context);
+    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
+      // Show file panel when file node is clicked
       this.showNodePanel(nodeData);
     });
-    this.contributorsViz = new ContributorsVisualization(this.context);
-    this.linksViz = new LinksVisualization(this.context);
-    this.filesViz = new FilesVisualization(this.context);
     this.statsViz = new StatsVisualization(this.context, (nodeData) => {
       // Stats click also shows repo panel
       this.showNodePanel(nodeData);
@@ -166,7 +178,9 @@ class GitVisualizer {
     // If collision, try spiraling outward from the original position
     const spiralStep = 20;
     // Use configured spiral distance for this node type
-    const spiralDistance = this.spiralDistances[nodeType as keyof typeof this.spiralDistances] || this.spiralDistances.default;
+    const spiralDistance =
+      this.spiralDistances[nodeType as keyof typeof this.spiralDistances] ||
+      this.spiralDistances.default;
     let spiralRadius = radius + spiralDistance;
     let attempts = 0;
     const maxAttempts = 50;
@@ -283,7 +297,7 @@ class GitVisualizer {
 
   private calculateGradualZoomOut(): number {
     // Configurable zoom speed - zoomSpeed of 1 = 1% reduction, 2 = 2% reduction, etc.
-    const zoomFactor = 1 - (this.zoomSpeed * 0.01);
+    const zoomFactor = 1 - this.zoomSpeed * 0.01;
     this.currentZoom *= zoomFactor;
 
     // Don't go below 0.1x zoom
@@ -345,12 +359,12 @@ class GitVisualizer {
         this.currentRepoData = {
           name: data.repo?.full_name || `${owner}/${repo}`,
           description: data.repo?.description,
-          ...data.repo
+          ...data.repo,
         };
-        
+
         // Pass repo data to stats visualization
         this.statsViz.setRepoData(this.currentRepoData);
-        
+
         const repoData = {
           name: this.currentRepoData.name,
           icon: undefined, // Show without icon first
@@ -391,19 +405,30 @@ class GitVisualizer {
 
       // Step 3: Add stats after icon loads
       if (data.stats) {
-        setTimeout(() => {
-          this.addStatsAfterIcon(data.stats, () => {
-            // Step 4: Add contributors after stats are done
-            this.addContributorsAfterStats(data.contributors || [], data.files || []);
-          });
-        }, data.icon ? 1000 : 500);
+        setTimeout(
+          () => {
+            this.addStatsAfterIcon(data.stats, () => {
+              // Step 4: Add contributors after stats are done
+              this.addContributorsAfterStats(
+                data.contributors || [],
+                data.files || []
+              );
+            });
+          },
+          data.icon ? 1000 : 500
+        );
       } else {
         // If no stats, go directly to contributors
-        setTimeout(() => {
-          this.addContributorsAfterStats(data.contributors || [], data.files || []);
-        }, data.icon ? 1000 : 500);
+        setTimeout(
+          () => {
+            this.addContributorsAfterStats(
+              data.contributors || [],
+              data.files || []
+            );
+          },
+          data.icon ? 1000 : 500
+        );
       }
-
 
       console.log(`✅ Successfully started visualization for ${owner}/${repo}`);
     } catch (error) {
@@ -458,7 +483,7 @@ class GitVisualizer {
 
   private addStatsAfterIcon(stats: any, onComplete: () => void): void {
     if (!stats) {
-      console.log('📊 No stats to add');
+      console.log("📊 No stats to add");
       if (onComplete) onComplete();
       return;
     }
@@ -469,17 +494,41 @@ class GitVisualizer {
     }, 300); // Small delay before starting stats
   }
 
-  private addStatsSequentially(stats: any, index: number, onComplete?: () => void): void {
+  private addStatsSequentially(
+    stats: any,
+    index: number,
+    onComplete?: () => void
+  ): void {
     // Create the 4 stat items
     const statItems = [
-      { id: 'stat-stars', name: `${stats.stars} ⭐`, label: 'Stars', value: stats.stars },
-      { id: 'stat-prs', name: `${stats.totalPRs} PRs`, label: 'Pull Requests', value: stats.totalPRs },
-      { id: 'stat-commits', name: `${stats.totalCommits} commits`, label: 'Total Commits', value: stats.totalCommits },
-      { id: 'stat-age', name: `${stats.ageInYears}y old`, label: 'Repository Age', value: stats.ageInYears }
+      {
+        id: "stat-stars",
+        name: `${stats.stars} ⭐`,
+        label: "Stars",
+        value: stats.stars,
+      },
+      {
+        id: "stat-prs",
+        name: `${stats.totalPRs} PRs`,
+        label: "Pull Requests",
+        value: stats.totalPRs,
+      },
+      {
+        id: "stat-commits",
+        name: `${stats.totalCommits} commits`,
+        label: "Total Commits",
+        value: stats.totalCommits,
+      },
+      {
+        id: "stat-age",
+        name: `${stats.ageInYears}y old`,
+        label: "Repository Age",
+        value: stats.ageInYears,
+      },
     ];
 
     if (index >= statItems.length) {
-      console.log('🎉 All stats added!');
+      console.log("🎉 All stats added!");
       if (onComplete) {
         setTimeout(onComplete, 500); // Small delay before moving to next phase
       }
@@ -487,65 +536,71 @@ class GitVisualizer {
     }
 
     const stat = statItems[index];
-    console.log(`📊 Adding stat ${index + 1}/${statItems.length}: ${stat.name}`);
+    console.log(
+      `📊 Adding stat ${index + 1}/${statItems.length}: ${stat.name}`
+    );
 
     // Calculate collision-free organic position for this stat
-    const position = this.calculateOrganicPosition('stat', index);
-    
-    console.log(`📍 Positioning ${stat.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`);
-    
+    const position = this.calculateOrganicPosition("stat", index);
+
+    console.log(
+      `📍 Positioning ${stat.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`
+    );
+
     const statNode: NodeData = {
       id: stat.id,
-      type: 'stat',
+      type: "stat",
       name: stat.name,
       label: stat.label,
       value: stat.value,
       x: position.x,
-      y: position.y
+      y: position.y,
     };
 
     // Register this stat's space to prevent future overlaps
-    const nodeRadius = this.getNodeRadius('stat');
+    const nodeRadius = this.getNodeRadius("stat");
     this.registerOccupiedSpace(position.x, position.y, nodeRadius, statNode.id);
 
     const statLink: LinkData = {
       id: `link-repo-stat-${stat.id}`,
-      source: 'repo',
+      source: "repo",
       target: stat.id,
-      type: 'stat'
+      type: "stat",
     };
 
     const statResources = {
       nodes: [statNode],
-      links: [statLink]
+      links: [statLink],
     };
 
     this.addResources(statResources);
-    
+
     // Get all stat nodes that should be visible now
-    const allStatNodes = this.allNodes.filter(n => n.type === 'stat');
-    
+    const allStatNodes = this.allNodes.filter((n) => n.type === "stat");
+
     // Update visualization with all stats (so previous ones don't disappear)
     this.statsViz.updateWithAnimation({
       nodes: allStatNodes,
-      links: []
+      links: [],
     });
-    
+
     // Update links with all stat links
-    const allLinks = this.allLinks.filter(l => l.type === 'contribution' || l.type === 'stat' || l.type === 'file');
+    const allLinks = this.allLinks.filter(
+      (l) => l.type === "contribution" || l.type === "stat" || l.type === "file"
+    );
     this.linksViz.updateWithAnimation({
       nodes: [],
-      links: allLinks
+      links: allLinks,
     });
-    
+
     // Update link positions
     this.linksViz.updatePositions(this.allNodes);
-    
+
     // Gradually zoom out (keeping repo centered)
     setTimeout(() => {
       this.gradualZoomOut();
     }, 200); // Small delay after the node appears
-    
+
     // Add next stat after configurable delay
     setTimeout(() => {
       this.addStatsSequentially(stats, index + 1, onComplete);
@@ -554,7 +609,7 @@ class GitVisualizer {
 
   private addContributorsAfterStats(contributors: any[], files: any[]): void {
     if (!contributors || contributors.length === 0) {
-      console.log('👥 No contributors to add, going to files');
+      console.log("👥 No contributors to add, going to files");
       setTimeout(() => {
         this.addFilesAfterContributors(files);
       }, 500);
@@ -562,9 +617,14 @@ class GitVisualizer {
     }
 
     // Sort contributors by contribution count (highest first)
-    const sortedContributors = contributors.sort((a, b) => b.contributions - a.contributions);
-    console.log('📊 Contributors sorted by contributions:', sortedContributors.map(c => `${c.login}: ${c.contributions}`));
-    
+    const sortedContributors = contributors.sort(
+      (a, b) => b.contributions - a.contributions
+    );
+    console.log(
+      "📊 Contributors sorted by contributions:",
+      sortedContributors.map((c) => `${c.login}: ${c.contributions}`)
+    );
+
     setTimeout(() => {
       this.addContributorsSequentially(sortedContributors, 0, () => {
         // Add files after all contributors are added
@@ -602,6 +662,7 @@ class GitVisualizer {
       `📍 Positioning ${contributor.login} (${contributor.contributions} contributions) organically`
     );
 
+    console.log("====================", contributor);
     const contributorNode: NodeData = {
       id: `contributor-${contributor.id}`,
       type: "contributor",
@@ -780,10 +841,10 @@ class GitVisualizer {
 
   private injectStyles(): void {
     // Check if styles are already injected
-    if (document.getElementById('gitsee-styles')) return;
-    
-    const styleSheet = document.createElement('style');
-    styleSheet.id = 'gitsee-styles';
+    if (document.getElementById("gitsee-styles")) return;
+
+    const styleSheet = document.createElement("style");
+    styleSheet.id = "gitsee-styles";
     styleSheet.textContent = `
       .gitsee-link {
         stroke: #30363d;
@@ -811,16 +872,26 @@ class GitVisualizer {
     if (nodeData.type === "repo" || !nodeData.type) {
       // Stats click passes a fake repo node, so we always show repo content for stats
       // Get all stats nodes to pass to the repository panel
-      const statsNodes = this.allNodes.filter(n => n.type === "stat");
-      content = this.repositoryViz.getPanelContent(nodeData, this.currentRepoData, statsNodes);
+      const statsNodes = this.allNodes.filter((n) => n.type === "stat");
+      content = this.repositoryViz.getPanelContent(
+        nodeData,
+        this.currentRepoData,
+        statsNodes
+      );
     } else if (nodeData.type === "file") {
       content = this.filesViz.getPanelContent(nodeData);
+    } else if (nodeData.type === "contributor") {
+      content = this.contributorsViz.getPanelContent(nodeData);
     } else {
       // Default to repo content for unknown types
-      const statsNodes = this.allNodes.filter(n => n.type === "stat");
-      content = this.repositoryViz.getPanelContent(nodeData, this.currentRepoData, statsNodes);
+      const statsNodes = this.allNodes.filter((n) => n.type === "stat");
+      content = this.repositoryViz.getPanelContent(
+        nodeData,
+        this.currentRepoData,
+        statsNodes
+      );
     }
-    
+
     this.detailPanel.updateContent(content);
     this.detailPanel.show();
   }
@@ -840,12 +911,12 @@ class GitVisualizer {
   public destroy(): void {
     // Clean up visualization
     this.svg.selectAll("*").remove();
-    
+
     // Clean up detail panel
     this.detailPanel.destroy();
-    
+
     // Optionally remove injected styles if no other instances exist
-    const styleSheet = document.getElementById('gitsee-styles');
+    const styleSheet = document.getElementById("gitsee-styles");
     if (styleSheet) {
       styleSheet.remove();
     }

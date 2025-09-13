@@ -38,7 +38,10 @@ export class FilesVisualization extends BaseVisualizationResource {
     fileNodes.exit().remove();
 
     // Add new nodes
-    const fileEnter = fileNodes.enter().append("g").attr("class", "gitsee-node file-node");
+    const fileEnter = fileNodes
+      .enter()
+      .append("g")
+      .attr("class", "gitsee-node file-node");
 
     // Add file icons (SVG path for a clean file icon) - white outline with grey fill
     fileEnter
@@ -217,9 +220,9 @@ export class FilesVisualization extends BaseVisualizationResource {
         {
           title: "Content",
           type: "content",
-          data: fileData?.content || "// File content would be loaded here..."
-        }
-      ]
+          data: fileData?.content || "// File content would be loaded here...",
+        },
+      ],
     };
   }
 }
