@@ -50,20 +50,8 @@ export class StatsVisualization extends BaseVisualizationResource {
       .append('g')
       .attr('class', 'stat-node');
     
-    // Add background rectangles for stats
-    statEnter.append('rect')
-      .attr('width', 40)
-      .attr('height', 30)
-      .attr('x', -20)
-      .attr('y', -15)
-      .attr('rx', 4)
-      .attr('ry', 4)
-      .attr('fill', '#2D3748')
-      .attr('stroke', '#4A5568')
-      .attr('stroke-width', '2');
-    
-    // Add stat values (the number/text)
-    statEnter.append('text')
+    // Add stat values (the number/text) first so we can measure them
+    const textElements = statEnter.append('text')
       .attr('class', 'stat-value')
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'central')
@@ -72,6 +60,31 @@ export class StatsVisualization extends BaseVisualizationResource {
       .attr('font-weight', 'bold')
       .attr('font-family', 'system-ui, -apple-system, sans-serif')
       .text((d: NodeData) => d.name);
+    
+    // Add background rectangles sized to fit the text with padding
+    statEnter.each(function() {
+      const group = d3.select(this);
+      const textElement = group.select('text').node() as SVGTextElement;
+      
+      if (textElement) {
+        const bbox = textElement.getBBox();
+        const padding = 8; // 8px padding on each side
+        const width = bbox.width + (padding * 2);
+        const height = bbox.height + (padding * 2);
+        
+        // Insert rectangle before text so it appears behind
+        group.insert('rect', 'text')
+          .attr('width', width)
+          .attr('height', height)
+          .attr('x', -width / 2)
+          .attr('y', -height / 2)
+          .attr('rx', 4)
+          .attr('ry', 4)
+          .attr('fill', '#2D3748')
+          .attr('stroke', '#4A5568')
+          .attr('stroke-width', '2');
+      }
+    });
     
     
     // Update positions for all nodes (new and existing)
@@ -101,20 +114,8 @@ export class StatsVisualization extends BaseVisualizationResource {
       .attr('class', 'stat-node')
       .style('opacity', 0); // Start invisible
     
-    // Add background rectangles for stats
-    statEnter.append('rect')
-      .attr('width', 40)
-      .attr('height', 30)
-      .attr('x', -20)
-      .attr('y', -15)
-      .attr('rx', 4)
-      .attr('ry', 4)
-      .attr('fill', '#2D3748')
-      .attr('stroke', '#4A5568')
-      .attr('stroke-width', '2');
-    
-    // Add stat values
-    statEnter.append('text')
+    // Add stat values (the number/text) first so we can measure them
+    const textElements = statEnter.append('text')
       .attr('class', 'stat-value')
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'central')
@@ -123,6 +124,31 @@ export class StatsVisualization extends BaseVisualizationResource {
       .attr('font-weight', 'bold')
       .attr('font-family', 'system-ui, -apple-system, sans-serif')
       .text((d: NodeData) => d.name);
+    
+    // Add background rectangles sized to fit the text with padding
+    statEnter.each(function() {
+      const group = d3.select(this);
+      const textElement = group.select('text').node() as SVGTextElement;
+      
+      if (textElement) {
+        const bbox = textElement.getBBox();
+        const padding = 8; // 8px padding on each side
+        const width = bbox.width + (padding * 2);
+        const height = bbox.height + (padding * 2);
+        
+        // Insert rectangle before text so it appears behind
+        group.insert('rect', 'text')
+          .attr('width', width)
+          .attr('height', height)
+          .attr('x', -width / 2)
+          .attr('y', -height / 2)
+          .attr('rx', 4)
+          .attr('ry', 4)
+          .attr('fill', '#2D3748')
+          .attr('stroke', '#4A5568')
+          .attr('stroke-width', '2');
+      }
+    });
     
     
     // Set initial positions and animate in

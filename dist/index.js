@@ -3414,8 +3414,18 @@ var StatsVisualization = class extends BaseVisualizationResource {
     const statNodes = group.selectAll(".stat-node").data(resourceData.nodes, (d) => d.id);
     statNodes.exit().remove();
     const statEnter = statNodes.enter().append("g").attr("class", "stat-node");
-    statEnter.append("rect").attr("width", 40).attr("height", 30).attr("x", -20).attr("y", -15).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
-    statEnter.append("text").attr("class", "stat-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
+    const textElements = statEnter.append("text").attr("class", "stat-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
+    statEnter.each(function() {
+      const group2 = select_default2(this);
+      const textElement = group2.select("text").node();
+      if (textElement) {
+        const bbox = textElement.getBBox();
+        const padding = 8;
+        const width = bbox.width + padding * 2;
+        const height = bbox.height + padding * 2;
+        group2.insert("rect", "text").attr("width", width).attr("height", height).attr("x", -width / 2).attr("y", -height / 2).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+      }
+    });
     const allStatNodes = statEnter.merge(statNodes);
     allStatNodes.attr(
       "transform",
@@ -3427,8 +3437,18 @@ var StatsVisualization = class extends BaseVisualizationResource {
     const statNodes = group.selectAll(".stat-node").data(resourceData.nodes, (d) => d.id);
     statNodes.exit().transition().duration(300).style("opacity", 0).remove();
     const statEnter = statNodes.enter().append("g").attr("class", "stat-node").style("opacity", 0);
-    statEnter.append("rect").attr("width", 40).attr("height", 30).attr("x", -20).attr("y", -15).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
-    statEnter.append("text").attr("class", "stat-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
+    const textElements = statEnter.append("text").attr("class", "stat-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
+    statEnter.each(function() {
+      const group2 = select_default2(this);
+      const textElement = group2.select("text").node();
+      if (textElement) {
+        const bbox = textElement.getBBox();
+        const padding = 8;
+        const width = bbox.width + padding * 2;
+        const height = bbox.height + padding * 2;
+        group2.insert("rect", "text").attr("width", width).attr("height", height).attr("x", -width / 2).attr("y", -height / 2).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+      }
+    });
     const allStatNodes = statEnter.merge(statNodes);
     allStatNodes.attr(
       "transform",
