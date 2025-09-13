@@ -13,6 +13,7 @@ import {
   FilesVisualization,
   StatsVisualization,
 } from "./resources/index.js";
+import { DetailPanel } from "./panel/index.js";
 
 class GitVisualizer {
   private width: number;
@@ -26,6 +27,9 @@ class GitVisualizer {
   private linksViz!: LinksVisualization;
   private filesViz!: FilesVisualization;
   private statsViz!: StatsVisualization;
+  
+  // Detail panel
+  private detailPanel!: DetailPanel;
 
   // Data storage
   private allNodes: NodeData[] = [];
@@ -98,11 +102,17 @@ class GitVisualizer {
     };
 
     // Initialize resource visualizations
-    this.repositoryViz = new RepositoryVisualization(this.context);
+    this.repositoryViz = new RepositoryVisualization(this.context, (nodeData) => {
+      // Show detail panel when repo node is clicked
+      this.detailPanel.show();
+    });
     this.contributorsViz = new ContributorsVisualization(this.context);
     this.linksViz = new LinksVisualization(this.context);
     this.filesViz = new FilesVisualization(this.context);
     this.statsViz = new StatsVisualization(this.context);
+
+    // Initialize detail panel
+    this.detailPanel = new DetailPanel();
 
     // Create links group first to ensure it's at the bottom
     this.linksViz["getResourceGroup"]();
@@ -782,9 +792,24 @@ class GitVisualizer {
     document.head.appendChild(styleSheet);
   }
 
+  public showDetailPanel(): void {
+    this.detailPanel.show();
+  }
+
+  public hideDetailPanel(): void {
+    this.detailPanel.hide();
+  }
+
+  public toggleDetailPanel(): void {
+    this.detailPanel.toggle();
+  }
+
   public destroy(): void {
     // Clean up visualization
     this.svg.selectAll("*").remove();
+    
+    // Clean up detail panel
+    this.detailPanel.destroy();
     
     // Optionally remove injected styles if no other instances exist
     const styleSheet = document.getElementById('gitsee-styles');

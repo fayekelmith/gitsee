@@ -3,8 +3,11 @@ import { BaseVisualizationResource } from "./base.js";
 import { NodeData, ResourceData } from "../types/index.js";
 
 export class RepositoryVisualization extends BaseVisualizationResource {
-  constructor(context: any) {
+  private onNodeClick?: (nodeData: NodeData) => void;
+
+  constructor(context: any, onNodeClick?: (nodeData: NodeData) => void) {
     super(context, "repository");
+    this.onNodeClick = onNodeClick;
   }
 
   create(repoData: any): ResourceData {
@@ -110,6 +113,14 @@ export class RepositoryVisualization extends BaseVisualizationResource {
 
     // Add hover effects to new repo nodes
     this.addHoverEffects(nodeEnter);
+
+    // Add click handler to repo nodes
+    if (this.onNodeClick) {
+      nodeEnter.on("click", (event: any, d: NodeData) => {
+        event.stopPropagation();
+        this.onNodeClick!(d);
+      });
+    }
 
     // Update existing nodes that now have avatars (for icon loading)
     nodes.each((d: NodeData, i: number, nodeElements: any) => {
