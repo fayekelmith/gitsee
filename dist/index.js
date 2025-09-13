@@ -3161,6 +3161,40 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
       group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
     });
   }
+  getPanelContent(nodeData, repoData, statsNodes) {
+    const statsData = [];
+    if (statsNodes && statsNodes.length > 0) {
+      statsNodes.forEach((statNode) => {
+        const nameMatch = statNode.name?.match(/(.+)\s([⭐🔄📝📅])/);
+        const icon = nameMatch ? nameMatch[2] : "\u2699";
+        const value = nameMatch ? nameMatch[1] : statNode.value?.toString() || "0";
+        statsData.push({
+          label: statNode.label || "Stat",
+          value,
+          icon
+        });
+      });
+    }
+    const sections = [];
+    if (statsData.length > 0) {
+      sections.push({
+        title: "Statistics",
+        type: "stats",
+        data: statsData
+      });
+    }
+    if (repoData?.description) {
+      sections.push({
+        title: "Description",
+        type: "text",
+        data: repoData.description
+      });
+    }
+    return {
+      name: repoData?.name || repoData?.full_name || nodeData.name,
+      sections
+    };
+  }
 };
 
 // client/resources/contributors.ts
@@ -3375,8 +3409,9 @@ var LinksVisualization = class extends BaseVisualizationResource {
 
 // client/resources/files.ts
 var FilesVisualization = class extends BaseVisualizationResource {
-  constructor(context) {
+  constructor(context, onNodeClick) {
     super(context, "files");
+    this.onNodeClick = onNodeClick;
   }
   create(files) {
     const nodes = [];
@@ -3399,6 +3434,12 @@ var FilesVisualization = class extends BaseVisualizationResource {
     fileEnter.append("path").attr("class", "file-icon").attr("d", "M-8,-10 L3,-10 L8,-5 L8,10 L-8,10 Z M3,-10 L3,-5 L8,-5").attr("fill", "#666666").attr("stroke", "white").attr("stroke-width", "1.5").attr("stroke-linejoin", "round");
     fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 22).attr("font-size", "11px").attr("fill", "#b6b6b6").attr("font-family", "system-ui, -apple-system, sans-serif").attr("font-weight", "500").text((d) => d.name);
     this.addHoverEffects(fileEnter);
+    if (this.onNodeClick) {
+      fileEnter.on("click", (event, d) => {
+        event.stopPropagation();
+        this.onNodeClick(d);
+      });
+    }
     const allFileNodes = fileEnter.merge(fileNodes);
     allFileNodes.attr(
       "transform",
@@ -3413,6 +3454,12 @@ var FilesVisualization = class extends BaseVisualizationResource {
     fileEnter.append("path").attr("class", "file-icon").attr("d", "M-8,-10 L3,-10 L8,-5 L8,10 L-8,10 Z M3,-10 L3,-5 L8,-5").attr("fill", "#666666").attr("stroke", "white").attr("stroke-width", "1.5").attr("stroke-linejoin", "round");
     fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 22).attr("font-size", "11px").attr("fill", "#b6b6b6").attr("font-family", "system-ui, -apple-system, sans-serif").attr("font-weight", "500").text((d) => d.name);
     this.addHoverEffects(fileEnter);
+    if (this.onNodeClick) {
+      fileEnter.on("click", (event, d) => {
+        event.stopPropagation();
+        this.onNodeClick(d);
+      });
+    }
     const allFileNodes = fileEnter.merge(fileNodes);
     allFileNodes.attr(
       "transform",
@@ -3446,12 +3493,29 @@ var FilesVisualization = class extends BaseVisualizationResource {
       group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
     });
   }
+  getPanelContent(nodeData, fileData) {
+    return {
+      name: nodeData.name,
+      sections: [
+        {
+          title: "Content",
+          type: "content",
+          data: fileData?.content || "// File content would be loaded here..."
+        }
+      ]
+    };
+  }
 };
 
 // client/resources/stats.ts
 var StatsVisualization = class extends BaseVisualizationResource {
-  constructor(context) {
+  constructor(context, onNodeClick) {
     super(context, "stats");
+    this.repoData = null;
+    this.onNodeClick = onNodeClick;
+  }
+  setRepoData(repoData) {
+    this.repoData = repoData;
   }
   create(statsData) {
     const nodes = [];
@@ -3513,6 +3577,19 @@ var StatsVisualization = class extends BaseVisualizationResource {
       }
     });
     this.addHoverEffects(statEnter);
+    if (this.onNodeClick) {
+      statEnter.on("click", (event, d) => {
+        event.stopPropagation();
+        const repoNode = {
+          id: "repo",
+          type: "repo",
+          name: this.repoData?.name || "Repository",
+          x: 0,
+          y: 0
+        };
+        this.onNodeClick(repoNode);
+      });
+    }
     const allStatNodes = statEnter.merge(statNodes);
     allStatNodes.attr(
       "transform",
@@ -3537,6 +3614,19 @@ var StatsVisualization = class extends BaseVisualizationResource {
       }
     });
     this.addHoverEffects(statEnter);
+    if (this.onNodeClick) {
+      statEnter.on("click", (event, d) => {
+        event.stopPropagation();
+        const repoNode = {
+          id: "repo",
+          type: "repo",
+          name: this.repoData?.name || "Repository",
+          x: 0,
+          y: 0
+        };
+        this.onNodeClick(repoNode);
+      });
+    }
     const allStatNodes = statEnter.merge(statNodes);
     allStatNodes.attr(
       "transform",
@@ -3588,29 +3678,44 @@ var DetailPanel = class {
     }).on("click", () => {
       this.hide();
     });
-    const content = this.panel.append("div").attr("class", "panel-content").style("padding", "20px").style("overflow-y", "auto").style("max-height", "100%");
-    this.addHardcodedContent(content);
+    this.contentContainer = this.panel.append("div").attr("class", "panel-content").style("padding", "20px").style("overflow-y", "auto").style("max-height", "100%");
   }
-  addHardcodedContent(container) {
-    const header = container.append("div").attr("class", "repo-header").style("margin-bottom", "20px");
-    header.append("h2").style("margin", "0 0 8px 0").style("color", "#e6edf3").style("font-size", "20px").style("font-weight", "600").style("font-family", "system-ui, -apple-system, sans-serif").text("stakwork/gitsee");
-    const statsContainer = container.append("div").attr("class", "stats-section").style("margin-bottom", "20px");
-    statsContainer.append("h3").style("margin", "0 0 12px 0").style("color", "#7d8590").style("font-size", "14px").style("font-weight", "600").style("text-transform", "uppercase").style("letter-spacing", "0.5px").text("Statistics");
-    const statsGrid = statsContainer.append("div").style("display", "grid").style("grid-template-columns", "1fr 1fr").style("gap", "12px");
-    const stats = [
-      { label: "Stars", value: "2", icon: "\u2B50" },
-      { label: "PRs", value: "3", icon: "\u{1F504}" },
-      { label: "Commits", value: "23", icon: "\u{1F4DD}" },
-      { label: "Age", value: "2y", icon: "\u{1F4C5}" }
-    ];
+  updateContent(content) {
+    this.contentContainer.selectAll("*").remove();
+    const header = this.contentContainer.append("div").attr("class", "node-header").style("margin-bottom", "20px");
+    header.append("h2").style("margin", "0 0 8px 0").style("color", "#e6edf3").style("font-size", "20px").style("font-weight", "600").style("font-family", "system-ui, -apple-system, sans-serif").text(content.name);
+    content.sections.forEach((section) => {
+      this.renderSection(section);
+    });
+  }
+  renderSection(section) {
+    const sectionContainer = this.contentContainer.append("div").attr("class", `section-${section.type}`).style("margin-bottom", "20px");
+    sectionContainer.append("h3").style("margin", "0 0 12px 0").style("color", "#7d8590").style("font-size", "14px").style("font-weight", "600").style("text-transform", "uppercase").style("letter-spacing", "0.5px").text(section.title);
+    switch (section.type) {
+      case "text":
+        this.renderTextSection(sectionContainer, section.data);
+        break;
+      case "stats":
+        this.renderStatsSection(sectionContainer, section.data);
+        break;
+      case "content":
+        this.renderContentSection(sectionContainer, section.data);
+        break;
+    }
+  }
+  renderTextSection(container, data) {
+    container.append("p").style("margin", "0").style("color", "#c9d1d9").style("font-size", "14px").style("line-height", "1.5").style("font-family", "system-ui, -apple-system, sans-serif").text(data);
+  }
+  renderStatsSection(container, stats) {
+    const statsGrid = container.append("div").style("display", "grid").style("grid-template-columns", "1fr 1fr").style("gap", "12px");
     stats.forEach((stat) => {
       const statItem = statsGrid.append("div").style("background", "#161b22").style("border", "1px solid #30363d").style("border-radius", "6px").style("padding", "12px").style("text-align", "center");
       statItem.append("div").style("font-size", "11px").style("margin-bottom", "4px").text(`${stat.icon} ${stat.value}`);
       statItem.append("div").style("font-size", "10px").style("color", "#7d8590").style("text-transform", "uppercase").style("letter-spacing", "0.5px").text(stat.label);
     });
-    const descContainer = container.append("div").attr("class", "description-section");
-    descContainer.append("h3").style("margin", "0 0 12px 0").style("color", "#7d8590").style("font-size", "14px").style("font-weight", "600").style("text-transform", "uppercase").style("letter-spacing", "0.5px").text("Description");
-    descContainer.append("p").style("margin", "0").style("color", "#c9d1d9").style("font-size", "14px").style("line-height", "1.5").style("font-family", "system-ui, -apple-system, sans-serif").text("Interactive repository visualization library built with D3.js and TypeScript. Features organic node positioning, real-time GitHub API integration, and beautiful hover effects. Designed to be embeddable in any web application with zero configuration. This is a longer description to test scrolling functionality when content exceeds the panel height. The panel should automatically show a scrollbar when needed while maintaining its floating appearance and responsive design.");
+  }
+  renderContentSection(container, data) {
+    container.append("pre").style("margin", "0").style("padding", "12px").style("background", "#161b22").style("border", "1px solid #30363d").style("border-radius", "6px").style("color", "#c9d1d9").style("font-size", "12px").style("line-height", "1.4").style("font-family", "monospace").style("white-space", "pre-wrap").style("word-wrap", "break-word").style("max-height", "200px").style("overflow-y", "auto").text(data);
   }
   injectStyles() {
     if (document.getElementById("gitsee-panel-styles")) return;
@@ -3687,6 +3792,7 @@ var GitVisualizer = class {
     // Data storage
     this.allNodes = [];
     this.allLinks = [];
+    this.currentRepoData = null;
     // Collision detection system
     this.occupiedSpaces = [];
     // Configurable timing and animation
@@ -3734,12 +3840,14 @@ var GitVisualizer = class {
       height: this.height
     };
     this.repositoryViz = new RepositoryVisualization(this.context, (nodeData) => {
-      this.detailPanel.show();
+      this.showNodePanel(nodeData);
     });
     this.contributorsViz = new ContributorsVisualization(this.context);
     this.linksViz = new LinksVisualization(this.context);
     this.filesViz = new FilesVisualization(this.context);
-    this.statsViz = new StatsVisualization(this.context);
+    this.statsViz = new StatsVisualization(this.context, (nodeData) => {
+      this.showNodePanel(nodeData);
+    });
     this.detailPanel = new DetailPanel();
     this.linksViz["getResourceGroup"]();
   }
@@ -3886,8 +3994,14 @@ var GitVisualizer = class {
         console.log(`\u2699\uFE0F Using node delay: ${this.nodeDelay}ms`);
       }
       if (data.repo) {
-        const repoData = {
+        this.currentRepoData = {
           name: data.repo?.full_name || `${owner2}/${repo2}`,
+          description: data.repo?.description,
+          ...data.repo
+        };
+        this.statsViz.setRepoData(this.currentRepoData);
+        const repoData = {
+          name: this.currentRepoData.name,
           icon: void 0
           // Show without icon first
         };
@@ -4225,6 +4339,20 @@ var GitVisualizer = class {
       }
     `;
     document.head.appendChild(styleSheet);
+  }
+  showNodePanel(nodeData) {
+    let content;
+    if (nodeData.type === "repo" || !nodeData.type) {
+      const statsNodes = this.allNodes.filter((n) => n.type === "stat");
+      content = this.repositoryViz.getPanelContent(nodeData, this.currentRepoData, statsNodes);
+    } else if (nodeData.type === "file") {
+      content = this.filesViz.getPanelContent(nodeData);
+    } else {
+      const statsNodes = this.allNodes.filter((n) => n.type === "stat");
+      content = this.repositoryViz.getPanelContent(nodeData, this.currentRepoData, statsNodes);
+    }
+    this.detailPanel.updateContent(content);
+    this.detailPanel.show();
   }
   showDetailPanel() {
     this.detailPanel.show();

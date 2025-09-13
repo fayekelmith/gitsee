@@ -1,7 +1,9 @@
 import * as d3 from "d3";
+import { PanelContent, PanelSection } from "./types.js";
 
 export class DetailPanel {
-  private panel: d3.Selection<HTMLDivElement, unknown, HTMLElement, unknown>;
+  private panel!: d3.Selection<HTMLDivElement, unknown, HTMLElement, unknown>;
+  private contentContainer!: d3.Selection<HTMLDivElement, unknown, HTMLElement, unknown>;
   private isVisible: boolean = false;
 
   constructor() {
@@ -64,25 +66,24 @@ export class DetailPanel {
       });
 
     // Add content container with scroll
-    const content = this.panel
+    this.contentContainer = this.panel
       .append("div")
       .attr("class", "panel-content")
       .style("padding", "20px")
       .style("overflow-y", "auto")
       .style("max-height", "100%");
-
-    // Add hardcoded content
-    this.addHardcodedContent(content);
   }
 
-  private addHardcodedContent(container: d3.Selection<HTMLDivElement, unknown, HTMLElement, unknown>): void {
-    // Repository header
-    const header = container
+  public updateContent(content: PanelContent): void {
+    // Clear existing content
+    this.contentContainer.selectAll("*").remove();
+
+    // Add header with node name
+    const header = this.contentContainer
       .append("div")
-      .attr("class", "repo-header")
+      .attr("class", "node-header")
       .style("margin-bottom", "20px");
 
-    // Repo name
     header
       .append("h2")
       .style("margin", "0 0 8px 0")
@@ -90,15 +91,22 @@ export class DetailPanel {
       .style("font-size", "20px")
       .style("font-weight", "600")
       .style("font-family", "system-ui, -apple-system, sans-serif")
-      .text("stakwork/gitsee");
+      .text(content.name);
 
-    // Stats section
-    const statsContainer = container
+    // Render each section
+    content.sections.forEach(section => {
+      this.renderSection(section);
+    });
+  }
+
+  private renderSection(section: PanelSection): void {
+    const sectionContainer = this.contentContainer
       .append("div")
-      .attr("class", "stats-section")
+      .attr("class", `section-${section.type}`)
       .style("margin-bottom", "20px");
 
-    statsContainer
+    // Add section title
+    sectionContainer
       .append("h3")
       .style("margin", "0 0 12px 0")
       .style("color", "#7d8590")
@@ -106,22 +114,39 @@ export class DetailPanel {
       .style("font-weight", "600")
       .style("text-transform", "uppercase")
       .style("letter-spacing", "0.5px")
-      .text("Statistics");
+      .text(section.title);
 
-    // Stats grid
-    const statsGrid = statsContainer
+    // Render section content based on type
+    switch (section.type) {
+      case 'text':
+        this.renderTextSection(sectionContainer, section.data);
+        break;
+      case 'stats':
+        this.renderStatsSection(sectionContainer, section.data);
+        break;
+      case 'content':
+        this.renderContentSection(sectionContainer, section.data);
+        break;
+    }
+  }
+
+  private renderTextSection(container: any, data: string): void {
+    container
+      .append("p")
+      .style("margin", "0")
+      .style("color", "#c9d1d9")
+      .style("font-size", "14px")
+      .style("line-height", "1.5")
+      .style("font-family", "system-ui, -apple-system, sans-serif")
+      .text(data);
+  }
+
+  private renderStatsSection(container: any, stats: any[]): void {
+    const statsGrid = container
       .append("div")
       .style("display", "grid")
       .style("grid-template-columns", "1fr 1fr")
       .style("gap", "12px");
-
-    // Individual stats
-    const stats = [
-      { label: "Stars", value: "2", icon: "⭐" },
-      { label: "PRs", value: "3", icon: "🔄" },
-      { label: "Commits", value: "23", icon: "📝" },
-      { label: "Age", value: "2y", icon: "📅" }
-    ];
 
     stats.forEach(stat => {
       const statItem = statsGrid
@@ -146,30 +171,25 @@ export class DetailPanel {
         .style("letter-spacing", "0.5px")
         .text(stat.label);
     });
+  }
 
-    // Description section
-    const descContainer = container
-      .append("div")
-      .attr("class", "description-section");
-
-    descContainer
-      .append("h3")
-      .style("margin", "0 0 12px 0")
-      .style("color", "#7d8590")
-      .style("font-size", "14px")
-      .style("font-weight", "600")
-      .style("text-transform", "uppercase")
-      .style("letter-spacing", "0.5px")
-      .text("Description");
-
-    descContainer
-      .append("p")
+  private renderContentSection(container: any, data: string): void {
+    container
+      .append("pre")
       .style("margin", "0")
+      .style("padding", "12px")
+      .style("background", "#161b22")
+      .style("border", "1px solid #30363d")
+      .style("border-radius", "6px")
       .style("color", "#c9d1d9")
-      .style("font-size", "14px")
-      .style("line-height", "1.5")
-      .style("font-family", "system-ui, -apple-system, sans-serif")
-      .text("Interactive repository visualization library built with D3.js and TypeScript. Features organic node positioning, real-time GitHub API integration, and beautiful hover effects. Designed to be embeddable in any web application with zero configuration. This is a longer description to test scrolling functionality when content exceeds the panel height. The panel should automatically show a scrollbar when needed while maintaining its floating appearance and responsive design.");
+      .style("font-size", "12px")
+      .style("line-height", "1.4")
+      .style("font-family", "monospace")
+      .style("white-space", "pre-wrap")
+      .style("word-wrap", "break-word")
+      .style("max-height", "200px")
+      .style("overflow-y", "auto")
+      .text(data);
   }
 
   private injectStyles(): void {

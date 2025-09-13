@@ -1,6 +1,7 @@
 import * as d3 from "d3";
 import { BaseVisualizationResource } from "./base.js";
 import { NodeData, ResourceData } from "../types/index.js";
+import { PanelContent, PanelSection } from "../panel/types.js";
 
 export class RepositoryVisualization extends BaseVisualizationResource {
   private onNodeClick?: (nodeData: NodeData) => void;
@@ -17,10 +18,10 @@ export class RepositoryVisualization extends BaseVisualizationResource {
     const centerY = this.context.height / 2;
 
     console.log(
-      `📏 Context dimensions: ${this.context.width} x ${this.context.height}`,
+      `📏 Context dimensions: ${this.context.width} x ${this.context.height}`
     );
     console.log(
-      `🎯 Positioning repository at center: (${centerX}, ${centerY})`,
+      `🎯 Positioning repository at center: (${centerX}, ${centerY})`
     );
 
     const repoNode: NodeData = {
@@ -100,7 +101,7 @@ export class RepositoryVisualization extends BaseVisualizationResource {
           .append("path")
           .attr(
             "d",
-            "M-8,-8 L8,-8 L8,8 L-8,8 Z M-6,-6 L6,-6 M-6,-3 L6,-3 M-6,0 L6,0 M-6,3 L6,3 M-6,6 L6,6",
+            "M-8,-8 L8,-8 L8,8 L-8,8 Z M-6,-6 L6,-6 M-6,-3 L6,-3 M-6,0 L6,0 M-6,3 L6,3 M-6,6 L6,6"
           )
           .style("fill", "none")
           .style("stroke", "white")
@@ -203,5 +204,55 @@ export class RepositoryVisualization extends BaseVisualizationResource {
         // Return text to original color
         group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
       });
+  }
+
+  public getPanelContent(
+    nodeData: NodeData,
+    repoData?: any,
+    statsNodes?: NodeData[]
+  ): PanelContent {
+    // Build stats from actual stats nodes if available
+    const statsData: any[] = [];
+    if (statsNodes && statsNodes.length > 0) {
+      statsNodes.forEach((statNode) => {
+        // Extract icon from the stat name (e.g., "2 ⭐" -> "⭐")
+        const nameMatch = statNode.name?.match(/(.+)\s([⭐🔄📝📅])/);
+        const icon = nameMatch ? nameMatch[2] : "⚙";
+        const value = nameMatch
+          ? nameMatch[1]
+          : statNode.value?.toString() || "0";
+
+        statsData.push({
+          label: statNode.label || "Stat",
+          value: value,
+          icon: icon,
+        });
+      });
+    }
+
+    const sections: PanelSection[] = [];
+
+    // Add statistics section if we have stats data
+    if (statsData.length > 0) {
+      sections.push({
+        title: "Statistics",
+        type: "stats" as const,
+        data: statsData,
+      });
+    }
+
+    // Add description section if available
+    if (repoData?.description) {
+      sections.push({
+        title: "Description",
+        type: "text" as const,
+        data: repoData.description,
+      });
+    }
+
+    return {
+      name: repoData?.name || repoData?.full_name || nodeData.name,
+      sections: sections,
+    };
   }
 }

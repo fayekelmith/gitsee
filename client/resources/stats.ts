@@ -3,8 +3,16 @@ import { BaseVisualizationResource } from "./base.js";
 import { NodeData, ResourceData } from "../types/index.js";
 
 export class StatsVisualization extends BaseVisualizationResource {
-  constructor(context: any) {
+  private onNodeClick?: (nodeData: NodeData) => void;
+  private repoData: any = null;
+
+  constructor(context: any, onNodeClick?: (nodeData: NodeData) => void) {
     super(context, "stats");
+    this.onNodeClick = onNodeClick;
+  }
+
+  public setRepoData(repoData: any): void {
+    this.repoData = repoData;
   }
 
   create(statsData: any): ResourceData {
@@ -110,6 +118,22 @@ export class StatsVisualization extends BaseVisualizationResource {
     // Add hover effects to new stat nodes
     this.addHoverEffects(statEnter);
 
+    // Add click handlers to new stat nodes - clicking stats shows repo panel
+    if (this.onNodeClick) {
+      statEnter.on("click", (event: any, d: NodeData) => {
+        event.stopPropagation();
+        // Create a fake repo node to trigger repo panel display
+        const repoNode: NodeData = {
+          id: "repo",
+          type: "repo",
+          name: this.repoData?.name || "Repository",
+          x: 0,
+          y: 0
+        };
+        this.onNodeClick!(repoNode);
+      });
+    }
+
     // Update positions for all nodes (new and existing)
     const allStatNodes = statEnter.merge(statNodes);
     allStatNodes.attr("transform", (d: NodeData) =>
@@ -177,6 +201,22 @@ export class StatsVisualization extends BaseVisualizationResource {
 
     // Add hover effects to new stat nodes
     this.addHoverEffects(statEnter);
+
+    // Add click handlers to new stat nodes - clicking stats shows repo panel
+    if (this.onNodeClick) {
+      statEnter.on("click", (event: any, d: NodeData) => {
+        event.stopPropagation();
+        // Create a fake repo node to trigger repo panel display
+        const repoNode: NodeData = {
+          id: "repo",
+          type: "repo", 
+          name: this.repoData?.name || "Repository",
+          x: 0,
+          y: 0
+        };
+        this.onNodeClick!(repoNode);
+      });
+    }
 
     // Set initial positions and animate in
     const allStatNodes = statEnter.merge(statNodes);

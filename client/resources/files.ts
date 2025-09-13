@@ -1,10 +1,14 @@
 import * as d3 from "d3";
 import { BaseVisualizationResource } from "./base.js";
 import { NodeData, ResourceData } from "../types/index.js";
+import { PanelContent } from "../panel/types.js";
 
 export class FilesVisualization extends BaseVisualizationResource {
-  constructor(context: any) {
+  private onNodeClick?: (nodeData: NodeData) => void;
+
+  constructor(context: any, onNodeClick?: (nodeData: NodeData) => void) {
     super(context, "files");
+    this.onNodeClick = onNodeClick;
   }
   create(files: any[]): ResourceData {
     const nodes: NodeData[] = [];
@@ -61,6 +65,14 @@ export class FilesVisualization extends BaseVisualizationResource {
     // Add hover effects to new file nodes
     this.addHoverEffects(fileEnter);
 
+    // Add click handlers to new file nodes
+    if (this.onNodeClick) {
+      fileEnter.on("click", (event: any, d: NodeData) => {
+        event.stopPropagation();
+        this.onNodeClick!(d);
+      });
+    }
+
     // Update positions for all nodes (new and existing)
     const allFileNodes = fileEnter.merge(fileNodes);
     allFileNodes.attr("transform", (d: NodeData) =>
@@ -112,6 +124,14 @@ export class FilesVisualization extends BaseVisualizationResource {
 
     // Add hover effects to new file nodes
     this.addHoverEffects(fileEnter);
+
+    // Add click handlers to new file nodes
+    if (this.onNodeClick) {
+      fileEnter.on("click", (event: any, d: NodeData) => {
+        event.stopPropagation();
+        this.onNodeClick!(d);
+      });
+    }
 
     // Set initial positions and animate in
     const allFileNodes = fileEnter.merge(fileNodes);
@@ -188,5 +208,18 @@ export class FilesVisualization extends BaseVisualizationResource {
         // Return text to original color
         group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
       });
+  }
+
+  public getPanelContent(nodeData: NodeData, fileData?: any): PanelContent {
+    return {
+      name: nodeData.name,
+      sections: [
+        {
+          title: "Content",
+          type: "content",
+          data: fileData?.content || "// File content would be loaded here..."
+        }
+      ]
+    };
   }
 }

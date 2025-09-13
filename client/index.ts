@@ -34,6 +34,7 @@ class GitVisualizer {
   // Data storage
   private allNodes: NodeData[] = [];
   private allLinks: LinkData[] = [];
+  private currentRepoData: any = null;
 
   // Collision detection system
   private occupiedSpaces: Array<{
@@ -104,12 +105,15 @@ class GitVisualizer {
     // Initialize resource visualizations
     this.repositoryViz = new RepositoryVisualization(this.context, (nodeData) => {
       // Show detail panel when repo node is clicked
-      this.detailPanel.show();
+      this.showNodePanel(nodeData);
     });
     this.contributorsViz = new ContributorsVisualization(this.context);
     this.linksViz = new LinksVisualization(this.context);
     this.filesViz = new FilesVisualization(this.context);
-    this.statsViz = new StatsVisualization(this.context);
+    this.statsViz = new StatsVisualization(this.context, (nodeData) => {
+      // Stats click also shows repo panel
+      this.showNodePanel(nodeData);
+    });
 
     // Initialize detail panel
     this.detailPanel = new DetailPanel();
@@ -336,10 +340,19 @@ class GitVisualizer {
         console.log(`⚙️ Using node delay: ${this.nodeDelay}ms`);
       }
 
-      // Step 1: Create repository visualization (without icon first)
+      // Step 1: Store repo data and create repository visualization (without icon first)
       if (data.repo) {
-        const repoData = {
+        this.currentRepoData = {
           name: data.repo?.full_name || `${owner}/${repo}`,
+          description: data.repo?.description,
+          ...data.repo
+        };
+        
+        // Pass repo data to stats visualization
+        this.statsViz.setRepoData(this.currentRepoData);
+        
+        const repoData = {
+          name: this.currentRepoData.name,
           icon: undefined, // Show without icon first
         };
         const repoResources = this.repositoryViz.create(repoData);
@@ -790,6 +803,26 @@ class GitVisualizer {
       }
     `;
     document.head.appendChild(styleSheet);
+  }
+
+  private showNodePanel(nodeData: NodeData): void {
+    // Get panel content based on node type
+    let content;
+    if (nodeData.type === "repo" || !nodeData.type) {
+      // Stats click passes a fake repo node, so we always show repo content for stats
+      // Get all stats nodes to pass to the repository panel
+      const statsNodes = this.allNodes.filter(n => n.type === "stat");
+      content = this.repositoryViz.getPanelContent(nodeData, this.currentRepoData, statsNodes);
+    } else if (nodeData.type === "file") {
+      content = this.filesViz.getPanelContent(nodeData);
+    } else {
+      // Default to repo content for unknown types
+      const statsNodes = this.allNodes.filter(n => n.type === "stat");
+      content = this.repositoryViz.getPanelContent(nodeData, this.currentRepoData, statsNodes);
+    }
+    
+    this.detailPanel.updateContent(content);
+    this.detailPanel.show();
   }
 
   public showDetailPanel(): void {
