@@ -52,7 +52,7 @@ export interface FirstPassContextResult {
 export async function get_context(
   prompt: string | ModelMessage[],
   repoPath: string,
-  mode: RepoContextMode = "general"
+  mode: RepoContextMode = "general",
 ): Promise<string> {
   const startTime = Date.now();
 
@@ -80,7 +80,7 @@ export async function get_context(
         hypothesis: z
           .string()
           .describe(
-            "What you think this file might contain or handle, based on its name/location"
+            "What you think this file might contain or handle, based on its name/location",
           ),
       }),
       execute: async ({ file_path }: { file_path: string }) => {
@@ -144,7 +144,7 @@ export async function get_context(
   }
   if (!final && lastText) {
     console.warn(
-      "No final_answer tool call detected; falling back to last reasoning text."
+      "No final_answer tool call detected; falling back to last reasoning text.",
     );
     final = `${lastText}\n\n(Note: Model did not invoke final_answer tool; using last reasoning text as answer.)`;
   }
@@ -152,7 +152,7 @@ export async function get_context(
   const endTime = Date.now();
   const duration = endTime - startTime;
   console.log(
-    `⏱️ get_context completed in ${duration}ms (${(duration / 1000).toFixed(2)}s)`
+    `⏱️ get_context completed in ${duration}ms (${(duration / 1000).toFixed(2)}s)`,
   );
 
   return final;
@@ -163,7 +163,7 @@ setTimeout(() => {
   get_context(
     "What are the key features of this codebase?",
     "/Users/evanfeenstra/code/sphinx2/hive",
-    "first_pass"
+    "first_pass",
   ).then((result) => {
     console.log("Context:", result);
   });

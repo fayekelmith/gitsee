@@ -3116,6 +3116,7 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
       }
       this.createNodeLabel(node, d, 45);
     });
+    this.addHoverEffects(nodeEnter);
     nodes.each((d, i, nodeElements) => {
       const node = select_default2(nodeElements[i]);
       const existingCircle = node.select("circle");
@@ -3134,6 +3135,24 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
   destroy() {
     console.log("\u{1F5D1}\uFE0F Destroying repository visualization...");
     this.getResourceGroup().remove();
+  }
+  addHoverEffects(selection2) {
+    selection2.style("cursor", "pointer").on("mouseenter", function(event, d) {
+      const group = select_default2(this);
+      const scale = 1.05;
+      const x = d.x || 0;
+      const y = d.y || 0;
+      group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(${scale})`);
+      group.select("circle").transition().duration(200).style("filter", "drop-shadow(0 0 10px rgba(9, 105, 218, 0.6))").style("stroke-width", "3px");
+      group.select("text").transition().duration(200).attr("fill", "#FFFFFF");
+    }).on("mouseleave", function(event, d) {
+      const group = select_default2(this);
+      const x = d.x || 0;
+      const y = d.y || 0;
+      group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(1)`);
+      group.select("circle").transition().duration(200).style("filter", "none").style("stroke-width", "2px");
+      group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
+    });
   }
 };
 
@@ -3192,6 +3211,7 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
       node.append("circle").attr("r", radius).style("fill", fillPattern || "#238636").style("stroke", "#1f6feb").style("stroke-width", "2px");
       this.createNodeLabel(node, d, radius + 15);
     });
+    this.addHoverEffects(nodeEnter);
   }
   updateWithAnimation(resourceData) {
     console.log(
@@ -3219,6 +3239,7 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
       node.append("circle").attr("r", radius).style("fill", fillPattern || "#238636").style("stroke", "#1f6feb").style("stroke-width", "2px");
       this.createNodeLabel(node, d, radius + 15);
     });
+    this.addHoverEffects(nodeEnter);
     nodeEnter.transition().duration(400).style("opacity", 1).attr("transform", (d) => {
       const x = d.x || 0;
       const y = d.y || 0;
@@ -3231,6 +3252,24 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
   destroy() {
     console.log("\u{1F5D1}\uFE0F Destroying contributors visualization...");
     this.getResourceGroup().remove();
+  }
+  addHoverEffects(selection2) {
+    selection2.style("cursor", "pointer").on("mouseenter", function(event, d) {
+      const group = select_default2(this);
+      const scale = 1.05;
+      const x = d.x || 0;
+      const y = d.y || 0;
+      group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(${scale})`);
+      group.select("circle").transition().duration(200).style("filter", "drop-shadow(0 0 8px rgba(31, 111, 235, 0.6))").style("stroke-width", "3px").style("stroke", "#4A90E2");
+      group.select("text").transition().duration(200).attr("fill", "#FFFFFF");
+    }).on("mouseleave", function(event, d) {
+      const group = select_default2(this);
+      const x = d.x || 0;
+      const y = d.y || 0;
+      group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(1)`);
+      group.select("circle").transition().duration(200).style("filter", "none").style("stroke-width", "2px").style("stroke", "#1f6feb");
+      group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
+    });
   }
 };
 
@@ -3352,6 +3391,7 @@ var FilesVisualization = class extends BaseVisualizationResource {
     const fileEnter = fileNodes.enter().append("g").attr("class", "file-node");
     fileEnter.append("path").attr("class", "file-icon").attr("d", "M-8,-10 L3,-10 L8,-5 L8,10 L-8,10 Z M3,-10 L3,-5 L8,-5").attr("fill", "#666666").attr("stroke", "white").attr("stroke-width", "1.5").attr("stroke-linejoin", "round");
     fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 22).attr("font-size", "11px").attr("fill", "#b6b6b6").attr("font-family", "system-ui, -apple-system, sans-serif").attr("font-weight", "500").text((d) => d.name);
+    this.addHoverEffects(fileEnter);
     const allFileNodes = fileEnter.merge(fileNodes);
     allFileNodes.attr(
       "transform",
@@ -3365,6 +3405,7 @@ var FilesVisualization = class extends BaseVisualizationResource {
     const fileEnter = fileNodes.enter().append("g").attr("class", "file-node").style("opacity", 0);
     fileEnter.append("path").attr("class", "file-icon").attr("d", "M-8,-10 L3,-10 L8,-5 L8,10 L-8,10 Z M3,-10 L3,-5 L8,-5").attr("fill", "#666666").attr("stroke", "white").attr("stroke-width", "1.5").attr("stroke-linejoin", "round");
     fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 22).attr("font-size", "11px").attr("fill", "#b6b6b6").attr("font-family", "system-ui, -apple-system, sans-serif").attr("font-weight", "500").text((d) => d.name);
+    this.addHoverEffects(fileEnter);
     const allFileNodes = fileEnter.merge(fileNodes);
     allFileNodes.attr(
       "transform",
@@ -3380,6 +3421,24 @@ var FilesVisualization = class extends BaseVisualizationResource {
   getResourceType() {
     return "files";
   }
+  addHoverEffects(selection2) {
+    selection2.style("cursor", "pointer").on("mouseenter", function(event, d) {
+      const group = select_default2(this);
+      const scale = 1.05;
+      const x = d.x !== void 0 ? d.x : 0;
+      const y = d.y !== void 0 ? d.y : 0;
+      group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(${scale})`);
+      group.select("path").transition().duration(200).attr("fill", "#999999").attr("stroke", "#FFFFFF").attr("stroke-width", "2");
+      group.select("text").transition().duration(200).attr("fill", "#FFFFFF");
+    }).on("mouseleave", function(event, d) {
+      const group = select_default2(this);
+      const x = d.x !== void 0 ? d.x : 0;
+      const y = d.y !== void 0 ? d.y : 0;
+      group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(1)`);
+      group.select("path").transition().duration(200).attr("fill", "#666666").attr("stroke", "white").attr("stroke-width", "1.5");
+      group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
+    });
+  }
 };
 
 // client/resources/stats.ts
@@ -3391,10 +3450,30 @@ var StatsVisualization = class extends BaseVisualizationResource {
     const nodes = [];
     if (!statsData) return { nodes, links: [] };
     const stats = [
-      { id: "stat-stars", name: `${statsData.stars} \u2B50`, label: "Stars", value: statsData.stars },
-      { id: "stat-prs", name: `${statsData.totalPRs} PRs`, label: "Pull Requests", value: statsData.totalPRs },
-      { id: "stat-commits", name: `${statsData.totalCommits} commits`, label: "Total Commits", value: statsData.totalCommits },
-      { id: "stat-age", name: `${statsData.ageInYears}y old`, label: "Repository Age", value: statsData.ageInYears }
+      {
+        id: "stat-stars",
+        name: `${statsData.stars} \u2B50`,
+        label: "Stars",
+        value: statsData.stars
+      },
+      {
+        id: "stat-prs",
+        name: `${statsData.totalPRs} PRs`,
+        label: "Pull Requests",
+        value: statsData.totalPRs
+      },
+      {
+        id: "stat-commits",
+        name: `${statsData.totalCommits} commits`,
+        label: "Total Commits",
+        value: statsData.totalCommits
+      },
+      {
+        id: "stat-age",
+        name: `${statsData.ageInYears}y old`,
+        label: "Repository Age",
+        value: statsData.ageInYears
+      }
     ];
     stats.forEach((stat, index) => {
       const node = {
@@ -3426,6 +3505,7 @@ var StatsVisualization = class extends BaseVisualizationResource {
         group2.insert("rect", "text").attr("width", width).attr("height", height).attr("x", -width / 2).attr("y", -height / 2).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
       }
     });
+    this.addHoverEffects(statEnter);
     const allStatNodes = statEnter.merge(statNodes);
     allStatNodes.attr(
       "transform",
@@ -3449,6 +3529,7 @@ var StatsVisualization = class extends BaseVisualizationResource {
         group2.insert("rect", "text").attr("width", width).attr("height", height).attr("x", -width / 2).attr("y", -height / 2).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
       }
     });
+    this.addHoverEffects(statEnter);
     const allStatNodes = statEnter.merge(statNodes);
     allStatNodes.attr(
       "transform",
@@ -3456,11 +3537,31 @@ var StatsVisualization = class extends BaseVisualizationResource {
     ).transition().duration(500).ease(backOut).style("opacity", 1);
   }
   destroy() {
-    const group = this.context.container.select(`.${this.getResourceType()}-group`);
+    const group = this.context.container.select(
+      `.${this.getResourceType()}-group`
+    );
     group.remove();
   }
   getResourceType() {
     return "stats";
+  }
+  addHoverEffects(selection2) {
+    selection2.style("cursor", "pointer").on("mouseenter", function(event, d) {
+      const group = select_default2(this);
+      const scale = 1.05;
+      const x = d.x !== void 0 ? d.x : 0;
+      const y = d.y !== void 0 ? d.y : 0;
+      group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(${scale})`);
+      group.select("rect").transition().duration(200).attr("fill", "#4A5568").attr("stroke", "#718096").attr("stroke-width", "3");
+      group.select("text").transition().duration(200).attr("fill", "#FFFFFF");
+    }).on("mouseleave", function(event, d) {
+      const group = select_default2(this);
+      const x = d.x !== void 0 ? d.x : 0;
+      const y = d.y !== void 0 ? d.y : 0;
+      group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(1)`);
+      group.select("rect").transition().duration(200).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+      group.select("text").transition().duration(200).attr("fill", "#E2E8F0");
+    });
   }
 };
 

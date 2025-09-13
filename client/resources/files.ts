@@ -58,6 +58,9 @@ export class FilesVisualization extends BaseVisualizationResource {
       .attr("font-weight", "500")
       .text((d: NodeData) => d.name);
 
+    // Add hover effects to new file nodes
+    this.addHoverEffects(fileEnter);
+
     // Update positions for all nodes (new and existing)
     const allFileNodes = fileEnter.merge(fileNodes);
     allFileNodes.attr("transform", (d: NodeData) =>
@@ -107,6 +110,9 @@ export class FilesVisualization extends BaseVisualizationResource {
       .attr("font-weight", "500")
       .text((d: NodeData) => d.name);
 
+    // Add hover effects to new file nodes
+    this.addHoverEffects(fileEnter);
+
     // Set initial positions and animate in
     const allFileNodes = fileEnter.merge(fileNodes);
     allFileNodes
@@ -130,5 +136,57 @@ export class FilesVisualization extends BaseVisualizationResource {
 
   protected getResourceType(): string {
     return "files";
+  }
+
+  private addHoverEffects(selection: any): void {
+    selection
+      .style("cursor", "pointer")
+      .on("mouseenter", function (this: any, event: any, d: NodeData) {
+        const group = d3.select(this);
+
+        // Scale up slightly
+        const scale = 1.05;
+        const x = d.x !== undefined ? d.x : 0;
+        const y = d.y !== undefined ? d.y : 0;
+        group
+          .transition()
+          .duration(200)
+          .attr("transform", `translate(${x}, ${y}) scale(${scale})`);
+
+        // Brighten file icon
+        group
+          .select("path")
+          .transition()
+          .duration(200)
+          .attr("fill", "#999999")
+          .attr("stroke", "#FFFFFF")
+          .attr("stroke-width", "2");
+
+        // Brighten text
+        group.select("text").transition().duration(200).attr("fill", "#FFFFFF");
+      })
+      .on("mouseleave", function (this: any, event: any, d: NodeData) {
+        const group = d3.select(this);
+
+        // Scale back to normal
+        const x = d.x !== undefined ? d.x : 0;
+        const y = d.y !== undefined ? d.y : 0;
+        group
+          .transition()
+          .duration(200)
+          .attr("transform", `translate(${x}, ${y}) scale(1)`);
+
+        // Return file icon to original colors
+        group
+          .select("path")
+          .transition()
+          .duration(200)
+          .attr("fill", "#666666")
+          .attr("stroke", "white")
+          .attr("stroke-width", "1.5");
+
+        // Return text to original color
+        group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
+      });
   }
 }

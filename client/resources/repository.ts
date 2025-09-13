@@ -108,6 +108,9 @@ export class RepositoryVisualization extends BaseVisualizationResource {
       this.createNodeLabel(node, d, 45);
     });
 
+    // Add hover effects to new repo nodes
+    this.addHoverEffects(nodeEnter);
+
     // Update existing nodes that now have avatars (for icon loading)
     nodes.each((d: NodeData, i: number, nodeElements: any) => {
       const node = d3.select(nodeElements[i]);
@@ -139,5 +142,55 @@ export class RepositoryVisualization extends BaseVisualizationResource {
   destroy(): void {
     console.log("🗑️ Destroying repository visualization...");
     this.getResourceGroup().remove();
+  }
+
+  private addHoverEffects(selection: any): void {
+    selection
+      .style("cursor", "pointer")
+      .on("mouseenter", function (this: any, event: any, d: NodeData) {
+        const group = d3.select(this);
+
+        // Scale up slightly
+        const scale = 1.05;
+        const x = d.x || 0;
+        const y = d.y || 0;
+        group
+          .transition()
+          .duration(200)
+          .attr("transform", `translate(${x}, ${y}) scale(${scale})`);
+
+        // Add glow effect to circle
+        group
+          .select("circle")
+          .transition()
+          .duration(200)
+          .style("filter", "drop-shadow(0 0 10px rgba(9, 105, 218, 0.6))")
+          .style("stroke-width", "3px");
+
+        // Brighten text
+        group.select("text").transition().duration(200).attr("fill", "#FFFFFF");
+      })
+      .on("mouseleave", function (this: any, event: any, d: NodeData) {
+        const group = d3.select(this);
+
+        // Scale back to normal
+        const x = d.x || 0;
+        const y = d.y || 0;
+        group
+          .transition()
+          .duration(200)
+          .attr("transform", `translate(${x}, ${y}) scale(1)`);
+
+        // Remove glow effect
+        group
+          .select("circle")
+          .transition()
+          .duration(200)
+          .style("filter", "none")
+          .style("stroke-width", "2px");
+
+        // Return text to original color
+        group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
+      });
   }
 }

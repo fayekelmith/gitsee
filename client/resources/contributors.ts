@@ -95,6 +95,9 @@ export class ContributorsVisualization extends BaseVisualizationResource {
       this.createNodeLabel(node, d, radius + 15);
     });
 
+    // Add hover effects to new contributor nodes
+    this.addHoverEffects(nodeEnter);
+
     // Only create visual elements for NEW nodes - don't touch existing ones
     // Existing nodes already have their circles and patterns - leave them alone!
   }
@@ -159,6 +162,9 @@ export class ContributorsVisualization extends BaseVisualizationResource {
       this.createNodeLabel(node, d, radius + 15);
     });
 
+    // Add hover effects to new contributor nodes
+    this.addHoverEffects(nodeEnter);
+
     // Animate entrance - scale from 0 to 1 while keeping position (only NEW nodes)
     nodeEnter
       .transition()
@@ -181,5 +187,57 @@ export class ContributorsVisualization extends BaseVisualizationResource {
   destroy(): void {
     console.log("🗑️ Destroying contributors visualization...");
     this.getResourceGroup().remove();
+  }
+
+  private addHoverEffects(selection: any): void {
+    selection
+      .style("cursor", "pointer")
+      .on("mouseenter", function (this: any, event: any, d: NodeData) {
+        const group = d3.select(this);
+
+        // Scale up slightly
+        const scale = 1.05;
+        const x = d.x || 0;
+        const y = d.y || 0;
+        group
+          .transition()
+          .duration(200)
+          .attr("transform", `translate(${x}, ${y}) scale(${scale})`);
+
+        // Add glow effect to circle
+        group
+          .select("circle")
+          .transition()
+          .duration(200)
+          .style("filter", "drop-shadow(0 0 8px rgba(31, 111, 235, 0.6))")
+          .style("stroke-width", "3px")
+          .style("stroke", "#4A90E2");
+
+        // Brighten text
+        group.select("text").transition().duration(200).attr("fill", "#FFFFFF");
+      })
+      .on("mouseleave", function (this: any, event: any, d: NodeData) {
+        const group = d3.select(this);
+
+        // Scale back to normal
+        const x = d.x || 0;
+        const y = d.y || 0;
+        group
+          .transition()
+          .duration(200)
+          .attr("transform", `translate(${x}, ${y}) scale(1)`);
+
+        // Remove glow effect
+        group
+          .select("circle")
+          .transition()
+          .duration(200)
+          .style("filter", "none")
+          .style("stroke-width", "2px")
+          .style("stroke", "#1f6feb");
+
+        // Return text to original color
+        group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
+      });
   }
 }
