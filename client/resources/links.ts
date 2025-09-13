@@ -25,7 +25,7 @@ export class LinksVisualization extends BaseVisualizationResource {
 
     // Bind data
     const links = group
-      .selectAll(".link")
+      .selectAll(".gitsee-link")
       .data(resourceData.links, (d: LinkData) => d.id);
 
     // Remove old links
@@ -35,7 +35,7 @@ export class LinksVisualization extends BaseVisualizationResource {
     links
       .enter()
       .append("line")
-      .attr("class", "link")
+      .attr("class", "gitsee-link")
       .style("stroke", (d: LinkData) => this.getLinkColor(d.type))
       .style("stroke-width", (d: LinkData) => this.getLinkWidth(d.type))
       .style("stroke-opacity", 0.8);
@@ -50,7 +50,7 @@ export class LinksVisualization extends BaseVisualizationResource {
 
     // Bind data
     const links = group
-      .selectAll(".link")
+      .selectAll(".gitsee-link")
       .data(resourceData.links, (d: LinkData) => d.id);
 
     // Remove old links
@@ -60,7 +60,7 @@ export class LinksVisualization extends BaseVisualizationResource {
     const linksEnter = links
       .enter()
       .append("line")
-      .attr("class", "link")
+      .attr("class", "gitsee-link")
       .style("stroke", (d: LinkData) => this.getLinkColor(d.type))
       .style("stroke-width", (d: LinkData) => this.getLinkWidth(d.type))
       .style("stroke-opacity", 0);
@@ -113,7 +113,7 @@ export class LinksVisualization extends BaseVisualizationResource {
     const group = this.getResourceGroup();
 
     group
-      .selectAll(".link")
+      .selectAll(".gitsee-link")
       .attr("x1", (d: LinkData) => {
         const sourceId = typeof d.source === "string" ? d.source : d.source.id;
         const sourceNode = allNodes.find((n) => n.id === sourceId);

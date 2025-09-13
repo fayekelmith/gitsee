@@ -52,7 +52,7 @@ export class RepositoryVisualization extends BaseVisualizationResource {
     const nodeEnter = nodes
       .enter()
       .append("g")
-      .attr("class", "repo-node")
+      .attr("class", "gitsee-node repo-node")
       .call(this.createDragBehavior());
 
     // Position all nodes at their calculated positions

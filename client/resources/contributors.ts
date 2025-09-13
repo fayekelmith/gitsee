@@ -62,7 +62,7 @@ export class ContributorsVisualization extends BaseVisualizationResource {
     const nodeEnter = nodes
       .enter()
       .append("g")
-      .attr("class", "contributor-node")
+      .attr("class", "gitsee-node contributor-node")
       .attr("transform", (d: NodeData) => {
         const x = d.x || 0;
         const y = d.y || 0;
@@ -121,7 +121,7 @@ export class ContributorsVisualization extends BaseVisualizationResource {
     const nodeEnter = nodes
       .enter()
       .append("g")
-      .attr("class", "contributor-node")
+      .attr("class", "gitsee-node contributor-node")
       .attr("transform", (d: NodeData) => {
         // Position at the node's actual coordinates, not (0,0)
         const x = d.x || 0;

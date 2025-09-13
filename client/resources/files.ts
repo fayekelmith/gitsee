@@ -34,7 +34,7 @@ export class FilesVisualization extends BaseVisualizationResource {
     fileNodes.exit().remove();
 
     // Add new nodes
-    const fileEnter = fileNodes.enter().append("g").attr("class", "file-node");
+    const fileEnter = fileNodes.enter().append("g").attr("class", "gitsee-node file-node");
 
     // Add file icons (SVG path for a clean file icon) - white outline with grey fill
     fileEnter
@@ -85,7 +85,7 @@ export class FilesVisualization extends BaseVisualizationResource {
     const fileEnter = fileNodes
       .enter()
       .append("g")
-      .attr("class", "file-node")
+      .attr("class", "gitsee-node file-node")
       .style("opacity", 0); // Start invisible
 
     // Add file icons (SVG path for a clean file icon) - white outline with grey fill

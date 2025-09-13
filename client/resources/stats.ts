@@ -67,7 +67,7 @@ export class StatsVisualization extends BaseVisualizationResource {
     statNodes.exit().remove();
 
     // Add new nodes
-    const statEnter = statNodes.enter().append("g").attr("class", "stat-node");
+    const statEnter = statNodes.enter().append("g").attr("class", "gitsee-node stat-node");
 
     // Add stat values (the number/text) first so we can measure them
     const textElements = statEnter
@@ -134,7 +134,7 @@ export class StatsVisualization extends BaseVisualizationResource {
     const statEnter = statNodes
       .enter()
       .append("g")
-      .attr("class", "stat-node")
+      .attr("class", "gitsee-node stat-node")
       .style("opacity", 0); // Start invisible
 
     // Add stat values (the number/text) first so we can measure them

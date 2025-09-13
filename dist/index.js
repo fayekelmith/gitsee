@@ -3055,7 +3055,7 @@ var BaseVisualizationResource = class {
    */
   createNodeLabel(parent, node, dy = 25) {
     const textColor = node.type === "repo" ? "#e6edf3" : "#b6b6b6";
-    return parent.append("text").attr("class", "node-label").attr("dy", dy).style("fill", textColor).style("font-size", "12px").style("font-weight", "500").style("text-anchor", "middle").style("pointer-events", "none").text(node.name);
+    return parent.append("text").attr("class", "gitsee-node-label").attr("dy", dy).style("fill", textColor).style("font-size", "12px").style("font-weight", "500").style("text-anchor", "middle").style("pointer-events", "none").text(node.name);
   }
 };
 
@@ -3092,7 +3092,7 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
     const group = this.getResourceGroup();
     const nodes = group.selectAll(".repo-node").data(resourceData.nodes, (d) => d.id);
     nodes.exit().remove();
-    const nodeEnter = nodes.enter().append("g").attr("class", "repo-node").call(this.createDragBehavior());
+    const nodeEnter = nodes.enter().append("g").attr("class", "gitsee-node repo-node").call(this.createDragBehavior());
     const nodeUpdate = nodes.merge(nodeEnter);
     nodeUpdate.attr("transform", (d) => {
       const x = d.x || 0;
@@ -3196,7 +3196,7 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
     const group = this.getResourceGroup();
     const nodes = group.selectAll(".contributor-node").data(resourceData.nodes, (d) => d.id);
     nodes.exit().remove();
-    const nodeEnter = nodes.enter().append("g").attr("class", "contributor-node").attr("transform", (d) => {
+    const nodeEnter = nodes.enter().append("g").attr("class", "gitsee-node contributor-node").attr("transform", (d) => {
       const x = d.x || 0;
       const y = d.y || 0;
       return `translate(${x},${y})`;
@@ -3220,7 +3220,7 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
     const group = this.getResourceGroup();
     const nodes = group.selectAll(".contributor-node").data(resourceData.nodes, (d) => d.id);
     nodes.exit().remove();
-    const nodeEnter = nodes.enter().append("g").attr("class", "contributor-node").attr("transform", (d) => {
+    const nodeEnter = nodes.enter().append("g").attr("class", "gitsee-node contributor-node").attr("transform", (d) => {
       const x = d.x || 0;
       const y = d.y || 0;
       console.log(`\u{1F3AF} NEW node ${d.id} positioned at (${x}, ${y})`);
@@ -3291,18 +3291,18 @@ var LinksVisualization = class extends BaseVisualizationResource {
   update(resourceData) {
     console.log("\u{1F504} Updating links visualization...");
     const group = this.getResourceGroup();
-    const links = group.selectAll(".link").data(resourceData.links, (d) => d.id);
+    const links = group.selectAll(".gitsee-link").data(resourceData.links, (d) => d.id);
     links.exit().remove();
-    links.enter().append("line").attr("class", "link").style("stroke", (d) => this.getLinkColor(d.type)).style("stroke-width", (d) => this.getLinkWidth(d.type)).style("stroke-opacity", 0.8);
+    links.enter().append("line").attr("class", "gitsee-link").style("stroke", (d) => this.getLinkColor(d.type)).style("stroke-width", (d) => this.getLinkWidth(d.type)).style("stroke-opacity", 0.8);
   }
   updateWithAnimation(resourceData) {
     console.log(
       `\u{1F3AD} Updating links visualization with animation for ${resourceData.links.length} links...`
     );
     const group = this.getResourceGroup();
-    const links = group.selectAll(".link").data(resourceData.links, (d) => d.id);
+    const links = group.selectAll(".gitsee-link").data(resourceData.links, (d) => d.id);
     links.exit().remove();
-    const linksEnter = links.enter().append("line").attr("class", "link").style("stroke", (d) => this.getLinkColor(d.type)).style("stroke-width", (d) => this.getLinkWidth(d.type)).style("stroke-opacity", 0);
+    const linksEnter = links.enter().append("line").attr("class", "gitsee-link").style("stroke", (d) => this.getLinkColor(d.type)).style("stroke-width", (d) => this.getLinkWidth(d.type)).style("stroke-opacity", 0);
     linksEnter.transition().duration(400).style("stroke-opacity", 0.8);
     console.log(
       `\u2705 Links update complete. Total visible: ${links.merge(linksEnter).size()}`
@@ -3342,7 +3342,7 @@ var LinksVisualization = class extends BaseVisualizationResource {
    */
   updatePositions(allNodes = []) {
     const group = this.getResourceGroup();
-    group.selectAll(".link").attr("x1", (d) => {
+    group.selectAll(".gitsee-link").attr("x1", (d) => {
       const sourceId = typeof d.source === "string" ? d.source : d.source.id;
       const sourceNode = allNodes.find((n) => n.id === sourceId);
       return sourceNode?.x || 0;
@@ -3388,7 +3388,7 @@ var FilesVisualization = class extends BaseVisualizationResource {
     const group = this.getResourceGroup();
     const fileNodes = group.selectAll(".file-node").data(resourceData.nodes, (d) => d.id);
     fileNodes.exit().remove();
-    const fileEnter = fileNodes.enter().append("g").attr("class", "file-node");
+    const fileEnter = fileNodes.enter().append("g").attr("class", "gitsee-node file-node");
     fileEnter.append("path").attr("class", "file-icon").attr("d", "M-8,-10 L3,-10 L8,-5 L8,10 L-8,10 Z M3,-10 L3,-5 L8,-5").attr("fill", "#666666").attr("stroke", "white").attr("stroke-width", "1.5").attr("stroke-linejoin", "round");
     fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 22).attr("font-size", "11px").attr("fill", "#b6b6b6").attr("font-family", "system-ui, -apple-system, sans-serif").attr("font-weight", "500").text((d) => d.name);
     this.addHoverEffects(fileEnter);
@@ -3402,7 +3402,7 @@ var FilesVisualization = class extends BaseVisualizationResource {
     const group = this.getResourceGroup();
     const fileNodes = group.selectAll(".file-node").data(resourceData.nodes, (d) => d.id);
     fileNodes.exit().transition().duration(300).style("opacity", 0).remove();
-    const fileEnter = fileNodes.enter().append("g").attr("class", "file-node").style("opacity", 0);
+    const fileEnter = fileNodes.enter().append("g").attr("class", "gitsee-node file-node").style("opacity", 0);
     fileEnter.append("path").attr("class", "file-icon").attr("d", "M-8,-10 L3,-10 L8,-5 L8,10 L-8,10 Z M3,-10 L3,-5 L8,-5").attr("fill", "#666666").attr("stroke", "white").attr("stroke-width", "1.5").attr("stroke-linejoin", "round");
     fileEnter.append("text").attr("class", "file-label").attr("text-anchor", "middle").attr("y", 22).attr("font-size", "11px").attr("fill", "#b6b6b6").attr("font-family", "system-ui, -apple-system, sans-serif").attr("font-weight", "500").text((d) => d.name);
     this.addHoverEffects(fileEnter);
@@ -3492,7 +3492,7 @@ var StatsVisualization = class extends BaseVisualizationResource {
     const group = this.getResourceGroup();
     const statNodes = group.selectAll(".stat-node").data(resourceData.nodes, (d) => d.id);
     statNodes.exit().remove();
-    const statEnter = statNodes.enter().append("g").attr("class", "stat-node");
+    const statEnter = statNodes.enter().append("g").attr("class", "gitsee-node stat-node");
     const textElements = statEnter.append("text").attr("class", "stat-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
     statEnter.each(function() {
       const group2 = select_default2(this);
@@ -3516,7 +3516,7 @@ var StatsVisualization = class extends BaseVisualizationResource {
     const group = this.getResourceGroup();
     const statNodes = group.selectAll(".stat-node").data(resourceData.nodes, (d) => d.id);
     statNodes.exit().transition().duration(300).style("opacity", 0).remove();
-    const statEnter = statNodes.enter().append("g").attr("class", "stat-node").style("opacity", 0);
+    const statEnter = statNodes.enter().append("g").attr("class", "gitsee-node stat-node").style("opacity", 0);
     const textElements = statEnter.append("text").attr("class", "stat-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
     statEnter.each(function() {
       const group2 = select_default2(this);
@@ -3567,7 +3567,7 @@ var StatsVisualization = class extends BaseVisualizationResource {
 
 // client/index.ts
 var GitVisualizer = class {
-  constructor() {
+  constructor(containerSelector = "#visualization") {
     // Data storage
     this.allNodes = [];
     this.allLinks = [];
@@ -3591,10 +3591,17 @@ var GitVisualizer = class {
       // Fallback for any other node types
     };
     this.currentZoom = 1;
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
-    this.svg = select_default2("#visualization");
+    const container = select_default2(containerSelector);
+    const containerNode = container.node();
+    if (!containerNode) {
+      throw new Error(`Container element not found: ${containerSelector}`);
+    }
+    const rect = containerNode.getBoundingClientRect();
+    this.width = rect.width || 800;
+    this.height = rect.height || 600;
+    this.svg = container;
     this.svg.attr("width", this.width).attr("height", this.height);
+    this.injectStyles();
     this.initializeVisualization();
   }
   initializeVisualization() {
@@ -4076,8 +4083,36 @@ var GitVisualizer = class {
     this.context.width = width;
     this.context.height = height;
   }
+  injectStyles() {
+    if (document.getElementById("gitsee-styles")) return;
+    const styleSheet = document.createElement("style");
+    styleSheet.id = "gitsee-styles";
+    styleSheet.textContent = `
+      .gitsee-link {
+        stroke: #30363d;
+        stroke-width: 1.5px;
+      }
+      
+      .gitsee-node {
+        cursor: pointer;
+      }
+      
+      .gitsee-node-label {
+        fill: #b6b6b6;
+        font-size: 12px;
+        font-weight: 500;
+        text-anchor: middle;
+        pointer-events: none;
+      }
+    `;
+    document.head.appendChild(styleSheet);
+  }
   destroy() {
     this.svg.selectAll("*").remove();
+    const styleSheet = document.getElementById("gitsee-styles");
+    if (styleSheet) {
+      styleSheet.remove();
+    }
   }
 };
 var urlParams = new URLSearchParams(window.location.search);

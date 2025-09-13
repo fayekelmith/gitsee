@@ -52,11 +52,24 @@ class GitVisualizer {
     default: 40      // Fallback for any other node types
   };
 
-  constructor() {
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
-    this.svg = d3.select("#visualization");
+  constructor(containerSelector: string = "#visualization") {
+    const container = d3.select(containerSelector);
+    const containerNode = container.node() as Element;
+    
+    if (!containerNode) {
+      throw new Error(`Container element not found: ${containerSelector}`);
+    }
+    
+    // Get dimensions from container element, not window
+    const rect = containerNode.getBoundingClientRect();
+    this.width = rect.width || 800; // fallback width
+    this.height = rect.height || 600; // fallback height
+    
+    this.svg = container;
     this.svg.attr("width", this.width).attr("height", this.height);
+
+    // Inject required CSS styles for the library
+    this.injectStyles();
 
     this.initializeVisualization();
   }
@@ -742,9 +755,42 @@ class GitVisualizer {
     this.context.height = height;
   }
 
+  private injectStyles(): void {
+    // Check if styles are already injected
+    if (document.getElementById('gitsee-styles')) return;
+    
+    const styleSheet = document.createElement('style');
+    styleSheet.id = 'gitsee-styles';
+    styleSheet.textContent = `
+      .gitsee-link {
+        stroke: #30363d;
+        stroke-width: 1.5px;
+      }
+      
+      .gitsee-node {
+        cursor: pointer;
+      }
+      
+      .gitsee-node-label {
+        fill: #b6b6b6;
+        font-size: 12px;
+        font-weight: 500;
+        text-anchor: middle;
+        pointer-events: none;
+      }
+    `;
+    document.head.appendChild(styleSheet);
+  }
+
   public destroy(): void {
     // Clean up visualization
     this.svg.selectAll("*").remove();
+    
+    // Optionally remove injected styles if no other instances exist
+    const styleSheet = document.getElementById('gitsee-styles');
+    if (styleSheet) {
+      styleSheet.remove();
+    }
   }
 }
 

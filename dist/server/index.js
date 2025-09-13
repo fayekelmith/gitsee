@@ -424,12 +424,17 @@ var StatsResource = class extends BaseResource {
         per_page: 100
         // Get up to 100 contributors
       });
-      const totalCommits = contributorsResponse.data.reduce((sum, contributor) => {
-        return sum + (contributor.contributions || 0);
-      }, 0);
+      const totalCommits = contributorsResponse.data.reduce(
+        (sum, contributor) => {
+          return sum + (contributor.contributions || 0);
+        },
+        0
+      );
       const createdDate = new Date(repoData.created_at);
       const now = /* @__PURE__ */ new Date();
-      const ageInYears = Math.round((now.getTime() - createdDate.getTime()) / (365.25 * 24 * 60 * 60 * 1e3) * 10) / 10;
+      const ageInYears = Math.round(
+        (now.getTime() - createdDate.getTime()) / (365.25 * 24 * 60 * 60 * 1e3) * 10
+      ) / 10;
       const stats = {
         stars: repoData.stargazers_count,
         totalPRs: prsResponse.data.total_count,
@@ -445,9 +450,15 @@ var StatsResource = class extends BaseResource {
       this.setCached(owner, repo, "stats", stats);
       return stats;
     } catch (error) {
-      console.error(`\u{1F4A5} Error fetching stats for ${owner}/${repo}:`, error.message);
+      console.error(
+        `\u{1F4A5} Error fetching stats for ${owner}/${repo}:`,
+        error.message
+      );
       if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for stats! Using token:`, !!this.octokit.auth);
+        console.error(
+          `\u23F1\uFE0F  RATE LIMIT HIT for stats! Using token:`,
+          !!this.octokit.auth
+        );
       }
       throw error;
     }
@@ -464,7 +475,10 @@ var RepoCloner = class {
    */
   static async cloneInBackground(owner, repo) {
     this.cloneRepo(owner, repo).catch((error) => {
-      console.error(`\u{1F6A8} Background clone failed for ${owner}/${repo}:`, error.message);
+      console.error(
+        `\u{1F6A8} Background clone failed for ${owner}/${repo}:`,
+        error.message
+      );
     });
   }
   /**
@@ -477,7 +491,9 @@ var RepoCloner = class {
     console.log(`\u{1F4E5} Starting clone of ${owner}/${repo} to ${repoPath}`);
     try {
       if (fs.existsSync(repoPath)) {
-        console.log(`\u{1F4C2} Repository ${owner}/${repo} already exists at ${repoPath}`);
+        console.log(
+          `\u{1F4C2} Repository ${owner}/${repo} already exists at ${repoPath}`
+        );
         return {
           success: true,
           path: repoPath,

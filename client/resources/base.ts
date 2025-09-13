@@ -133,7 +133,7 @@ export abstract class BaseVisualizationResource {
     const textColor = node.type === "repo" ? "#e6edf3" : "#b6b6b6";
     return parent
       .append("text")
-      .attr("class", "node-label")
+      .attr("class", "gitsee-node-label")
       .attr("dy", dy)
       .style("fill", textColor)
       .style("font-size", "12px")
