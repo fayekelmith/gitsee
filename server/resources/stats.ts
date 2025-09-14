@@ -21,10 +21,11 @@ export class StatsResource extends BaseResource {
 
       const repoData = repoResponse.data;
 
-      // Get total PRs count
+      // Get total PRs count (using advanced search to avoid deprecation)
       const prsResponse = await this.octokit.rest.search.issuesAndPullRequests({
         q: `repo:${owner}/${repo} type:pr`,
         per_page: 1, // We only need the count
+        advanced_search: "true", // Use advanced search to avoid deprecation warning
       });
 
       // Get total commits count (approximate from contributors API which is faster than paginating all commits)

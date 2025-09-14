@@ -3746,7 +3746,7 @@ var DetailPanel = class {
     this.injectStyles();
   }
   createPanel() {
-    this.panel = select_default2("body").append("div").attr("class", "gitsee-detail-panel").style("position", "fixed").style("top", "20px").style("left", "20px").style("width", "300px").style("max-height", "calc(100vh - 40px)").style("background", "#21262d").style("border", "1px solid #30363d").style("border-radius", "8px").style("box-shadow", "0 8px 24px rgba(0, 0, 0, 0.4)").style("z-index", "1000").style("transform", "translateX(-100%)").style("transition", "transform 0.3s ease").style("overflow", "hidden");
+    this.panel = select_default2("body").append("div").attr("class", "gitsee-detail-panel").style("position", "fixed").style("top", "20px").style("left", "20px").style("width", "300px").style("max-height", "calc(100vh - 40px)").style("background", "#21262d").style("border", "1px solid #30363d").style("border-radius", "8px").style("box-shadow", "0 8px 24px rgba(0, 0, 0, 0.4)").style("z-index", "1000").style("transform", "translateX(-110%)").style("transition", "transform 0.3s ease").style("overflow", "hidden");
     this.panel.append("button").attr("class", "close-button").style("position", "absolute").style("top", "12px").style("right", "12px").style("width", "24px").style("height", "24px").style("border", "none").style("background", "transparent").style("color", "#7d8590").style("cursor", "pointer").style("border-radius", "4px").style("display", "flex").style("align-items", "center").style("justify-content", "center").style("font-size", "16px").style("line-height", "1").style("transition", "all 0.2s ease").text("\xD7").on("mouseover", function() {
       select_default2(this).style("background", "#30363d").style("color", "#e6edf3");
     }).on("mouseout", function() {
@@ -3798,7 +3798,7 @@ var DetailPanel = class {
     });
   }
   renderContentSection(container, data) {
-    container.append("pre").style("margin", "0").style("padding", "12px").style("background", "#161b22").style("border", "1px solid #30363d").style("border-radius", "6px").style("color", "#c9d1d9").style("font-size", "12px").style("line-height", "1.4").style("font-family", "monospace").style("white-space", "pre-wrap").style("word-wrap", "break-word").style("max-height", "200px").style("overflow-y", "auto").text(data);
+    container.append("pre").style("margin", "0").style("padding", "12px").style("background", "#161b22").style("border", "1px solid #30363d").style("border-radius", "6px").style("color", "#c9d1d9").style("font-size", "12px").style("line-height", "1.4").style("font-family", "monospace").style("white-space", "pre-wrap").style("word-wrap", "break-word").style("max-height", "400px").style("overflow-y", "auto").text(data);
   }
   injectStyles() {
     if (document.getElementById("gitsee-panel-styles")) return;
@@ -3851,7 +3851,7 @@ var DetailPanel = class {
   }
   hide() {
     this.isVisible = false;
-    this.panel.style("transform", "translateX(-100%)");
+    this.panel.style("transform", "translateX(-110%)");
   }
   toggle() {
     if (this.isVisible) {

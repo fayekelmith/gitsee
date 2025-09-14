@@ -32,7 +32,7 @@ export class DetailPanel {
       .style("border-radius", "8px")
       .style("box-shadow", "0 8px 24px rgba(0, 0, 0, 0.4)")
       .style("z-index", "1000")
-      .style("transform", "translateX(-100%)")
+      .style("transform", "translateX(-110%)")
       .style("transition", "transform 0.3s ease")
       .style("overflow", "hidden");
 
@@ -225,7 +225,7 @@ export class DetailPanel {
       .style("font-family", "monospace")
       .style("white-space", "pre-wrap")
       .style("word-wrap", "break-word")
-      .style("max-height", "200px")
+      .style("max-height", "400px")
       .style("overflow-y", "auto")
       .text(data);
   }
@@ -285,7 +285,7 @@ export class DetailPanel {
 
   public hide(): void {
     this.isVisible = false;
-    this.panel.style("transform", "translateX(-100%)");
+    this.panel.style("transform", "translateX(-110%)");
   }
 
   public toggle(): void {

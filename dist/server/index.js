@@ -463,8 +463,10 @@ var StatsResource = class extends BaseResource {
       const repoData = repoResponse.data;
       const prsResponse = await this.octokit.rest.search.issuesAndPullRequests({
         q: `repo:${owner}/${repo} type:pr`,
-        per_page: 1
+        per_page: 1,
         // We only need the count
+        advanced_search: "true"
+        // Use advanced search to avoid deprecation warning
       });
       const contributorsResponse = await this.octokit.rest.repos.listContributors({
         owner,
