@@ -35,6 +35,8 @@ class GitVisualizer {
   private allNodes: NodeData[] = [];
   private allLinks: LinkData[] = [];
   private currentRepoData: any = null;
+  private currentOwner: string = '';
+  private currentRepo: string = '';
 
   // Collision detection system
   private occupiedSpaces: Array<{
@@ -57,9 +59,24 @@ class GitVisualizer {
     default: 40, // Fallback for any other node types
   };
 
-  constructor(containerSelector: string = "#visualization") {
+  // API configuration
+  private apiEndpoint: string;
+  private apiHeaders: Record<string, string>;
+
+  constructor(
+    containerSelector: string = "#visualization", 
+    apiEndpoint: string = "/api/gitsee",
+    apiHeaders: Record<string, string> = {}
+  ) {
     const container = d3.select(containerSelector);
     const containerNode = container.node() as Element;
+    
+    // Store the API configuration
+    this.apiEndpoint = apiEndpoint;
+    this.apiHeaders = {
+      'Content-Type': 'application/json',
+      ...apiHeaders // User headers override defaults
+    };
 
     if (!containerNode) {
       throw new Error(`Container element not found: ${containerSelector}`);
@@ -121,7 +138,7 @@ class GitVisualizer {
     this.filesViz = new FilesVisualization(this.context, (nodeData) => {
       // Show file panel when file node is clicked
       this.showNodePanel(nodeData);
-    });
+    }, this.apiEndpoint, this.apiHeaders);
     this.statsViz = new StatsVisualization(this.context, (nodeData) => {
       // Stats click also shows repo panel
       this.showNodePanel(nodeData);
@@ -331,6 +348,10 @@ class GitVisualizer {
   async visualize(owner: string, repo: string): Promise<void> {
     try {
       console.log(`🚀 Visualizing ${owner}/${repo}...`);
+      
+      // Store the current owner/repo for later use
+      this.currentOwner = owner;
+      this.currentRepo = repo;
 
       // Clear existing visualization
       this.clearVisualization();
@@ -361,6 +382,12 @@ class GitVisualizer {
           description: data.repo?.description,
           ...data.repo,
         };
+        
+        console.log(`🔍 Stored repo data:`, {
+          name: this.currentRepoData.name,
+          full_name: data.repo?.full_name,
+          fallback: `${owner}/${repo}`
+        });
 
         // Pass repo data to stats visualization
         this.statsViz.setRepoData(this.currentRepoData);
@@ -440,11 +467,9 @@ class GitVisualizer {
     owner: string,
     repo: string
   ): Promise<ApiResponse> {
-    const response = await fetch("/api/gitsee", {
+    const response = await fetch(this.apiEndpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: this.apiHeaders,
       body: JSON.stringify({
         owner,
         repo,
@@ -866,7 +891,7 @@ class GitVisualizer {
     document.head.appendChild(styleSheet);
   }
 
-  private showNodePanel(nodeData: NodeData): void {
+  private async showNodePanel(nodeData: NodeData): Promise<void> {
     // Get panel content based on node type
     let content;
     if (nodeData.type === "repo" || !nodeData.type) {
@@ -879,7 +904,20 @@ class GitVisualizer {
         statsNodes
       );
     } else if (nodeData.type === "file") {
-      content = this.filesViz.getPanelContent(nodeData);
+      // Use the stored owner/repo from visualize() call
+      if (!this.currentOwner || !this.currentRepo) {
+        console.error('No current owner/repo stored');
+        content = {
+          name: nodeData.name,
+          sections: [{
+            title: "Content",
+            type: "content" as const,
+            data: "// Could not determine repository owner/name"
+          }]
+        };
+      } else {
+        content = await this.filesViz.getPanelContent(nodeData, this.currentOwner, this.currentRepo);
+      }
     } else if (nodeData.type === "contributor") {
       content = this.contributorsViz.getPanelContent(nodeData);
     } else {
@@ -906,6 +944,33 @@ class GitVisualizer {
 
   public toggleDetailPanel(): void {
     this.detailPanel.toggle();
+  }
+
+  public setApiEndpoint(apiEndpoint: string): void {
+    this.apiEndpoint = apiEndpoint;
+    // Update the files visualization with the new endpoint
+    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
+      this.showNodePanel(nodeData);
+    }, this.apiEndpoint, this.apiHeaders);
+  }
+
+  public setApiHeaders(apiHeaders: Record<string, string>): void {
+    this.apiHeaders = {
+      'Content-Type': 'application/json',
+      ...apiHeaders
+    };
+    // Update the files visualization with the new headers
+    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
+      this.showNodePanel(nodeData);
+    }, this.apiEndpoint, this.apiHeaders);
+  }
+
+  public getApiEndpoint(): string {
+    return this.apiEndpoint;
+  }
+
+  public getApiHeaders(): Record<string, string> {
+    return { ...this.apiHeaders };
   }
 
   public destroy(): void {

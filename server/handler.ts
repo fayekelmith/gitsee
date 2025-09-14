@@ -189,6 +189,20 @@ export class GitSeeHandler {
             );
             break;
 
+          case "file_content":
+            if (!request.filePath) {
+              console.warn(`⚠️ File content requested but no filePath provided`);
+              break;
+            }
+            console.log(`🔍 Fetching file content for ${owner}/${repo}:${request.filePath}...`);
+            response.fileContent = await this.files.getFileContent(owner, repo, request.filePath);
+            console.log(
+              `📄 File content result: ${response.fileContent ? 
+                `Found (${response.fileContent.size} bytes)` : 
+                'Not found'}`
+            );
+            break;
+
           default:
             console.warn(`⚠️  Unknown data type: ${dataType}`);
         }

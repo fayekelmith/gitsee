@@ -4,7 +4,8 @@ import { Octokit } from '@octokit/rest';
 interface GitSeeRequest {
     owner: string;
     repo: string;
-    data: ("contributors" | "icon" | "repo_info" | "commits" | "branches" | "files" | "stats")[];
+    data: ("contributors" | "icon" | "repo_info" | "commits" | "branches" | "files" | "stats" | "file_content")[];
+    filePath?: string;
 }
 interface GitSeeResponse {
     repo?: any;
@@ -13,6 +14,7 @@ interface GitSeeResponse {
     commits?: any[];
     branches?: any[];
     files?: FileInfo[];
+    fileContent?: FileContent | null;
     stats?: RepoStats;
     error?: string;
     options?: {
@@ -83,6 +85,13 @@ interface FileInfo {
     name: string;
     path: string;
     type: "package" | "config" | "docs" | "build" | "ci" | "data" | "other";
+}
+interface FileContent {
+    name: string;
+    path: string;
+    content: string;
+    encoding: string;
+    size: number;
 }
 interface RepoStats {
     stars: number;

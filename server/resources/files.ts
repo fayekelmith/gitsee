@@ -6,6 +6,14 @@ export interface FileInfo {
   type: "package" | "config" | "docs" | "build" | "ci" | "data" | "other";
 }
 
+export interface FileContent {
+  name: string;
+  path: string;
+  content: string;
+  encoding: string;
+  size: number;
+}
+
 export class FilesResource extends BaseResource {
   async getKeyFiles(owner: string, repo: string): Promise<FileInfo[]> {
     // Check cache first
@@ -107,5 +115,70 @@ export class FilesResource extends BaseResource {
     this.setCached(owner, repo, "files", foundFiles);
 
     return foundFiles;
+  }
+
+  async getFileContent(owner: string, repo: string, path: string): Promise<FileContent | null> {
+    // Check cache first
+    const cacheKey = `file-content-${path}`;
+    const cached = await this.getCached<FileContent>(owner, repo, cacheKey);
+    if (cached) {
+      console.log(`📄 Using cached file content for ${path}`);
+      return cached;
+    }
+
+    console.log(`🔍 Fetching file content for ${owner}/${repo}:${path}...`);
+
+    try {
+      const response = await this.octokit.repos.getContent({
+        owner,
+        repo,
+        path,
+      });
+
+      // Handle the case where response.data is an array (directory) - we only want files
+      if (Array.isArray(response.data)) {
+        console.warn(`⚠️ Path ${path} is a directory, not a file`);
+        return null;
+      }
+
+      const fileData = response.data as any;
+
+      // Ensure it's a file and not a symlink or submodule
+      if (fileData.type !== 'file') {
+        console.warn(`⚠️ Path ${path} is not a file (type: ${fileData.type})`);
+        return null;
+      }
+
+      // Decode base64 content
+      let content = '';
+      if (fileData.encoding === 'base64' && fileData.content) {
+        content = Buffer.from(fileData.content, 'base64').toString('utf-8');
+      } else if (fileData.content) {
+        content = fileData.content;
+      }
+
+      const fileContent: FileContent = {
+        name: fileData.name,
+        path: fileData.path,
+        content: content,
+        encoding: fileData.encoding || 'utf-8',
+        size: fileData.size || 0,
+      };
+
+      console.log(`✅ Retrieved file content for ${path} (${fileContent.size} bytes)`);
+
+      // Cache the results
+      this.setCached(owner, repo, cacheKey, fileContent);
+
+      return fileContent;
+    } catch (error: any) {
+      if (error.status === 404) {
+        console.log(`❌ File not found: ${path}`);
+        return null;
+      }
+      
+      console.error(`💥 Error fetching file content for ${path}:`, error.message);
+      return null;
+    }
   }
 }

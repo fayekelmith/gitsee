@@ -3439,9 +3439,11 @@ var LinksVisualization = class extends BaseVisualizationResource {
 
 // client/resources/files.ts
 var FilesVisualization = class extends BaseVisualizationResource {
-  constructor(context, onNodeClick) {
+  constructor(context, onNodeClick, apiEndpoint = "/api/gitsee", apiHeaders = { "Content-Type": "application/json" }) {
     super(context, "files");
     this.onNodeClick = onNodeClick;
+    this.apiEndpoint = apiEndpoint;
+    this.apiHeaders = apiHeaders;
   }
   create(files) {
     const nodes = [];
@@ -3523,16 +3525,60 @@ var FilesVisualization = class extends BaseVisualizationResource {
       group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
     });
   }
-  getPanelContent(nodeData, fileData) {
-    return {
-      name: nodeData.name,
-      sections: [
-        {
+  async getPanelContent(nodeData, owner2, repo2) {
+    const sections = [];
+    sections.push({
+      title: "Content",
+      type: "content",
+      data: "Loading file content..."
+    });
+    try {
+      console.log(`\u{1F50D} Fetching content for file: ${nodeData.name}`);
+      console.log(`\u{1F50D} API request details:`, {
+        owner: owner2,
+        repo: repo2,
+        filePath: nodeData.path || nodeData.name
+      });
+      const response = await fetch(this.apiEndpoint, {
+        method: "POST",
+        headers: this.apiHeaders,
+        body: JSON.stringify({
+          owner: owner2,
+          repo: repo2,
+          data: ["file_content"],
+          filePath: nodeData.path || nodeData.name
+        })
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const data = await response.json();
+      if (data.fileContent && data.fileContent.content) {
+        console.log(`\u2705 Retrieved file content: ${data.fileContent.size} bytes`);
+        sections[0] = {
           title: "Content",
           type: "content",
-          data: fileData?.content || "// File content would be loaded here..."
-        }
-      ]
+          data: data.fileContent.content
+        };
+      } else {
+        console.warn("\u26A0\uFE0F No file content received");
+        sections[0] = {
+          title: "Content",
+          type: "content",
+          data: "// File content could not be loaded"
+        };
+      }
+    } catch (error) {
+      console.error("\u{1F4A5} Error fetching file content:", error);
+      sections[0] = {
+        title: "Content",
+        type: "content",
+        data: `// Error loading file content: ${error instanceof Error ? error.message : "Unknown error"}`
+      };
+    }
+    return {
+      name: nodeData.name,
+      sections
     };
   }
 };
@@ -3825,11 +3871,13 @@ var DetailPanel = class {
 
 // client/index.ts
 var GitVisualizer = class {
-  constructor(containerSelector = "#visualization") {
+  constructor(containerSelector = "#visualization", apiEndpoint = "/api/gitsee", apiHeaders = {}) {
     // Data storage
     this.allNodes = [];
     this.allLinks = [];
     this.currentRepoData = null;
+    this.currentOwner = "";
+    this.currentRepo = "";
     // Collision detection system
     this.occupiedSpaces = [];
     // Configurable timing and animation
@@ -3852,6 +3900,12 @@ var GitVisualizer = class {
     this.currentZoom = 1;
     const container = select_default2(containerSelector);
     const containerNode = container.node();
+    this.apiEndpoint = apiEndpoint;
+    this.apiHeaders = {
+      "Content-Type": "application/json",
+      ...apiHeaders
+      // User headers override defaults
+    };
     if (!containerNode) {
       throw new Error(`Container element not found: ${containerSelector}`);
     }
@@ -3891,7 +3945,7 @@ var GitVisualizer = class {
     this.linksViz = new LinksVisualization(this.context);
     this.filesViz = new FilesVisualization(this.context, (nodeData) => {
       this.showNodePanel(nodeData);
-    });
+    }, this.apiEndpoint, this.apiHeaders);
     this.statsViz = new StatsVisualization(this.context, (nodeData) => {
       this.showNodePanel(nodeData);
     });
@@ -4025,6 +4079,8 @@ var GitVisualizer = class {
   async visualize(owner2, repo2) {
     try {
       console.log(`\u{1F680} Visualizing ${owner2}/${repo2}...`);
+      this.currentOwner = owner2;
+      this.currentRepo = repo2;
       this.clearVisualization();
       const data = await this.fetchRepoData(owner2, repo2);
       console.log("\u{1F4E6} API Response:", {
@@ -4046,6 +4102,11 @@ var GitVisualizer = class {
           description: data.repo?.description,
           ...data.repo
         };
+        console.log(`\u{1F50D} Stored repo data:`, {
+          name: this.currentRepoData.name,
+          full_name: data.repo?.full_name,
+          fallback: `${owner2}/${repo2}`
+        });
         this.statsViz.setRepoData(this.currentRepoData);
         const repoData = {
           name: this.currentRepoData.name,
@@ -4106,11 +4167,9 @@ var GitVisualizer = class {
     }
   }
   async fetchRepoData(owner2, repo2) {
-    const response = await fetch("/api/gitsee", {
+    const response = await fetch(this.apiEndpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: this.apiHeaders,
       body: JSON.stringify({
         owner: owner2,
         repo: repo2,
@@ -4431,7 +4490,7 @@ var GitVisualizer = class {
     `;
     document.head.appendChild(styleSheet);
   }
-  showNodePanel(nodeData) {
+  async showNodePanel(nodeData) {
     let content;
     if (nodeData.type === "repo" || !nodeData.type) {
       const statsNodes = this.allNodes.filter((n) => n.type === "stat");
@@ -4441,7 +4500,19 @@ var GitVisualizer = class {
         statsNodes
       );
     } else if (nodeData.type === "file") {
-      content = this.filesViz.getPanelContent(nodeData);
+      if (!this.currentOwner || !this.currentRepo) {
+        console.error("No current owner/repo stored");
+        content = {
+          name: nodeData.name,
+          sections: [{
+            title: "Content",
+            type: "content",
+            data: "// Could not determine repository owner/name"
+          }]
+        };
+      } else {
+        content = await this.filesViz.getPanelContent(nodeData, this.currentOwner, this.currentRepo);
+      }
     } else if (nodeData.type === "contributor") {
       content = this.contributorsViz.getPanelContent(nodeData);
     } else {
@@ -4463,6 +4534,27 @@ var GitVisualizer = class {
   }
   toggleDetailPanel() {
     this.detailPanel.toggle();
+  }
+  setApiEndpoint(apiEndpoint) {
+    this.apiEndpoint = apiEndpoint;
+    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
+      this.showNodePanel(nodeData);
+    }, this.apiEndpoint, this.apiHeaders);
+  }
+  setApiHeaders(apiHeaders) {
+    this.apiHeaders = {
+      "Content-Type": "application/json",
+      ...apiHeaders
+    };
+    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
+      this.showNodePanel(nodeData);
+    }, this.apiEndpoint, this.apiHeaders);
+  }
+  getApiEndpoint() {
+    return this.apiEndpoint;
+  }
+  getApiHeaders() {
+    return { ...this.apiHeaders };
   }
   destroy() {
     this.svg.selectAll("*").remove();

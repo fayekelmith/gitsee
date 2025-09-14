@@ -396,6 +396,54 @@ var FilesResource = class extends BaseResource {
     this.setCached(owner, repo, "files", foundFiles);
     return foundFiles;
   }
+  async getFileContent(owner, repo, path3) {
+    const cacheKey = `file-content-${path3}`;
+    const cached = await this.getCached(owner, repo, cacheKey);
+    if (cached) {
+      console.log(`\u{1F4C4} Using cached file content for ${path3}`);
+      return cached;
+    }
+    console.log(`\u{1F50D} Fetching file content for ${owner}/${repo}:${path3}...`);
+    try {
+      const response = await this.octokit.repos.getContent({
+        owner,
+        repo,
+        path: path3
+      });
+      if (Array.isArray(response.data)) {
+        console.warn(`\u26A0\uFE0F Path ${path3} is a directory, not a file`);
+        return null;
+      }
+      const fileData = response.data;
+      if (fileData.type !== "file") {
+        console.warn(`\u26A0\uFE0F Path ${path3} is not a file (type: ${fileData.type})`);
+        return null;
+      }
+      let content = "";
+      if (fileData.encoding === "base64" && fileData.content) {
+        content = Buffer.from(fileData.content, "base64").toString("utf-8");
+      } else if (fileData.content) {
+        content = fileData.content;
+      }
+      const fileContent = {
+        name: fileData.name,
+        path: fileData.path,
+        content,
+        encoding: fileData.encoding || "utf-8",
+        size: fileData.size || 0
+      };
+      console.log(`\u2705 Retrieved file content for ${path3} (${fileContent.size} bytes)`);
+      this.setCached(owner, repo, cacheKey, fileContent);
+      return fileContent;
+    } catch (error) {
+      if (error.status === 404) {
+        console.log(`\u274C File not found: ${path3}`);
+        return null;
+      }
+      console.error(`\u{1F4A5} Error fetching file content for ${path3}:`, error.message);
+      return null;
+    }
+  }
 };
 
 // server/resources/stats.ts
@@ -1063,6 +1111,17 @@ var GitSeeHandler = class {
             response.stats = await this.stats.getRepoStats(owner, repo);
             console.log(
               `\u{1F4CA} Stats result: ${response.stats?.stars} stars, ${response.stats?.totalPRs} PRs, ${response.stats?.totalCommits} commits, ${response.stats?.ageInYears}y old`
+            );
+            break;
+          case "file_content":
+            if (!request.filePath) {
+              console.warn(`\u26A0\uFE0F File content requested but no filePath provided`);
+              break;
+            }
+            console.log(`\u{1F50D} Fetching file content for ${owner}/${repo}:${request.filePath}...`);
+            response.fileContent = await this.files.getFileContent(owner, repo, request.filePath);
+            console.log(
+              `\u{1F4C4} File content result: ${response.fileContent ? `Found (${response.fileContent.size} bytes)` : "Not found"}`
             );
             break;
           default:

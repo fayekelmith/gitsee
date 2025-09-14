@@ -9,7 +9,9 @@ export interface GitSeeRequest {
     | "branches"
     | "files"
     | "stats"
+    | "file_content"
   )[];
+  filePath?: string; // Required when requesting file_content
 }
 
 export interface GitSeeResponse {
@@ -19,6 +21,7 @@ export interface GitSeeResponse {
   commits?: any[];
   branches?: any[];
   files?: FileInfo[];
+  fileContent?: FileContent | null;
   stats?: RepoStats;
   error?: string;
   options?: {
@@ -95,6 +98,14 @@ export interface FileInfo {
   name: string;
   path: string;
   type: "package" | "config" | "docs" | "build" | "ci" | "data" | "other";
+}
+
+export interface FileContent {
+  name: string;
+  path: string;
+  content: string;
+  encoding: string;
+  size: number;
 }
 
 export interface RepoStats {
