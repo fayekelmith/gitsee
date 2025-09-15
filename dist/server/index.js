@@ -396,27 +396,27 @@ var FilesResource = class extends BaseResource {
     this.setCached(owner, repo, "files", foundFiles);
     return foundFiles;
   }
-  async getFileContent(owner, repo, path3) {
-    const cacheKey = `file-content-${path3}`;
+  async getFileContent(owner, repo, path4) {
+    const cacheKey = `file-content-${path4}`;
     const cached = await this.getCached(owner, repo, cacheKey);
     if (cached) {
-      console.log(`\u{1F4C4} Using cached file content for ${path3}`);
+      console.log(`\u{1F4C4} Using cached file content for ${path4}`);
       return cached;
     }
-    console.log(`\u{1F50D} Fetching file content for ${owner}/${repo}:${path3}...`);
+    console.log(`> Fetching file content for ${owner}/${repo}:${path4}...`);
     try {
       const response = await this.octokit.repos.getContent({
         owner,
         repo,
-        path: path3
+        path: path4
       });
       if (Array.isArray(response.data)) {
-        console.warn(`\u26A0\uFE0F Path ${path3} is a directory, not a file`);
+        console.warn(`\u26A0\uFE0F Path ${path4} is a directory, not a file`);
         return null;
       }
       const fileData = response.data;
       if (fileData.type !== "file") {
-        console.warn(`\u26A0\uFE0F Path ${path3} is not a file (type: ${fileData.type})`);
+        console.warn(`\u26A0\uFE0F Path ${path4} is not a file (type: ${fileData.type})`);
         return null;
       }
       let content = "";
@@ -432,15 +432,20 @@ var FilesResource = class extends BaseResource {
         encoding: fileData.encoding || "utf-8",
         size: fileData.size || 0
       };
-      console.log(`\u2705 Retrieved file content for ${path3} (${fileContent.size} bytes)`);
+      console.log(
+        `\u2705 Retrieved file content for ${path4} (${fileContent.size} bytes)`
+      );
       this.setCached(owner, repo, cacheKey, fileContent);
       return fileContent;
     } catch (error) {
       if (error.status === 404) {
-        console.log(`\u274C File not found: ${path3}`);
+        console.log(`\u274C File not found: ${path4}`);
         return null;
       }
-      console.error(`\u{1F4A5} Error fetching file content for ${path3}:`, error.message);
+      console.error(
+        `\u{1F4A5} Error fetching file content for ${path4}:`,
+        error.message
+      );
       return null;
     }
   }
@@ -524,7 +529,17 @@ var RepoCloner = class {
    * Clone a repository in the background (fire-and-forget)
    */
   static async cloneInBackground(owner, repo) {
-    this.cloneRepo(owner, repo).catch((error) => {
+    const repoKey = `${owner}/${repo}`;
+    if (this.clonePromises.has(repoKey)) {
+      return;
+    }
+    const clonePromise = this.cloneRepo(owner, repo);
+    this.clonePromises.set(repoKey, clonePromise);
+    clonePromise.finally(() => {
+      setTimeout(() => {
+        this.clonePromises.delete(repoKey);
+      }, 5e3);
+    }).catch((error) => {
       console.error(
         `\u{1F6A8} Background clone failed for ${owner}/${repo}:`,
         error.message
@@ -546,7 +561,7 @@ var RepoCloner = class {
         );
         return {
           success: true,
-          path: repoPath,
+          localPath: repoPath,
           duration: Date.now() - startTime
         };
       }
@@ -558,14 +573,14 @@ var RepoCloner = class {
         console.log(`\u2705 Successfully cloned ${owner}/${repo} in ${duration}ms`);
         return {
           success: true,
-          path: repoPath,
+          localPath: repoPath,
           duration
         };
       } else {
         console.error(`\u274C Failed to clone ${owner}/${repo}:`, result.error);
         return {
           success: false,
-          path: repoPath,
+          localPath: repoPath,
           error: result.error,
           duration
         };
@@ -575,7 +590,7 @@ var RepoCloner = class {
       console.error(`\u{1F4A5} Clone error for ${owner}/${repo}:`, error.message);
       return {
         success: false,
-        path: repoPath,
+        localPath: repoPath,
         error: error.message,
         duration
       };
@@ -640,6 +655,50 @@ var RepoCloner = class {
     return path.join(this.BASE_PATH, owner, repo);
   }
   /**
+   * Wait for a repository clone to complete
+   */
+  static async waitForClone(owner, repo) {
+    const repoKey = `${owner}/${repo}`;
+    if (this.isRepoCloned(owner, repo)) {
+      return {
+        success: true,
+        localPath: this.getRepoPath(owner, repo)
+      };
+    }
+    const clonePromise = this.clonePromises.get(repoKey);
+    if (clonePromise) {
+      console.log(`\u23F3 Waiting for ongoing clone of ${owner}/${repo}...`);
+      return await clonePromise;
+    }
+    console.log(`\u{1F680} Starting new clone for ${owner}/${repo}...`);
+    return await this.cloneRepo(owner, repo);
+  }
+  /**
+   * Get clone result if available (non-blocking)
+   */
+  static async getCloneResult(owner, repo) {
+    const repoKey = `${owner}/${repo}`;
+    if (this.isRepoCloned(owner, repo)) {
+      return {
+        success: true,
+        localPath: this.getRepoPath(owner, repo)
+      };
+    }
+    const clonePromise = this.clonePromises.get(repoKey);
+    if (clonePromise) {
+      try {
+        return await clonePromise;
+      } catch (error) {
+        return {
+          success: false,
+          localPath: this.getRepoPath(owner, repo),
+          error: error instanceof Error ? error.message : "Unknown error"
+        };
+      }
+    }
+    return null;
+  }
+  /**
    * Clean up old repositories (optional utility)
    */
   static async cleanupOldRepos(maxAgeHours = 24) {
@@ -668,6 +727,7 @@ var RepoCloner = class {
   }
 };
 RepoCloner.BASE_PATH = "/tmp/gitsee";
+RepoCloner.clonePromises = /* @__PURE__ */ new Map();
 
 // server/agent/explore.ts
 import { generateText, tool, hasToolCall } from "ai";
@@ -984,6 +1044,236 @@ setTimeout(() => {
   });
 });
 
+// server/agent/explore-wrapper.ts
+async function explore(prompt, repoPath, mode = "first_pass") {
+  const startTime = Date.now();
+  console.log(`\u{1F916} Starting ${mode} exploration...`);
+  try {
+    const jsonString = await get_context(prompt, repoPath, mode);
+    console.log(
+      `\u{1F4CB} Raw exploration result:`,
+      jsonString.substring(0, 200) + "..."
+    );
+    let parsedResult;
+    try {
+      parsedResult = JSON.parse(jsonString);
+    } catch (parseError) {
+      console.warn("\u26A0\uFE0F Failed to parse JSON, treating as raw summary");
+      if (mode === "first_pass") {
+        parsedResult = {
+          summary: jsonString,
+          key_files: [],
+          infrastructure: [],
+          dependencies: [],
+          user_stories: [],
+          pages: []
+        };
+      } else {
+        parsedResult = {
+          summary: jsonString,
+          key_files: [],
+          features: []
+        };
+      }
+    }
+    let result;
+    if (mode === "first_pass") {
+      result = {
+        summary: parsedResult.summary || jsonString,
+        key_files: parsedResult.key_files || [],
+        infrastructure: parsedResult.infrastructure || [],
+        dependencies: parsedResult.dependencies || [],
+        user_stories: parsedResult.user_stories || [],
+        pages: parsedResult.pages || []
+      };
+    } else {
+      result = {
+        summary: parsedResult.summary || jsonString,
+        key_files: parsedResult.key_files || [],
+        features: parsedResult.features || []
+      };
+    }
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    console.log(`\u2705 ${mode} exploration completed in ${duration}ms`);
+    console.log(
+      `\u{1F4CA} Result: ${result.key_files.length} key files, summary: ${result.summary.substring(0, 100)}...`
+    );
+    return result;
+  } catch (error) {
+    console.error(`\u{1F4A5} Exploration failed:`, error);
+    if (mode === "first_pass") {
+      return {
+        summary: `Exploration failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        key_files: [],
+        infrastructure: [],
+        dependencies: [],
+        user_stories: [],
+        pages: []
+      };
+    } else {
+      return {
+        summary: `Exploration failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        key_files: [],
+        features: []
+      };
+    }
+  }
+}
+
+// server/persistence/FileStore.ts
+import * as fs3 from "fs";
+import * as path3 from "path";
+var FileStore = class {
+  constructor(dataDir = "./data/repos") {
+    this.version = "1.0.0";
+    this.dataDir = dataDir;
+    this.ensureDataDir();
+  }
+  ensureDataDir() {
+    if (!fs3.existsSync(this.dataDir)) {
+      fs3.mkdirSync(this.dataDir, { recursive: true });
+    }
+  }
+  getRepoDir(owner, repo) {
+    const repoKey = `${owner}-${repo}`.replace(/[^a-zA-Z0-9-]/g, "_");
+    return path3.join(this.dataDir, repoKey);
+  }
+  ensureRepoDir(owner, repo) {
+    const repoDir = this.getRepoDir(owner, repo);
+    if (!fs3.existsSync(repoDir)) {
+      fs3.mkdirSync(repoDir, { recursive: true });
+    }
+    return repoDir;
+  }
+  // Store basic API data (what you already have)
+  async storeBasicData(owner, repo, data) {
+    const repoDir = this.ensureRepoDir(owner, repo);
+    const filePath = path3.join(repoDir, "basic.json");
+    const enrichedData = {
+      ...data,
+      stored_at: (/* @__PURE__ */ new Date()).toISOString(),
+      owner,
+      repo
+    };
+    fs3.writeFileSync(filePath, JSON.stringify(enrichedData, null, 2));
+    console.log(`\u{1F4BE} Stored basic data for ${owner}/${repo}`);
+  }
+  // Store agent exploration results
+  async storeExploration(owner, repo, mode, result) {
+    const repoDir = this.ensureRepoDir(owner, repo);
+    const filePath = path3.join(repoDir, `exploration-${mode}.json`);
+    const storedExploration = {
+      mode,
+      result,
+      timestamp: Date.now(),
+      owner,
+      repo,
+      version: this.version
+    };
+    fs3.writeFileSync(filePath, JSON.stringify(storedExploration, null, 2));
+    console.log(`\u{1F50D} Stored ${mode} exploration for ${owner}/${repo}`);
+  }
+  // Get stored exploration data
+  async getExploration(owner, repo, mode) {
+    const repoDir = this.getRepoDir(owner, repo);
+    const filePath = path3.join(repoDir, `exploration-${mode}.json`);
+    if (!fs3.existsSync(filePath)) {
+      return null;
+    }
+    try {
+      const content = fs3.readFileSync(filePath, "utf-8");
+      return JSON.parse(content);
+    } catch (error) {
+      console.error(`Error reading exploration data: ${error}`);
+      return null;
+    }
+  }
+  // Get all exploration data for a repo
+  async getAllExplorations(owner, repo) {
+    const repoDir = this.getRepoDir(owner, repo);
+    if (!fs3.existsSync(repoDir)) {
+      return [];
+    }
+    const explorations = [];
+    const modes = ["first_pass", "general"];
+    for (const mode of modes) {
+      const exploration = await this.getExploration(owner, repo, mode);
+      if (exploration) {
+        explorations.push(exploration);
+      }
+    }
+    return explorations;
+  }
+  // Check if we have recent exploration data
+  async hasRecentExploration(owner, repo, mode, maxAgeHours = 24) {
+    const exploration = await this.getExploration(owner, repo, mode);
+    if (!exploration) return false;
+    const ageMs = Date.now() - exploration.timestamp;
+    const ageHours = ageMs / (1e3 * 60 * 60);
+    return ageHours < maxAgeHours;
+  }
+  // Helper to get first_pass data typed correctly
+  async getFirstPassExploration(owner, repo) {
+    const stored = await this.getExploration(owner, repo, "first_pass");
+    return stored?.result || null;
+  }
+  // Helper to get general exploration data typed correctly
+  async getGeneralExploration(owner, repo) {
+    const stored = await this.getExploration(owner, repo, "general");
+    return stored?.result || null;
+  }
+  // List all stored repositories with exploration status
+  async listRepos() {
+    if (!fs3.existsSync(this.dataDir)) {
+      return [];
+    }
+    const repos = [];
+    const entries = fs3.readdirSync(this.dataDir);
+    for (const entry of entries) {
+      const parts = entry.split("-");
+      if (parts.length >= 2) {
+        const owner = parts[0];
+        const repo = parts.slice(1).join("-");
+        const explorations = await this.getAllExplorations(owner, repo);
+        const hasFirstPass = explorations.some((e) => e.mode === "first_pass");
+        const hasGeneral = explorations.some((e) => e.mode === "general");
+        const lastExplored = explorations.length > 0 ? Math.max(...explorations.map((e) => e.timestamp)) : void 0;
+        repos.push({
+          owner,
+          repo,
+          explorations: {
+            first_pass: hasFirstPass,
+            general: hasGeneral
+          },
+          lastExplored
+        });
+      }
+    }
+    return repos;
+  }
+  // Clean up old exploration data
+  async cleanupOldExplorations(maxAgeHours = 24 * 7) {
+    const repos = await this.listRepos();
+    const cutoff = Date.now() - maxAgeHours * 60 * 60 * 1e3;
+    for (const repoInfo of repos) {
+      if (repoInfo.lastExplored && repoInfo.lastExplored < cutoff) {
+        const repoDir = this.getRepoDir(repoInfo.owner, repoInfo.repo);
+        const modes = ["first_pass", "general"];
+        for (const mode of modes) {
+          const filePath = path3.join(repoDir, `exploration-${mode}.json`);
+          if (fs3.existsSync(filePath)) {
+            fs3.unlinkSync(filePath);
+            console.log(
+              `\u{1F9F9} Cleaned up old ${mode} exploration for ${repoInfo.owner}/${repoInfo.repo}`
+            );
+          }
+        }
+      }
+    }
+  }
+};
+
 // server/handler.ts
 var GitSeeHandler = class {
   constructor(options = {}) {
@@ -992,6 +1282,7 @@ var GitSeeHandler = class {
       auth: options.token
     });
     this.cache = new GitSeeCache(options.cache?.ttl);
+    this.store = new FileStore();
     this.contributors = new ContributorsResource(this.octokit, this.cache);
     this.icons = new IconsResource(this.octokit, this.cache);
     this.repository = new RepositoryResource(this.octokit, this.cache);
@@ -1030,6 +1321,40 @@ var GitSeeHandler = class {
       );
     }
   }
+  autoStartFirstPassExploration(owner, repo) {
+    setImmediate(async () => {
+      try {
+        const hasRecent = await this.store.hasRecentExploration(owner, repo, "first_pass", 24);
+        if (!hasRecent) {
+          console.log(`\u{1F680} Auto-starting first_pass exploration for ${owner}/${repo}...`);
+          this.runBackgroundExploration(owner, repo, "first_pass").catch((error) => {
+            console.error(`\u{1F6A8} Background first_pass exploration failed for ${owner}/${repo}:`, error.message);
+          });
+        } else {
+          console.log(`\u2705 Recent first_pass exploration found for ${owner}/${repo}, skipping auto-start`);
+        }
+      } catch (error) {
+        console.error(`\u{1F4A5} Error checking exploration status for ${owner}/${repo}:`, error);
+      }
+    });
+  }
+  async runBackgroundExploration(owner, repo, mode) {
+    try {
+      await RepoCloner.waitForClone(owner, repo);
+      const cloneResult = await RepoCloner.getCloneResult(owner, repo);
+      if (cloneResult?.success && cloneResult.localPath) {
+        const prompt = mode === "first_pass" ? "Analyze this repository and provide a comprehensive overview" : "What are the key features and components of this codebase?";
+        console.log(`\u{1F916} Running background ${mode} exploration for ${owner}/${repo}...`);
+        const explorationResult = await explore(prompt, cloneResult.localPath, mode);
+        await this.store.storeExploration(owner, repo, mode, explorationResult);
+        console.log(`\u2705 Background ${mode} exploration completed for ${owner}/${repo}`);
+      } else {
+        console.error(`\u274C Repository clone failed for background exploration: ${owner}/${repo}`);
+      }
+    } catch (error) {
+      console.error(`\u{1F4A5} Background ${mode} exploration failed for ${owner}/${repo}:`, error);
+    }
+  }
   async parseRequestBody(req) {
     return new Promise((resolve, reject) => {
       let body = "";
@@ -1043,6 +1368,7 @@ var GitSeeHandler = class {
     const response = {};
     console.log(`\u{1F504} Starting background clone for ${owner}/${repo}...`);
     RepoCloner.cloneInBackground(owner, repo);
+    this.autoStartFirstPassExploration(owner, repo);
     if (this.options.visualization) {
       response.options = {
         nodeDelay: this.options.visualization.nodeDelay || 800
@@ -1117,14 +1443,89 @@ var GitSeeHandler = class {
             break;
           case "file_content":
             if (!request.filePath) {
-              console.warn(`\u26A0\uFE0F File content requested but no filePath provided`);
+              console.warn(
+                `\u26A0\uFE0F File content requested but no filePath provided`
+              );
               break;
             }
-            console.log(`\u{1F50D} Fetching file content for ${owner}/${repo}:${request.filePath}...`);
-            response.fileContent = await this.files.getFileContent(owner, repo, request.filePath);
+            console.log(
+              `\u{1F50D} Fetching file content for ${owner}/${repo}:${request.filePath}...`
+            );
+            response.fileContent = await this.files.getFileContent(
+              owner,
+              repo,
+              request.filePath
+            );
             console.log(
               `\u{1F4C4} File content result: ${response.fileContent ? `Found (${response.fileContent.size} bytes)` : "Not found"}`
             );
+            break;
+          case "exploration":
+            console.log(`\u{1F50D} Fetching exploration data for ${owner}/${repo}...`);
+            const explorationMode = request.explorationMode || "general";
+            if (await this.store.hasRecentExploration(
+              owner,
+              repo,
+              explorationMode,
+              24
+            )) {
+              console.log(
+                `\u267B\uFE0F Using cached ${explorationMode} exploration data`
+              );
+              const cached = await this.store.getExploration(
+                owner,
+                repo,
+                explorationMode
+              );
+              response.exploration = cached?.result;
+            } else {
+              console.log(`\u{1F916} Running ${explorationMode} agent exploration...`);
+              try {
+                await RepoCloner.waitForClone(owner, repo);
+                const cloneResult = await RepoCloner.getCloneResult(
+                  owner,
+                  repo
+                );
+                if (cloneResult?.success && cloneResult.localPath) {
+                  const prompt = request.explorationPrompt || (explorationMode === "first_pass" ? "Analyze this repository and provide a comprehensive overview" : "What are the key features and components of this codebase?");
+                  const explorationResult = await explore(
+                    prompt,
+                    cloneResult.localPath,
+                    explorationMode
+                  );
+                  await this.store.storeExploration(
+                    owner,
+                    repo,
+                    explorationMode,
+                    explorationResult
+                  );
+                  response.exploration = explorationResult;
+                  await this.store.storeBasicData(owner, repo, {
+                    repo: response.repo,
+                    contributors: response.contributors,
+                    files: response.files,
+                    stats: response.stats,
+                    icon: response.icon
+                  });
+                  console.log(
+                    `\u2705 ${explorationMode} exploration completed and cached`
+                  );
+                } else {
+                  console.error("Repository clone failed or not available");
+                  response.exploration = {
+                    error: "Repository not accessible for exploration"
+                  };
+                }
+              } catch (error) {
+                console.error(
+                  `Failed to run ${explorationMode} exploration:`,
+                  error
+                );
+                response.exploration = {
+                  error: `Exploration failed: ${error instanceof Error ? error.message : "Unknown error"}`
+                };
+              }
+            }
             break;
           default:
             console.warn(`\u26A0\uFE0F  Unknown data type: ${dataType}`);

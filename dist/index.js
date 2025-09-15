@@ -3554,7 +3554,9 @@ var FilesVisualization = class extends BaseVisualizationResource {
       }
       const data = await response.json();
       if (data.fileContent && data.fileContent.content) {
-        console.log(`\u2705 Retrieved file content: ${data.fileContent.size} bytes`);
+        console.log(
+          `\u2705 Retrieved file content: ${data.fileContent.size} bytes`
+        );
         sections[0] = {
           title: "Content",
           type: "content",

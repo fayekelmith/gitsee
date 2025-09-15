@@ -10,8 +10,11 @@ export interface GitSeeRequest {
     | "files"
     | "stats"
     | "file_content"
+    | "exploration"
   )[];
   filePath?: string; // Required when requesting file_content
+  explorationMode?: "general" | "first_pass"; // Type of exploration to run
+  explorationPrompt?: string; // Custom prompt for exploration
 }
 
 export interface GitSeeResponse {
@@ -23,10 +26,21 @@ export interface GitSeeResponse {
   files?: FileInfo[];
   fileContent?: FileContent | null;
   stats?: RepoStats;
+  exploration?: ExplorationResult | { error: string };
   error?: string;
   options?: {
     nodeDelay?: number;
   };
+}
+
+export interface ExplorationResult {
+  summary: string;
+  key_files: string[];
+  features?: string[]; // For general mode
+  infrastructure?: string[]; // For first_pass mode
+  dependencies?: string[]; // For first_pass mode
+  user_stories?: string[]; // For first_pass mode
+  pages?: string[]; // For first_pass mode
 }
 
 export interface GitSeeOptions {

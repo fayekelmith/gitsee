@@ -117,7 +117,11 @@ export class FilesResource extends BaseResource {
     return foundFiles;
   }
 
-  async getFileContent(owner: string, repo: string, path: string): Promise<FileContent | null> {
+  async getFileContent(
+    owner: string,
+    repo: string,
+    path: string,
+  ): Promise<FileContent | null> {
     // Check cache first
     const cacheKey = `file-content-${path}`;
     const cached = await this.getCached<FileContent>(owner, repo, cacheKey);
@@ -126,7 +130,7 @@ export class FilesResource extends BaseResource {
       return cached;
     }
 
-    console.log(`🔍 Fetching file content for ${owner}/${repo}:${path}...`);
+    console.log(`> Fetching file content for ${owner}/${repo}:${path}...`);
 
     try {
       const response = await this.octokit.repos.getContent({
@@ -144,15 +148,15 @@ export class FilesResource extends BaseResource {
       const fileData = response.data as any;
 
       // Ensure it's a file and not a symlink or submodule
-      if (fileData.type !== 'file') {
+      if (fileData.type !== "file") {
         console.warn(`⚠️ Path ${path} is not a file (type: ${fileData.type})`);
         return null;
       }
 
       // Decode base64 content
-      let content = '';
-      if (fileData.encoding === 'base64' && fileData.content) {
-        content = Buffer.from(fileData.content, 'base64').toString('utf-8');
+      let content = "";
+      if (fileData.encoding === "base64" && fileData.content) {
+        content = Buffer.from(fileData.content, "base64").toString("utf-8");
       } else if (fileData.content) {
         content = fileData.content;
       }
@@ -161,11 +165,13 @@ export class FilesResource extends BaseResource {
         name: fileData.name,
         path: fileData.path,
         content: content,
-        encoding: fileData.encoding || 'utf-8',
+        encoding: fileData.encoding || "utf-8",
         size: fileData.size || 0,
       };
 
-      console.log(`✅ Retrieved file content for ${path} (${fileContent.size} bytes)`);
+      console.log(
+        `✅ Retrieved file content for ${path} (${fileContent.size} bytes)`,
+      );
 
       // Cache the results
       this.setCached(owner, repo, cacheKey, fileContent);
@@ -176,8 +182,11 @@ export class FilesResource extends BaseResource {
         console.log(`❌ File not found: ${path}`);
         return null;
       }
-      
-      console.error(`💥 Error fetching file content for ${path}:`, error.message);
+
+      console.error(
+        `💥 Error fetching file content for ${path}:`,
+        error.message,
+      );
       return null;
     }
   }

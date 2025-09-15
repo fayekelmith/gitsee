@@ -4,8 +4,10 @@ import { Octokit } from '@octokit/rest';
 interface GitSeeRequest {
     owner: string;
     repo: string;
-    data: ("contributors" | "icon" | "repo_info" | "commits" | "branches" | "files" | "stats" | "file_content")[];
+    data: ("contributors" | "icon" | "repo_info" | "commits" | "branches" | "files" | "stats" | "file_content" | "exploration")[];
     filePath?: string;
+    explorationMode?: "general" | "first_pass";
+    explorationPrompt?: string;
 }
 interface GitSeeResponse {
     repo?: any;
@@ -16,10 +18,22 @@ interface GitSeeResponse {
     files?: FileInfo[];
     fileContent?: FileContent | null;
     stats?: RepoStats;
+    exploration?: ExplorationResult | {
+        error: string;
+    };
     error?: string;
     options?: {
         nodeDelay?: number;
     };
+}
+interface ExplorationResult {
+    summary: string;
+    key_files: string[];
+    features?: string[];
+    infrastructure?: string[];
+    dependencies?: string[];
+    user_stories?: string[];
+    pages?: string[];
 }
 interface GitSeeOptions {
     token?: string;
@@ -104,6 +118,7 @@ declare class GitSeeHandler {
     private octokit;
     private cache;
     private options;
+    private store;
     private contributors;
     private icons;
     private repository;
@@ -113,6 +128,8 @@ declare class GitSeeHandler {
     private stats;
     constructor(options?: GitSeeOptions);
     handle(req: IncomingMessage, res: ServerResponse): Promise<void>;
+    private autoStartFirstPassExploration;
+    private runBackgroundExploration;
     private parseRequestBody;
     private processRequest;
 }

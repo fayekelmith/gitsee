@@ -4,25 +4,44 @@ import * as path from "path";
 
 export interface CloneResult {
   success: boolean;
-  path: string;
+  localPath: string;
   error?: string;
   duration?: number;
 }
 
 export class RepoCloner {
   private static readonly BASE_PATH = "/tmp/gitsee";
+  private static clonePromises: Map<string, Promise<CloneResult>> = new Map();
 
   /**
    * Clone a repository in the background (fire-and-forget)
    */
   static async cloneInBackground(owner: string, repo: string): Promise<void> {
-    // Don't await - let it run in background
-    this.cloneRepo(owner, repo).catch((error) => {
-      console.error(
-        `🚨 Background clone failed for ${owner}/${repo}:`,
-        error.message,
-      );
-    });
+    const repoKey = `${owner}/${repo}`;
+
+    // If already cloning, don't start another clone
+    if (this.clonePromises.has(repoKey)) {
+      return;
+    }
+
+    // Start clone and store promise
+    const clonePromise = this.cloneRepo(owner, repo);
+    this.clonePromises.set(repoKey, clonePromise);
+
+    // Handle completion (success or failure)
+    clonePromise
+      .finally(() => {
+        // Clean up the promise from the map after completion
+        setTimeout(() => {
+          this.clonePromises.delete(repoKey);
+        }, 5000); // Keep for 5 seconds to allow quick access
+      })
+      .catch((error) => {
+        console.error(
+          `🚨 Background clone failed for ${owner}/${repo}:`,
+          error.message,
+        );
+      });
   }
 
   /**
@@ -43,7 +62,7 @@ export class RepoCloner {
         );
         return {
           success: true,
-          path: repoPath,
+          localPath: repoPath,
           duration: Date.now() - startTime,
         };
       }
@@ -61,14 +80,14 @@ export class RepoCloner {
         console.log(`✅ Successfully cloned ${owner}/${repo} in ${duration}ms`);
         return {
           success: true,
-          path: repoPath,
+          localPath: repoPath,
           duration,
         };
       } else {
         console.error(`❌ Failed to clone ${owner}/${repo}:`, result.error);
         return {
           success: false,
-          path: repoPath,
+          localPath: repoPath,
           error: result.error,
           duration,
         };
@@ -79,7 +98,7 @@ export class RepoCloner {
 
       return {
         success: false,
-        path: repoPath,
+        localPath: repoPath,
         error: error.message,
         duration,
       };
@@ -154,6 +173,67 @@ export class RepoCloner {
    */
   static getRepoPath(owner: string, repo: string): string {
     return path.join(this.BASE_PATH, owner, repo);
+  }
+
+  /**
+   * Wait for a repository clone to complete
+   */
+  static async waitForClone(owner: string, repo: string): Promise<CloneResult> {
+    const repoKey = `${owner}/${repo}`;
+
+    // Check if already cloned
+    if (this.isRepoCloned(owner, repo)) {
+      return {
+        success: true,
+        localPath: this.getRepoPath(owner, repo),
+      };
+    }
+
+    // Check if currently cloning
+    const clonePromise = this.clonePromises.get(repoKey);
+    if (clonePromise) {
+      console.log(`⏳ Waiting for ongoing clone of ${owner}/${repo}...`);
+      return await clonePromise;
+    }
+
+    // Start a new clone
+    console.log(`🚀 Starting new clone for ${owner}/${repo}...`);
+    return await this.cloneRepo(owner, repo);
+  }
+
+  /**
+   * Get clone result if available (non-blocking)
+   */
+  static async getCloneResult(
+    owner: string,
+    repo: string,
+  ): Promise<CloneResult | null> {
+    const repoKey = `${owner}/${repo}`;
+
+    // Check if already cloned
+    if (this.isRepoCloned(owner, repo)) {
+      return {
+        success: true,
+        localPath: this.getRepoPath(owner, repo),
+      };
+    }
+
+    // Check if currently cloning
+    const clonePromise = this.clonePromises.get(repoKey);
+    if (clonePromise) {
+      try {
+        return await clonePromise;
+      } catch (error) {
+        return {
+          success: false,
+          localPath: this.getRepoPath(owner, repo),
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    }
+
+    // Not cloned and not cloning
+    return null;
   }
 
   /**

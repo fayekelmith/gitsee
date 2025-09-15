@@ -9,10 +9,10 @@ export class FilesVisualization extends BaseVisualizationResource {
   private apiHeaders: Record<string, string>;
 
   constructor(
-    context: any, 
-    onNodeClick?: (nodeData: NodeData) => void, 
+    context: any,
+    onNodeClick?: (nodeData: NodeData) => void,
     apiEndpoint: string = "/api/gitsee",
-    apiHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+    apiHeaders: Record<string, string> = { "Content-Type": "application/json" },
   ) {
     super(context, "files");
     this.onNodeClick = onNodeClick;
@@ -222,14 +222,18 @@ export class FilesVisualization extends BaseVisualizationResource {
       });
   }
 
-  public async getPanelContent(nodeData: NodeData, owner: string, repo: string): Promise<PanelContent> {
+  public async getPanelContent(
+    nodeData: NodeData,
+    owner: string,
+    repo: string,
+  ): Promise<PanelContent> {
     const sections: PanelSection[] = [];
-    
+
     // Show loading state initially
     sections.push({
       title: "Content",
       type: "content" as const,
-      data: "Loading file content..."
+      data: "Loading file content...",
     });
 
     // Fetch file content from API
@@ -238,18 +242,18 @@ export class FilesVisualization extends BaseVisualizationResource {
       console.log(`🔍 API request details:`, {
         owner,
         repo,
-        filePath: nodeData.path || nodeData.name
+        filePath: nodeData.path || nodeData.name,
       });
-      
+
       const response = await fetch(this.apiEndpoint, {
-        method: 'POST',
+        method: "POST",
         headers: this.apiHeaders,
         body: JSON.stringify({
           owner: owner,
           repo: repo,
-          data: ['file_content'],
-          filePath: nodeData.path || nodeData.name
-        })
+          data: ["file_content"],
+          filePath: nodeData.path || nodeData.name,
+        }),
       });
 
       if (!response.ok) {
@@ -257,36 +261,38 @@ export class FilesVisualization extends BaseVisualizationResource {
       }
 
       const data = await response.json();
-      
+
       if (data.fileContent && data.fileContent.content) {
-        console.log(`✅ Retrieved file content: ${data.fileContent.size} bytes`);
-        
+        console.log(
+          `✅ Retrieved file content: ${data.fileContent.size} bytes`,
+        );
+
         // Replace the loading section with actual content
         sections[0] = {
           title: "Content",
           type: "content" as const,
-          data: data.fileContent.content
+          data: data.fileContent.content,
         };
       } else {
-        console.warn('⚠️ No file content received');
+        console.warn("⚠️ No file content received");
         sections[0] = {
           title: "Content",
           type: "content" as const,
-          data: "// File content could not be loaded"
+          data: "// File content could not be loaded",
         };
       }
     } catch (error) {
-      console.error('💥 Error fetching file content:', error);
+      console.error("💥 Error fetching file content:", error);
       sections[0] = {
         title: "Content",
         type: "content" as const,
-        data: `// Error loading file content: ${error instanceof Error ? error.message : 'Unknown error'}`
+        data: `// Error loading file content: ${error instanceof Error ? error.message : "Unknown error"}`,
       };
     }
 
     return {
       name: nodeData.name,
-      sections: sections
+      sections: sections,
     };
   }
 }
