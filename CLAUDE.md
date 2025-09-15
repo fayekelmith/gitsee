@@ -8,7 +8,11 @@ Then run "afplay /System/Library/Sounds/Ping.aiff" so I can hear that its ready 
 
 ### guidance
 
-Please try to modularize things so its maintainable in the future. We are building a real product here... avoid mock code! But don't worry about backward compatibility for now, its still early. Feel free to delete deprecated code when you write more up-to-date implementations. IMPORTANT: try to keep things clean and simple.
+Please try to modularize things so its maintainable in the future. We are building a real product here... avoid mock code! But don't worry about backward compatibility for now, its still early. Feel free to delete deprecated code when you write more up-to-date implementations.
+
+IMPORTANT: try to keep things clean and simple.
+
+IMPORTANT: try to follow existing patterns in the codebase.
 
 ## Architecture Overview
 

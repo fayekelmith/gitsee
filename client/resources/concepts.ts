@@ -11,8 +11,62 @@ export class ConceptVisualization extends BaseVisualizationResource {
     this.onNodeClick = onNodeClick;
   }
 
+  private getConceptColors(kind: string): { fill: string; stroke: string; hoverFill: string; hoverStroke: string } {
+    const colors = {
+      infrastructure: {
+        fill: "#402D38", // More noticeable red tint
+        stroke: "#604548", // Red-tinted border
+        hoverFill: "#503540",
+        hoverStroke: "#804A4A",
+      },
+      dependencies: {
+        fill: "#2D3850", // More noticeable blue tint
+        stroke: "#404A65", // Blue-tinted border
+        hoverFill: "#354060",
+        hoverStroke: "#506A85",
+      },
+      user_stories: {
+        fill: "#354030", // More noticeable green tint
+        stroke: "#505A48", // Green-tinted border
+        hoverFill: "#404A40",
+        hoverStroke: "#607A50",
+      },
+      pages: {
+        fill: "#453530", // More noticeable orange tint
+        stroke: "#654D40", // Orange-tinted border
+        hoverFill: "#554040",
+        hoverStroke: "#856A50",
+      },
+    };
+
+    return colors[kind as keyof typeof colors] || colors.infrastructure;
+  }
+
   public setRepoData(repoData: any): void {
     this.repoData = repoData;
+  }
+
+  public getPanelContent(nodeData: NodeData): any {
+    // Map kind to display names and colors
+    const kindConfig = {
+      infrastructure: { label: "Infrastructure", color: "#804A4A" },
+      dependencies: { label: "Dependency", color: "#506A85" },
+      user_stories: { label: "User Story", color: "#607A50" },
+      pages: { label: "Page", color: "#856A50" },
+    };
+
+    const config = kindConfig[nodeData.kind as keyof typeof kindConfig] || kindConfig.infrastructure;
+
+    return {
+      name: nodeData.content || nodeData.name,
+      sections: [
+        {
+          title: "Type",
+          type: "text" as const,
+          data: `<div style="display: inline-block; background: ${config.color}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${config.label}</div>`
+        }
+      ]
+    };
   }
 
   create(explorationResult: any): ResourceData {
@@ -90,8 +144,8 @@ export class ConceptVisualization extends BaseVisualizationResource {
       .text((d: NodeData) => d.name);
 
     // Add background rectangles sized to fit the text with padding
-    conceptEnter.each(function (this: SVGGElement) {
-      const group = d3.select(this);
+    conceptEnter.each((d: NodeData, i: number, nodes: any[]) => {
+      const group = d3.select(nodes[i] as SVGGElement);
       const textElement = group.select("text").node() as SVGTextElement;
 
       if (textElement) {
@@ -99,6 +153,9 @@ export class ConceptVisualization extends BaseVisualizationResource {
         const padding = 8; // 8px padding on each side
         const width = bbox.width + padding * 2;
         const height = bbox.height + padding * 2;
+
+        // Get colors based on concept kind
+        const colors = this.getConceptColors(d.kind || 'infrastructure');
 
         // Insert rectangle before text so it appears behind
         group
@@ -109,8 +166,8 @@ export class ConceptVisualization extends BaseVisualizationResource {
           .attr("y", -height / 2)
           .attr("rx", 4)
           .attr("ry", 4)
-          .attr("fill", "#2D3748")
-          .attr("stroke", "#4A5568")
+          .attr("fill", colors.fill)
+          .attr("stroke", colors.stroke)
           .attr("stroke-width", "2");
       }
     });
@@ -118,19 +175,12 @@ export class ConceptVisualization extends BaseVisualizationResource {
     // Add hover effects to new concept nodes
     this.addHoverEffects(conceptEnter);
 
-    // Add click handlers to new concept nodes - clicking concepts shows repo panel
+    // Add click handlers to new concept nodes - clicking concepts shows concept panel
     if (this.onNodeClick) {
       conceptEnter.on("click", (event: any, d: NodeData) => {
         event.stopPropagation();
-        // Create a fake repo node to trigger repo panel display
-        const repoNode: NodeData = {
-          id: "repo",
-          type: "repo",
-          name: this.repoData?.name || "Repository",
-          x: 0,
-          y: 0,
-        };
-        this.onNodeClick!(repoNode);
+        // Pass the actual concept node data to show concept panel
+        this.onNodeClick!(d);
       });
     }
 
@@ -174,8 +224,8 @@ export class ConceptVisualization extends BaseVisualizationResource {
       .text((d: NodeData) => d.name);
 
     // Add background rectangles sized to fit the text with padding
-    conceptEnter.each(function (this: SVGGElement) {
-      const group = d3.select(this);
+    conceptEnter.each((d: NodeData, i: number, nodes: any[]) => {
+      const group = d3.select(nodes[i] as SVGGElement);
       const textElement = group.select("text").node() as SVGTextElement;
 
       if (textElement) {
@@ -183,6 +233,9 @@ export class ConceptVisualization extends BaseVisualizationResource {
         const padding = 8; // 8px padding on each side
         const width = bbox.width + padding * 2;
         const height = bbox.height + padding * 2;
+
+        // Get colors based on concept kind
+        const colors = this.getConceptColors(d.kind || 'infrastructure');
 
         // Insert rectangle before text so it appears behind
         group
@@ -193,8 +246,8 @@ export class ConceptVisualization extends BaseVisualizationResource {
           .attr("y", -height / 2)
           .attr("rx", 4)
           .attr("ry", 4)
-          .attr("fill", "#2D3748")
-          .attr("stroke", "#4A5568")
+          .attr("fill", colors.fill)
+          .attr("stroke", colors.stroke)
           .attr("stroke-width", "2");
       }
     });
@@ -202,19 +255,12 @@ export class ConceptVisualization extends BaseVisualizationResource {
     // Add hover effects to new concept nodes
     this.addHoverEffects(conceptEnter);
 
-    // Add click handlers to new concept nodes - clicking concepts shows repo panel
+    // Add click handlers to new concept nodes - clicking concepts shows concept panel
     if (this.onNodeClick) {
       conceptEnter.on("click", (event: any, d: NodeData) => {
         event.stopPropagation();
-        // Create a fake repo node to trigger repo panel display
-        const repoNode: NodeData = {
-          id: "repo",
-          type: "repo",
-          name: this.repoData?.name || "Repository",
-          x: 0,
-          y: 0,
-        };
-        this.onNodeClick!(repoNode);
+        // Pass the actual concept node data to show concept panel
+        this.onNodeClick!(d);
       });
     }
 
@@ -246,8 +292,9 @@ export class ConceptVisualization extends BaseVisualizationResource {
   private addHoverEffects(selection: any): void {
     selection
       .style("cursor", "pointer")
-      .on("mouseenter", function (this: any, event: any, d: NodeData) {
-        const group = d3.select(this);
+      .on("mouseenter", (event: any, d: NodeData) => {
+        const group = d3.select(event.currentTarget);
+        const colors = this.getConceptColors(d.kind || 'infrastructure');
 
         // Scale up slightly and brighten colors
         const scale = 1.05;
@@ -258,20 +305,21 @@ export class ConceptVisualization extends BaseVisualizationResource {
           .duration(200)
           .attr("transform", `translate(${x}, ${y}) scale(${scale})`);
 
-        // Brighten rectangle
+        // Brighten rectangle with concept-specific hover colors
         group
           .select("rect")
           .transition()
           .duration(200)
-          .attr("fill", "#4A5568")
-          .attr("stroke", "#718096")
+          .attr("fill", colors.hoverFill)
+          .attr("stroke", colors.hoverStroke)
           .attr("stroke-width", "3");
 
         // Brighten text
         group.select("text").transition().duration(200).attr("fill", "#FFFFFF");
       })
-      .on("mouseleave", function (this: any, event: any, d: NodeData) {
-        const group = d3.select(this);
+      .on("mouseleave", (event: any, d: NodeData) => {
+        const group = d3.select(event.currentTarget);
+        const colors = this.getConceptColors(d.kind || 'infrastructure');
 
         // Scale back to normal
         const x = d.x !== undefined ? d.x : 0;
@@ -281,13 +329,13 @@ export class ConceptVisualization extends BaseVisualizationResource {
           .duration(200)
           .attr("transform", `translate(${x}, ${y}) scale(1)`);
 
-        // Return rectangle to original colors
+        // Return rectangle to original concept-specific colors
         group
           .select("rect")
           .transition()
           .duration(200)
-          .attr("fill", "#2D3748")
-          .attr("stroke", "#4A5568")
+          .attr("fill", colors.fill)
+          .attr("stroke", colors.stroke)
           .attr("stroke-width", "2");
 
         // Return text to original color

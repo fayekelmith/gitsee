@@ -175,6 +175,7 @@ class GitVisualizer {
     if (nodeType === "repo") return 35;
     if (nodeType === "file") return 18; // Files are rectangular but use this for collision
     if (nodeType === "stat") return 22; // Stats are circles
+    if (nodeType === "concept") return 35; // Concepts are longer boxes, need more space
     // For contributors, calculate size based on contributions
     const baseRadius = 16;
     const maxRadius = 22;
@@ -182,12 +183,19 @@ class GitVisualizer {
     return Math.min(baseRadius + contribCount * 0.1, maxRadius);
   }
 
-  private checkCollision(x: number, y: number, radius: number): boolean {
+  private checkCollision(x: number, y: number, radius: number, nodeType?: string): boolean {
     return this.occupiedSpaces.some((space) => {
       const dx = x - space.x;
       const dy = y - space.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const minDistance = radius + space.radius + 40; // 40px buffer for much better spacing
+
+      // Extra horizontal buffer for concept nodes since they're longer
+      let buffer = 40; // Default buffer
+      if (nodeType === "concept" || space.nodeId.startsWith("concept-")) {
+        buffer = 80; // Larger buffer for concepts due to their horizontal nature
+      }
+
+      const minDistance = radius + space.radius + buffer;
       return distance < minDistance;
     });
   }
@@ -205,19 +213,19 @@ class GitVisualizer {
     let position = this.calculateOrganicPositionRaw(nodeType, index);
 
     // If no collision, use it
-    if (!this.checkCollision(position.x, position.y, radius)) {
+    if (!this.checkCollision(position.x, position.y, radius, nodeType)) {
       return position;
     }
 
     // If collision, try spiraling outward from the original position
-    const spiralStep = 20;
+    const spiralStep = nodeType === "concept" ? 30 : 20; // Larger steps for concepts
     // Use configured spiral distance for this node type
     const spiralDistance =
       this.spiralDistances[nodeType as keyof typeof this.spiralDistances] ||
       this.spiralDistances.default;
     let spiralRadius = radius + spiralDistance;
     let attempts = 0;
-    const maxAttempts = 50;
+    const maxAttempts = nodeType === "concept" ? 80 : 50; // More attempts for concepts
 
     while (attempts < maxAttempts) {
       const angleStep = (Math.PI * 2) / 12; // 12 positions per ring
@@ -237,7 +245,7 @@ class GitVisualizer {
           continue;
         }
 
-        if (!this.checkCollision(testX, testY, radius)) {
+        if (!this.checkCollision(testX, testY, radius, nodeType)) {
           console.log(
             `🌀 Found collision-free position for ${nodeType} after ${attempts + 1} attempts`
           );
@@ -1083,6 +1091,7 @@ class GitVisualizer {
     document.head.appendChild(styleSheet);
   }
 
+
   private async showNodePanel(nodeData: NodeData): Promise<void> {
     // Get panel content based on node type
     let content;
@@ -1112,6 +1121,8 @@ class GitVisualizer {
       }
     } else if (nodeData.type === "contributor") {
       content = this.contributorsViz.getPanelContent(nodeData);
+    } else if (nodeData.type === "concept") {
+      content = this.conceptsViz.getPanelContent(nodeData);
     } else {
       // Default to repo content for unknown types
       const statsNodes = this.allNodes.filter((n) => n.type === "stat");

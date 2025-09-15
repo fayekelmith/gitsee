@@ -3747,8 +3747,64 @@ var ConceptVisualization = class extends BaseVisualizationResource {
     this.repoData = null;
     this.onNodeClick = onNodeClick;
   }
+  getConceptColors(kind) {
+    const colors = {
+      infrastructure: {
+        fill: "#402D38",
+        // More noticeable red tint
+        stroke: "#604548",
+        // Red-tinted border
+        hoverFill: "#503540",
+        hoverStroke: "#804A4A"
+      },
+      dependencies: {
+        fill: "#2D3850",
+        // More noticeable blue tint
+        stroke: "#404A65",
+        // Blue-tinted border
+        hoverFill: "#354060",
+        hoverStroke: "#506A85"
+      },
+      user_stories: {
+        fill: "#354030",
+        // More noticeable green tint
+        stroke: "#505A48",
+        // Green-tinted border
+        hoverFill: "#404A40",
+        hoverStroke: "#607A50"
+      },
+      pages: {
+        fill: "#453530",
+        // More noticeable orange tint
+        stroke: "#654D40",
+        // Orange-tinted border
+        hoverFill: "#554040",
+        hoverStroke: "#856A50"
+      }
+    };
+    return colors[kind] || colors.infrastructure;
+  }
   setRepoData(repoData) {
     this.repoData = repoData;
+  }
+  getPanelContent(nodeData) {
+    const kindConfig = {
+      infrastructure: { label: "Infrastructure", color: "#804A4A" },
+      dependencies: { label: "Dependency", color: "#506A85" },
+      user_stories: { label: "User Story", color: "#607A50" },
+      pages: { label: "Page", color: "#856A50" }
+    };
+    const config = kindConfig[nodeData.kind] || kindConfig.infrastructure;
+    return {
+      name: nodeData.content || nodeData.name,
+      sections: [
+        {
+          title: "Type",
+          type: "text",
+          data: `<div style="display: inline-block; background: ${config.color}; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${config.label}</div>`
+        }
+      ]
+    };
   }
   create(explorationResult) {
     const nodes = [];
@@ -3794,29 +3850,23 @@ var ConceptVisualization = class extends BaseVisualizationResource {
     conceptNodes.exit().remove();
     const conceptEnter = conceptNodes.enter().append("g").attr("class", "gitsee-node concept-node");
     const textElements = conceptEnter.append("text").attr("class", "concept-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
-    conceptEnter.each(function() {
-      const group2 = select_default2(this);
+    conceptEnter.each((d, i, nodes) => {
+      const group2 = select_default2(nodes[i]);
       const textElement = group2.select("text").node();
       if (textElement) {
         const bbox = textElement.getBBox();
         const padding = 8;
         const width = bbox.width + padding * 2;
         const height = bbox.height + padding * 2;
-        group2.insert("rect", "text").attr("width", width).attr("height", height).attr("x", -width / 2).attr("y", -height / 2).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+        const colors = this.getConceptColors(d.kind || "infrastructure");
+        group2.insert("rect", "text").attr("width", width).attr("height", height).attr("x", -width / 2).attr("y", -height / 2).attr("rx", 4).attr("ry", 4).attr("fill", colors.fill).attr("stroke", colors.stroke).attr("stroke-width", "2");
       }
     });
     this.addHoverEffects(conceptEnter);
     if (this.onNodeClick) {
       conceptEnter.on("click", (event, d) => {
         event.stopPropagation();
-        const repoNode = {
-          id: "repo",
-          type: "repo",
-          name: this.repoData?.name || "Repository",
-          x: 0,
-          y: 0
-        };
-        this.onNodeClick(repoNode);
+        this.onNodeClick(d);
       });
     }
     const allConceptNodes = conceptEnter.merge(conceptNodes);
@@ -3831,29 +3881,23 @@ var ConceptVisualization = class extends BaseVisualizationResource {
     conceptNodes.exit().transition().duration(300).style("opacity", 0).remove();
     const conceptEnter = conceptNodes.enter().append("g").attr("class", "gitsee-node concept-node").style("opacity", 0);
     const textElements = conceptEnter.append("text").attr("class", "concept-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
-    conceptEnter.each(function() {
-      const group2 = select_default2(this);
+    conceptEnter.each((d, i, nodes) => {
+      const group2 = select_default2(nodes[i]);
       const textElement = group2.select("text").node();
       if (textElement) {
         const bbox = textElement.getBBox();
         const padding = 8;
         const width = bbox.width + padding * 2;
         const height = bbox.height + padding * 2;
-        group2.insert("rect", "text").attr("width", width).attr("height", height).attr("x", -width / 2).attr("y", -height / 2).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+        const colors = this.getConceptColors(d.kind || "infrastructure");
+        group2.insert("rect", "text").attr("width", width).attr("height", height).attr("x", -width / 2).attr("y", -height / 2).attr("rx", 4).attr("ry", 4).attr("fill", colors.fill).attr("stroke", colors.stroke).attr("stroke-width", "2");
       }
     });
     this.addHoverEffects(conceptEnter);
     if (this.onNodeClick) {
       conceptEnter.on("click", (event, d) => {
         event.stopPropagation();
-        const repoNode = {
-          id: "repo",
-          type: "repo",
-          name: this.repoData?.name || "Repository",
-          x: 0,
-          y: 0
-        };
-        this.onNodeClick(repoNode);
+        this.onNodeClick(d);
       });
     }
     const allConceptNodes = conceptEnter.merge(conceptNodes);
@@ -3872,20 +3916,22 @@ var ConceptVisualization = class extends BaseVisualizationResource {
     return "concepts";
   }
   addHoverEffects(selection2) {
-    selection2.style("cursor", "pointer").on("mouseenter", function(event, d) {
-      const group = select_default2(this);
+    selection2.style("cursor", "pointer").on("mouseenter", (event, d) => {
+      const group = select_default2(event.currentTarget);
+      const colors = this.getConceptColors(d.kind || "infrastructure");
       const scale = 1.05;
       const x = d.x !== void 0 ? d.x : 0;
       const y = d.y !== void 0 ? d.y : 0;
       group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(${scale})`);
-      group.select("rect").transition().duration(200).attr("fill", "#4A5568").attr("stroke", "#718096").attr("stroke-width", "3");
+      group.select("rect").transition().duration(200).attr("fill", colors.hoverFill).attr("stroke", colors.hoverStroke).attr("stroke-width", "3");
       group.select("text").transition().duration(200).attr("fill", "#FFFFFF");
-    }).on("mouseleave", function(event, d) {
-      const group = select_default2(this);
+    }).on("mouseleave", (event, d) => {
+      const group = select_default2(event.currentTarget);
+      const colors = this.getConceptColors(d.kind || "infrastructure");
       const x = d.x !== void 0 ? d.x : 0;
       const y = d.y !== void 0 ? d.y : 0;
       group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(1)`);
-      group.select("rect").transition().duration(200).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+      group.select("rect").transition().duration(200).attr("fill", colors.fill).attr("stroke", colors.stroke).attr("stroke-width", "2");
       group.select("text").transition().duration(200).attr("fill", "#E2E8F0");
     });
   }
@@ -3940,7 +3986,12 @@ var DetailPanel = class {
     }
   }
   renderTextSection(container, data) {
-    container.append("p").style("margin", "0").style("color", "#c9d1d9").style("font-size", "14px").style("line-height", "1.5").style("font-family", "system-ui, -apple-system, sans-serif").text(data);
+    const textContainer = container.append("div").style("margin", "0").style("color", "#c9d1d9").style("font-size", "14px").style("line-height", "1.5").style("font-family", "system-ui, -apple-system, sans-serif");
+    if (data.includes("<") && data.includes(">")) {
+      textContainer.node().innerHTML = data;
+    } else {
+      textContainer.text(data);
+    }
   }
   renderStatsSection(container, stats) {
     const statsGrid = container.append("div").style("display", "grid").style("grid-template-columns", "1fr 1fr").style("gap", "12px");
@@ -4268,17 +4319,22 @@ var GitVisualizer = class {
     if (nodeType === "repo") return 35;
     if (nodeType === "file") return 18;
     if (nodeType === "stat") return 22;
+    if (nodeType === "concept") return 35;
     const baseRadius = 16;
     const maxRadius = 22;
     const contribCount = contributions || 0;
     return Math.min(baseRadius + contribCount * 0.1, maxRadius);
   }
-  checkCollision(x, y, radius) {
+  checkCollision(x, y, radius, nodeType) {
     return this.occupiedSpaces.some((space) => {
       const dx = x - space.x;
       const dy = y - space.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const minDistance = radius + space.radius + 40;
+      let buffer = 40;
+      if (nodeType === "concept" || space.nodeId.startsWith("concept-")) {
+        buffer = 80;
+      }
+      const minDistance = radius + space.radius + buffer;
       return distance < minDistance;
     });
   }
@@ -4287,14 +4343,14 @@ var GitVisualizer = class {
     const centerX = this.width / 2;
     const centerY = this.height / 2;
     let position = this.calculateOrganicPositionRaw(nodeType, index);
-    if (!this.checkCollision(position.x, position.y, radius)) {
+    if (!this.checkCollision(position.x, position.y, radius, nodeType)) {
       return position;
     }
-    const spiralStep = 20;
+    const spiralStep = nodeType === "concept" ? 30 : 20;
     const spiralDistance = this.spiralDistances[nodeType] || this.spiralDistances.default;
     let spiralRadius = radius + spiralDistance;
     let attempts = 0;
-    const maxAttempts = 50;
+    const maxAttempts = nodeType === "concept" ? 80 : 50;
     while (attempts < maxAttempts) {
       const angleStep = Math.PI * 2 / 12;
       for (let i = 0; i < 12; i++) {
@@ -4304,7 +4360,7 @@ var GitVisualizer = class {
         if (testX < radius || testX > this.width - radius || testY < radius || testY > this.height - radius) {
           continue;
         }
-        if (!this.checkCollision(testX, testY, radius)) {
+        if (!this.checkCollision(testX, testY, radius, nodeType)) {
           console.log(
             `\u{1F300} Found collision-free position for ${nodeType} after ${attempts + 1} attempts`
           );
@@ -4948,6 +5004,8 @@ var GitVisualizer = class {
       }
     } else if (nodeData.type === "contributor") {
       content = this.contributorsViz.getPanelContent(nodeData);
+    } else if (nodeData.type === "concept") {
+      content = this.conceptsViz.getPanelContent(nodeData);
     } else {
       const statsNodes = this.allNodes.filter((n) => n.type === "stat");
       content = this.repositoryViz.getPanelContent(

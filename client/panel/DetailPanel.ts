@@ -169,14 +169,20 @@ export class DetailPanel {
   }
 
   private renderTextSection(container: any, data: string): void {
-    container
-      .append("p")
+    const textContainer = container
+      .append("div")
       .style("margin", "0")
       .style("color", "#c9d1d9")
       .style("font-size", "14px")
       .style("line-height", "1.5")
-      .style("font-family", "system-ui, -apple-system, sans-serif")
-      .text(data);
+      .style("font-family", "system-ui, -apple-system, sans-serif");
+
+    // Check if data contains HTML tags, if so use innerHTML, otherwise use text
+    if (data.includes('<') && data.includes('>')) {
+      textContainer.node().innerHTML = data;
+    } else {
+      textContainer.text(data);
+    }
   }
 
   private renderStatsSection(container: any, stats: any[]): void {
