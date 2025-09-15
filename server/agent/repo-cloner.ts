@@ -9,6 +9,12 @@ export interface CloneResult {
   duration?: number;
 }
 
+export interface CloneOptions {
+  username?: string;
+  token?: string;
+  branch?: string;
+}
+
 export class RepoCloner {
   private static readonly BASE_PATH = "/tmp/gitsee";
   private static clonePromises: Map<string, Promise<CloneResult>> = new Map();
@@ -16,7 +22,7 @@ export class RepoCloner {
   /**
    * Clone a repository in the background (fire-and-forget)
    */
-  static async cloneInBackground(owner: string, repo: string): Promise<void> {
+  static async cloneInBackground(owner: string, repo: string, options?: CloneOptions): Promise<void> {
     const repoKey = `${owner}/${repo}`;
 
     // If already cloning, don't start another clone
@@ -25,7 +31,7 @@ export class RepoCloner {
     }
 
     // Start clone and store promise
-    const clonePromise = this.cloneRepo(owner, repo);
+    const clonePromise = this.cloneRepo(owner, repo, options);
     this.clonePromises.set(repoKey, clonePromise);
 
     // Handle completion (success or failure)
@@ -47,10 +53,17 @@ export class RepoCloner {
   /**
    * Clone a repository to /tmp/gitsee/{owner}/{repo}
    */
-  static async cloneRepo(owner: string, repo: string): Promise<CloneResult> {
+  static async cloneRepo(owner: string, repo: string, options?: CloneOptions): Promise<CloneResult> {
     const startTime = Date.now();
     const repoPath = path.join(this.BASE_PATH, owner, repo);
-    const githubUrl = `https://github.com/${owner}/${repo}.git`;
+
+    // Build GitHub URL with authentication if provided
+    let githubUrl: string;
+    if (options?.username && options?.token) {
+      githubUrl = `https://${options.username}:${options.token}@github.com/${owner}/${repo}.git`;
+    } else {
+      githubUrl = `https://github.com/${owner}/${repo}.git`;
+    }
 
     console.log(`📥 Starting clone of ${owner}/${repo} to ${repoPath}`);
 
@@ -72,7 +85,7 @@ export class RepoCloner {
       fs.mkdirSync(parentDir, { recursive: true });
 
       // Clone with shallow copy (depth 1) and single branch for speed
-      const result = await this.executeGitClone(githubUrl, repoPath);
+      const result = await this.executeGitClone(githubUrl, repoPath, options?.branch);
 
       const duration = Date.now() - startTime;
 
@@ -111,18 +124,27 @@ export class RepoCloner {
   private static executeGitClone(
     githubUrl: string,
     targetPath: string,
+    branch?: string,
   ): Promise<{ success: boolean; error?: string }> {
     return new Promise((resolve) => {
-      // Use shallow clone with single branch for maximum speed
-      const gitProcess = spawn("git", [
+      // Build git clone arguments
+      const gitArgs = [
         "clone",
         "--depth",
         "1", // Shallow clone (only latest commit)
-        "--single-branch", // Only clone the default branch
+        "--single-branch", // Only clone the specified branch
         "--no-tags", // Skip tags for speed
-        githubUrl,
-        targetPath,
-      ]);
+      ];
+
+      // Add branch specification if provided
+      if (branch) {
+        gitArgs.push("--branch", branch);
+      }
+
+      gitArgs.push(githubUrl, targetPath);
+
+      // Use shallow clone with single branch for maximum speed
+      const gitProcess = spawn("git", gitArgs);
 
       let errorOutput = "";
 
@@ -178,7 +200,7 @@ export class RepoCloner {
   /**
    * Wait for a repository clone to complete
    */
-  static async waitForClone(owner: string, repo: string): Promise<CloneResult> {
+  static async waitForClone(owner: string, repo: string, options?: CloneOptions): Promise<CloneResult> {
     const repoKey = `${owner}/${repo}`;
 
     // Check if already cloned
@@ -198,7 +220,7 @@ export class RepoCloner {
 
     // Start a new clone
     console.log(`🚀 Starting new clone for ${owner}/${repo}...`);
-    return await this.cloneRepo(owner, repo);
+    return await this.cloneRepo(owner, repo, options);
   }
 
   /**
