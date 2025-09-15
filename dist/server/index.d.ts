@@ -22,7 +22,7 @@ interface GitSeeResponse {
     stats?: RepoStats;
     exploration?: ExplorationResult$1 | {
         error: string;
-    };
+    } | string;
     error?: string;
     options?: {
         nodeDelay?: number;
@@ -156,7 +156,7 @@ interface FirstPassContextResult {
     pages: string[];
 }
 
-type ExplorationResult = GeneralContextResult | FirstPassContextResult;
+type ExplorationResult = GeneralContextResult | FirstPassContextResult | string;
 
 interface ExplorationEvent {
     type: 'clone_started' | 'clone_completed' | 'exploration_started' | 'exploration_progress' | 'exploration_completed' | 'exploration_failed';

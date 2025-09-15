@@ -26,7 +26,7 @@ export interface GitSeeResponse {
   files?: FileInfo[];
   fileContent?: FileContent | null;
   stats?: RepoStats;
-  exploration?: ExplorationResult | { error: string };
+  exploration?: ExplorationResult | { error: string } | string;
   error?: string;
   options?: {
     nodeDelay?: number;

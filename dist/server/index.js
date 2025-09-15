@@ -1182,6 +1182,9 @@ async function explore(prompt, repoPath, mode = "first_pass") {
       `\u{1F4CB} Raw exploration result:`,
       jsonString.substring(0, 200) + "..."
     );
+    if (mode === "services") {
+      return jsonString;
+    }
     let parsedResult;
     try {
       parsedResult = JSON.parse(jsonString);

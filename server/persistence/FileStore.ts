@@ -7,7 +7,10 @@ import {
 } from "../agent/index.js";
 
 // Union type for all exploration results
-export type ExplorationResult = GeneralContextResult | FirstPassContextResult;
+export type ExplorationResult =
+  | GeneralContextResult
+  | FirstPassContextResult
+  | string;
 
 // Stored exploration data with metadata
 export interface StoredExploration {
@@ -68,7 +71,7 @@ export class FileStore {
     owner: string,
     repo: string,
     mode: RepoContextMode,
-    result: ExplorationResult,
+    result: ExplorationResult
   ): Promise<void> {
     const repoDir = this.ensureRepoDir(owner, repo);
     const filePath = path.join(repoDir, `exploration-${mode}.json`);
@@ -90,7 +93,7 @@ export class FileStore {
   async getExploration(
     owner: string,
     repo: string,
-    mode: RepoContextMode,
+    mode: RepoContextMode
   ): Promise<StoredExploration | null> {
     const repoDir = this.getRepoDir(owner, repo);
     const filePath = path.join(repoDir, `exploration-${mode}.json`);
@@ -111,7 +114,7 @@ export class FileStore {
   // Get all exploration data for a repo
   async getAllExplorations(
     owner: string,
-    repo: string,
+    repo: string
   ): Promise<StoredExploration[]> {
     const repoDir = this.getRepoDir(owner, repo);
 
@@ -137,7 +140,7 @@ export class FileStore {
     owner: string,
     repo: string,
     mode: RepoContextMode,
-    maxAgeHours: number = 24,
+    maxAgeHours: number = 24
   ): Promise<boolean> {
     const exploration = await this.getExploration(owner, repo, mode);
     if (!exploration) return false;
@@ -150,7 +153,7 @@ export class FileStore {
   // Helper to get first_pass data typed correctly
   async getFirstPassExploration(
     owner: string,
-    repo: string,
+    repo: string
   ): Promise<FirstPassContextResult | null> {
     const stored = await this.getExploration(owner, repo, "first_pass");
     return (stored?.result as FirstPassContextResult) || null;
@@ -159,7 +162,7 @@ export class FileStore {
   // Helper to get general exploration data typed correctly
   async getGeneralExploration(
     owner: string,
-    repo: string,
+    repo: string
   ): Promise<GeneralContextResult | null> {
     const stored = await this.getExploration(owner, repo, "general");
     return (stored?.result as GeneralContextResult) || null;
@@ -230,7 +233,7 @@ export class FileStore {
           if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
             console.log(
-              `🧹 Cleaned up old ${mode} exploration for ${repoInfo.owner}/${repoInfo.repo}`,
+              `🧹 Cleaned up old ${mode} exploration for ${repoInfo.owner}/${repoInfo.repo}`
             );
           }
         }

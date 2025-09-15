@@ -5,12 +5,15 @@ import {
   FirstPassContextResult,
 } from "./explore.js";
 
-export type ExplorationResult = GeneralContextResult | FirstPassContextResult;
+export type ExplorationResult =
+  | GeneralContextResult
+  | FirstPassContextResult
+  | string; // services
 
 export async function explore(
   prompt: string | any[],
   repoPath: string,
-  mode: RepoContextMode = "first_pass",
+  mode: RepoContextMode = "first_pass"
 ): Promise<ExplorationResult> {
   const startTime = Date.now();
   console.log(`🤖 Starting ${mode} exploration...`);
@@ -20,8 +23,12 @@ export async function explore(
     const jsonString = await get_context(prompt, repoPath, mode);
     console.log(
       `📋 Raw exploration result:`,
-      jsonString.substring(0, 200) + "...",
+      jsonString.substring(0, 200) + "..."
     );
+
+    if (mode === "services") {
+      return jsonString; // Return raw string for services mode (not JSON)
+    }
 
     // Parse the JSON string
     let parsedResult: any;
@@ -72,7 +79,7 @@ export async function explore(
     const duration = endTime - startTime;
     console.log(`✅ ${mode} exploration completed in ${duration}ms`);
     console.log(
-      `📊 Result: ${result.key_files.length} key files, summary: ${result.summary.substring(0, 100)}...`,
+      `📊 Result: ${result.key_files.length} key files, summary: ${result.summary.substring(0, 100)}...`
     );
 
     return result;

@@ -12,7 +12,17 @@ export default defineConfig([
     clean: false,
     splitting: false, // Bundle everything into single file
   },
-  // Client build  
+  // agents by itself
+  {
+    entry: ["server/agent/index.ts"],
+    format: ["esm"],
+    outDir: "dist/agent",
+    dts: true,
+    sourcemap: true,
+    clean: false,
+    splitting: false, // Bundle everything into single file
+  },
+  // Client build
   {
     entry: ["client/index.ts"],
     format: ["esm"],
@@ -22,5 +32,5 @@ export default defineConfig([
     sourcemap: true,
     clean: true,
     splitting: false,
-  }
+  },
 ]);
