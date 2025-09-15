@@ -1065,6 +1065,7 @@ var CONFIG = {
   }
 };
 async function get_context(prompt, repoPath, mode = "general") {
+  console.log("GET CONTEXT", { mode, repoPath });
   const startTime = Date.now();
   const provider = process.env.LLM_PROVIDER || "anthropic";
   const apiKey = getApiKeyForProvider(provider);
@@ -1162,6 +1163,7 @@ async function get_context(prompt, repoPath, mode = "general") {
   return final;
 }
 setTimeout(() => {
+  return;
   get_context(
     "How do I set up this project?",
     "/Users/evanfeenstra/code/sphinx2/hive",

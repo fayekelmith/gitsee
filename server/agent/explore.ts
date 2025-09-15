@@ -164,6 +164,7 @@ export async function get_context(
 }
 
 setTimeout(() => {
+  return;
   get_context(
     "How do I set up this project?",
     "/Users/evanfeenstra/code/sphinx2/hive",
