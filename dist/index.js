@@ -4246,8 +4246,8 @@ var GitVisualizer = class {
       // Contributors start close to center
       stat: 40,
       // Stats close to center
-      concept: 120,
-      // Concepts further outside for better separation
+      concept: 140,
+      // Concepts outside files with good separation
       file: 80,
       // Files farther out for better separation
       default: 40
@@ -4394,8 +4394,8 @@ var GitVisualizer = class {
       // Contributors after stats
       file: { min: 150, max: 190 },
       // Outer ring for files
-      concept: { min: 220, max: 280 },
-      // Concepts in the outermost ring with more spacing
+      concept: { min: 240, max: 300 },
+      // Concepts outside files but not too far
       story: { min: 190, max: 230 },
       // Future: user stories
       function: { min: 230, max: 270 },
@@ -4412,9 +4412,9 @@ var GitVisualizer = class {
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
     let angle;
     if (nodeType === "concept") {
-      const conceptAngleStep = Math.PI * 2 / 3;
-      const baseAngle = index * conceptAngleStep;
-      const randomOffset = (Math.random() - 0.5) * 0.3;
+      const conceptAngleMultiplier = 1.8;
+      const baseAngle = index * goldenAngle * conceptAngleMultiplier;
+      const randomOffset = (Math.random() - 0.5) * 0.2;
       angle = baseAngle + randomOffset;
     } else {
       const baseAngle = index * goldenAngle;

@@ -64,7 +64,7 @@ class GitVisualizer {
     repo: 40, // Repository nodes (not used much since repo is centered)
     contributor: 40, // Contributors start close to center
     stat: 40, // Stats close to center
-    concept: 120, // Concepts further outside for better separation
+    concept: 140, // Concepts outside files with good separation
     file: 80, // Files farther out for better separation
     default: 40, // Fallback for any other node types
   };
@@ -289,7 +289,7 @@ class GitVisualizer {
       stat: { min: 55, max: 75 }, // Close to repo - stats first!
       contributor: { min: 90, max: 130 }, // Contributors after stats
       file: { min: 150, max: 190 }, // Outer ring for files
-      concept: { min: 220, max: 280 }, // Concepts in the outermost ring with more spacing
+      concept: { min: 240, max: 300 }, // Concepts outside files but not too far
       story: { min: 190, max: 230 }, // Future: user stories
       function: { min: 230, max: 270 }, // Future: functions
       component: { min: 270, max: 310 }, // Future: components
@@ -309,10 +309,10 @@ class GitVisualizer {
     // Special angle handling for concepts to improve horizontal distribution
     let angle;
     if (nodeType === "concept") {
-      // Use larger angular steps for concepts to spread them out more horizontally
-      const conceptAngleStep = (Math.PI * 2) / 3; // 120 degrees between concepts
-      const baseAngle = index * conceptAngleStep;
-      const randomOffset = (Math.random() - 0.5) * 0.3; // Less randomness for better spacing
+      // Use golden angle but with larger spacing multiplier for concepts
+      const conceptAngleMultiplier = 1.8; // Spread concepts out more than other nodes
+      const baseAngle = index * goldenAngle * conceptAngleMultiplier;
+      const randomOffset = (Math.random() - 0.5) * 0.2; // Small randomness for natural look
       angle = baseAngle + randomOffset;
     } else {
       // Base angle with golden spiral + some randomness for other node types
