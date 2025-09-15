@@ -13,7 +13,7 @@ function logStep(contents: any) {
   }
 }
 
-export type RepoContextMode = "first_pass" | "general";
+export type RepoContextMode = "first_pass" | "general" | "services";
 
 interface ContextConfig {
   file_lines: number;
@@ -24,13 +24,18 @@ interface ContextConfig {
 const CONFIG: Record<RepoContextMode, ContextConfig> = {
   first_pass: {
     file_lines: 100,
-    system: prompts.FIRST_PASS_EXPLORER,
-    final_answer_description: prompts.FIRST_PASS_FINAL_ANSWER_DESCRIPTION,
+    system: prompts.FIRST_PASS.EXPLORER,
+    final_answer_description: prompts.FIRST_PASS.FINAL_ANSWER,
   },
   general: {
     file_lines: 40,
-    system: prompts.GENERAL_EXPLORER,
-    final_answer_description: prompts.GENERAL_FINAL_ANSWER_DESCRIPTION,
+    system: prompts.GENERAL.EXPLORER,
+    final_answer_description: prompts.GENERAL.FINAL_ANSWER,
+  },
+  services: {
+    file_lines: 40,
+    system: prompts.SERVICES.EXPLORER,
+    final_answer_description: prompts.SERVICES.FINAL_ANSWER,
   },
 };
 
@@ -52,7 +57,7 @@ export interface FirstPassContextResult {
 export async function get_context(
   prompt: string | ModelMessage[],
   repoPath: string,
-  mode: RepoContextMode = "general",
+  mode: RepoContextMode = "general"
 ): Promise<string> {
   const startTime = Date.now();
 
@@ -80,7 +85,7 @@ export async function get_context(
         hypothesis: z
           .string()
           .describe(
-            "What you think this file might contain or handle, based on its name/location",
+            "What you think this file might contain or handle, based on its name/location"
           ),
       }),
       execute: async ({ file_path }: { file_path: string }) => {
@@ -144,7 +149,7 @@ export async function get_context(
   }
   if (!final && lastText) {
     console.warn(
-      "No final_answer tool call detected; falling back to last reasoning text.",
+      "No final_answer tool call detected; falling back to last reasoning text."
     );
     final = `${lastText}\n\n(Note: Model did not invoke final_answer tool; using last reasoning text as answer.)`;
   }
@@ -152,20 +157,20 @@ export async function get_context(
   const endTime = Date.now();
   const duration = endTime - startTime;
   console.log(
-    `⏱️ get_context completed in ${duration}ms (${(duration / 1000).toFixed(2)}s)`,
+    `⏱️ get_context completed in ${duration}ms (${(duration / 1000).toFixed(2)}s)`
   );
 
   return final;
 }
 
 setTimeout(() => {
-  return;
   get_context(
-    "What are the key features of this codebase?",
+    "How do I set up this project?",
     "/Users/evanfeenstra/code/sphinx2/hive",
-    "first_pass",
+    "services"
   ).then((result) => {
-    console.log("Context:", result);
+    console.log("=============== FINAL RESULT: ===============");
+    console.log(result);
   });
 });
 

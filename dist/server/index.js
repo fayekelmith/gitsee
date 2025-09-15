@@ -1,3 +1,9 @@
+var __defProp = Object.defineProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
 // server/handler.ts
 import { Octokit } from "@octokit/rest";
 
@@ -733,11 +739,16 @@ RepoCloner.clonePromises = /* @__PURE__ */ new Map();
 import { generateText, tool, hasToolCall } from "ai";
 import { getModel, getApiKeyForProvider } from "aieo";
 
-// server/agent/prompts.ts
-var FIRST_PASS_EXPLORER = `
+// server/agent/prompts/first_pass.ts
+var first_pass_exports = {};
+__export(first_pass_exports, {
+  EXPLORER: () => EXPLORER,
+  FINAL_ANSWER: () => FINAL_ANSWER
+});
+var EXPLORER = `
 You are a codebase exploration assistant. Use the provided tools to quickly explore the codebase and get a high-level understanding. DONT GO DEEP. Focus on general language and framework, specific core libraries, integrations, and features. Try to understand the main user story of the codebase just by looking at the file structure. YOU NEED TO RETURN AN ANSWER AS FAST AS POSSIBLE! So the best approach is 3-4 tool calls only: 1) repo_overview 2) file_summary of the package.json (or other main package file), 3) The main router file of page/endpoint names, ONLY if you can identify it first try, and 4) final_answer. DO NOT GO DEEPER THAN THIS.
 `;
-var FIRST_PASS_FINAL_ANSWER_DESCRIPTION = `
+var FINAL_ANSWER = `
 Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF YOUR EXPLORATION.
 
 Return a simple JSON object with the following fields:
@@ -755,10 +766,17 @@ Return a simple JSON object with the following fields:
   "pages": ["User Journeys page", "Admin Dashboard"]
 }
 `;
-var GENERAL_EXPLORER = `
+
+// server/agent/prompts/general.ts
+var general_exports = {};
+__export(general_exports, {
+  EXPLORER: () => EXPLORER2,
+  FINAL_ANSWER: () => FINAL_ANSWER2
+});
+var EXPLORER2 = `
 You are a codebase exploration assistant. Use the provided tools to explore the codebase and answer the user's question. Focus on general language and framework first, then specific core libraries, integrations, and features. Try to understand the core functionallity (user stories) of the codebase. Explore files, functions, and component names to understand the main user stories, pages, UX components, or workflows in the application.
 `;
-var GENERAL_FINAL_ANSWER_DESCRIPTION = `
+var FINAL_ANSWER2 = `
 Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF YOUR EXPLORATION.
 
 Return a simple JSON object with the following fields:
@@ -772,6 +790,111 @@ Return a simple JSON object with the following fields:
   "key_files": ["package.json", "README.md", "CLAUDE.md", "AGENTS.md", "schema.prisma"],
   "features": ["Authentication", "User Journeys page", "Payments", "Admin Dashboard", "Notifications", "User Profile", "Settings page", "Data Visualization", "Github Integration", "File Uploads", "Search Functionality", "Real-time Collaboration Tools", "Activity Logs", "Billing and Subscription Management", "Help and Support"]
 }
+`;
+
+// server/agent/prompts/services.ts
+var services_exports = {};
+__export(services_exports, {
+  EXPLORER: () => EXPLORER3,
+  FINAL_ANSWER: () => FINAL_ANSWER3
+});
+var EXPLORER3 = `
+You are a codebase exploration assistant. Your job is to identify the various services, integrations, and environment variables need to setup and run this codebase. Take your time exploring the codebase to find the most likely setup services, and env vars. You might need to use the fulltext_search tool to find instance of "process.env." or other similar patterns, based on the coding language(s) used in the project. You will be asked to output actual configuration files at the end, so make sure you find everything you need to do that.
+`;
+var FINAL_ANSWER3 = `
+Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF YOUR EXPLORATION.
+
+Return three files: a pm2.config.js, a .env file, and a docker-compose.yml. Please put the title of each file, then the content in backticks.
+
+- pm2.config.js: the actual dev services for running this project. Often its just one single service! But sometimes the backend/frontend might be separate services.
+- .env: the environment variables needed to run the project, with example values.
+- docker-compose.yml: the auxiliary services needed to run the project, such as databases, caches, queues, etc. IMPORTANT: there is a special "app" service in the docker-compsose.yaml that you MUST include! It is the service in which the codebase is mounted. Here is the EXACT content that it should have:
+\`\`\`
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    networks:
+      - app_network
+    extra_hosts:
+      - "localhost:172.17.0.1"
+      - "host.docker.internal:host-gateway"
+\`\`\`
+
+# HERE IS AN EXAMPLE OUTPUT:
+
+pm2.config.js
+
+\`\`\`js
+module.exports = {
+  apps: [
+    {
+      name: "frontend",
+      script: "npm run dev",
+      cwd: "/workspaces/my-project",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "1G",
+      env: {
+        PORT: "3000",
+        INSTALL_COMMAND: "npm install",
+        BUILD_COMMAND: "npm run build"
+      }
+    }
+  ],
+};
+\`\`\`
+
+.env
+
+\`\`\`sh
+# Database
+DATABASE_URL=postgresql://postgres:password@localhost:5432/backend_db
+JWT_KEY=your_jwt_secret_key
+\`\`\`
+
+docker-compose.yml
+
+\`\`\`yaml
+version: '3.8'
+networks:
+  app_network:
+    driver: bridge
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../..:/workspaces:cached
+    command: sleep infinity
+    networks:
+      - app_network
+    extra_hosts:
+      - "localhost:172.17.0.1"
+      - "host.docker.internal:host-gateway"
+  postgres:
+    image: postgres:15
+    container_name: backend-postgres
+    environment:
+      - POSTGRES_DB=backend_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    restart: unless-stopped
+volumes:
+  postgres_data:
+\`\`\`
+
 `;
 
 // server/agent/explore.ts
@@ -927,13 +1050,18 @@ function logStep(contents) {
 var CONFIG = {
   first_pass: {
     file_lines: 100,
-    system: FIRST_PASS_EXPLORER,
-    final_answer_description: FIRST_PASS_FINAL_ANSWER_DESCRIPTION
+    system: first_pass_exports.EXPLORER,
+    final_answer_description: first_pass_exports.FINAL_ANSWER
   },
   general: {
     file_lines: 40,
-    system: GENERAL_EXPLORER,
-    final_answer_description: GENERAL_FINAL_ANSWER_DESCRIPTION
+    system: general_exports.EXPLORER,
+    final_answer_description: general_exports.FINAL_ANSWER
+  },
+  services: {
+    file_lines: 40,
+    system: services_exports.EXPLORER,
+    final_answer_description: services_exports.FINAL_ANSWER
   }
 };
 async function get_context(prompt, repoPath, mode = "general") {
@@ -1034,13 +1162,13 @@ async function get_context(prompt, repoPath, mode = "general") {
   return final;
 }
 setTimeout(() => {
-  return;
   get_context(
-    "What are the key features of this codebase?",
+    "How do I set up this project?",
     "/Users/evanfeenstra/code/sphinx2/hive",
-    "first_pass"
+    "services"
   ).then((result) => {
-    console.log("Context:", result);
+    console.log("=============== FINAL RESULT: ===============");
+    console.log(result);
   });
 });
 

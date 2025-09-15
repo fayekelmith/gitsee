@@ -141,7 +141,7 @@ declare function createGitSeeHandler(options?: GitSeeOptions): (req: IncomingMes
 
 declare function createGitSeeServer(options?: GitSeeOptions): http.Server<typeof IncomingMessage, typeof ServerResponse>;
 
-type RepoContextMode = "first_pass" | "general";
+type RepoContextMode = "first_pass" | "general" | "services";
 interface GeneralContextResult {
     summary: string;
     key_files: string[];
