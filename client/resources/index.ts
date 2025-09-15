@@ -4,3 +4,4 @@ export { ContributorsVisualization } from "./contributors.js";
 export { LinksVisualization } from "./links.js";
 export { FilesVisualization } from "./files.js";
 export { StatsVisualization } from "./stats.js";
+export { ConceptVisualization } from "./concepts.js";

@@ -6,3 +6,4 @@ export { CommitsResource } from "./commits.js";
 export { BranchesResource } from "./branches.js";
 export { FilesResource } from "./files.js";
 export { StatsResource } from "./stats.js";
+export { ConceptResource } from "./concepts.js";

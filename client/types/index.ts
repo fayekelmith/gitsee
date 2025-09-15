@@ -1,6 +1,6 @@
 export interface NodeData {
   id: string;
-  type: "repo" | "contributor" | "commit" | "branch" | "file" | "stat";
+  type: "repo" | "contributor" | "commit" | "branch" | "file" | "stat" | "concept";
   name: string;
   x?: number;
   y?: number;

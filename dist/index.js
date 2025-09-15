@@ -3740,6 +3740,157 @@ var StatsVisualization = class extends BaseVisualizationResource {
   }
 };
 
+// client/resources/concepts.ts
+var ConceptVisualization = class extends BaseVisualizationResource {
+  constructor(context, onNodeClick) {
+    super(context, "concepts");
+    this.repoData = null;
+    this.onNodeClick = onNodeClick;
+  }
+  setRepoData(repoData) {
+    this.repoData = repoData;
+  }
+  create(explorationResult) {
+    const nodes = [];
+    if (!explorationResult) return { nodes, links: [] };
+    const conceptTypes = [
+      { kind: "infrastructure", items: explorationResult.infrastructure },
+      { kind: "dependencies", items: explorationResult.dependencies },
+      { kind: "user_stories", items: explorationResult.user_stories },
+      { kind: "pages", items: explorationResult.pages }
+    ];
+    conceptTypes.forEach((conceptType) => {
+      if (conceptType.items && Array.isArray(conceptType.items)) {
+        conceptType.items.forEach((item, index) => {
+          const node = {
+            id: `concept-${conceptType.kind}-${index}`,
+            type: "concept",
+            name: item,
+            label: item,
+            kind: conceptType.kind,
+            content: item
+            // Position will be set by organic positioning system
+          };
+          nodes.push(node);
+        });
+      } else if (conceptType.items) {
+        const node = {
+          id: `concept-${conceptType.kind}-0`,
+          type: "concept",
+          name: conceptType.items.toString(),
+          label: conceptType.items.toString(),
+          kind: conceptType.kind,
+          content: conceptType.items.toString()
+          // Position will be set by organic positioning system
+        };
+        nodes.push(node);
+      }
+    });
+    return { nodes, links: [] };
+  }
+  update(resourceData) {
+    const group = this.getResourceGroup();
+    const conceptNodes = group.selectAll(".concept-node").data(resourceData.nodes, (d) => d.id);
+    conceptNodes.exit().remove();
+    const conceptEnter = conceptNodes.enter().append("g").attr("class", "gitsee-node concept-node");
+    const textElements = conceptEnter.append("text").attr("class", "concept-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
+    conceptEnter.each(function() {
+      const group2 = select_default2(this);
+      const textElement = group2.select("text").node();
+      if (textElement) {
+        const bbox = textElement.getBBox();
+        const padding = 8;
+        const width = bbox.width + padding * 2;
+        const height = bbox.height + padding * 2;
+        group2.insert("rect", "text").attr("width", width).attr("height", height).attr("x", -width / 2).attr("y", -height / 2).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+      }
+    });
+    this.addHoverEffects(conceptEnter);
+    if (this.onNodeClick) {
+      conceptEnter.on("click", (event, d) => {
+        event.stopPropagation();
+        const repoNode = {
+          id: "repo",
+          type: "repo",
+          name: this.repoData?.name || "Repository",
+          x: 0,
+          y: 0
+        };
+        this.onNodeClick(repoNode);
+      });
+    }
+    const allConceptNodes = conceptEnter.merge(conceptNodes);
+    allConceptNodes.attr(
+      "transform",
+      (d) => d.x !== void 0 && d.y !== void 0 ? `translate(${d.x}, ${d.y})` : "translate(0,0)"
+    );
+  }
+  updateWithAnimation(resourceData) {
+    const group = this.getResourceGroup();
+    const conceptNodes = group.selectAll(".concept-node").data(resourceData.nodes, (d) => d.id);
+    conceptNodes.exit().transition().duration(300).style("opacity", 0).remove();
+    const conceptEnter = conceptNodes.enter().append("g").attr("class", "gitsee-node concept-node").style("opacity", 0);
+    const textElements = conceptEnter.append("text").attr("class", "concept-value").attr("text-anchor", "middle").attr("dominant-baseline", "central").attr("font-size", "11px").attr("fill", "#E2E8F0").attr("font-weight", "bold").attr("font-family", "system-ui, -apple-system, sans-serif").text((d) => d.name);
+    conceptEnter.each(function() {
+      const group2 = select_default2(this);
+      const textElement = group2.select("text").node();
+      if (textElement) {
+        const bbox = textElement.getBBox();
+        const padding = 8;
+        const width = bbox.width + padding * 2;
+        const height = bbox.height + padding * 2;
+        group2.insert("rect", "text").attr("width", width).attr("height", height).attr("x", -width / 2).attr("y", -height / 2).attr("rx", 4).attr("ry", 4).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+      }
+    });
+    this.addHoverEffects(conceptEnter);
+    if (this.onNodeClick) {
+      conceptEnter.on("click", (event, d) => {
+        event.stopPropagation();
+        const repoNode = {
+          id: "repo",
+          type: "repo",
+          name: this.repoData?.name || "Repository",
+          x: 0,
+          y: 0
+        };
+        this.onNodeClick(repoNode);
+      });
+    }
+    const allConceptNodes = conceptEnter.merge(conceptNodes);
+    allConceptNodes.attr(
+      "transform",
+      (d) => d.x !== void 0 && d.y !== void 0 ? `translate(${d.x}, ${d.y})` : "translate(0,0)"
+    ).transition().duration(500).ease(backOut).style("opacity", 1);
+  }
+  destroy() {
+    const group = this.context.container.select(
+      `.${this.getResourceType()}-group`
+    );
+    group.remove();
+  }
+  getResourceType() {
+    return "concepts";
+  }
+  addHoverEffects(selection2) {
+    selection2.style("cursor", "pointer").on("mouseenter", function(event, d) {
+      const group = select_default2(this);
+      const scale = 1.05;
+      const x = d.x !== void 0 ? d.x : 0;
+      const y = d.y !== void 0 ? d.y : 0;
+      group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(${scale})`);
+      group.select("rect").transition().duration(200).attr("fill", "#4A5568").attr("stroke", "#718096").attr("stroke-width", "3");
+      group.select("text").transition().duration(200).attr("fill", "#FFFFFF");
+    }).on("mouseleave", function(event, d) {
+      const group = select_default2(this);
+      const x = d.x !== void 0 ? d.x : 0;
+      const y = d.y !== void 0 ? d.y : 0;
+      group.transition().duration(200).attr("transform", `translate(${x}, ${y}) scale(1)`);
+      group.select("rect").transition().duration(200).attr("fill", "#2D3748").attr("stroke", "#4A5568").attr("stroke-width", "2");
+      group.select("text").transition().duration(200).attr("fill", "#E2E8F0");
+    });
+  }
+};
+
 // client/panel/DetailPanel.ts
 var DetailPanel = class {
   constructor() {
@@ -4028,6 +4179,8 @@ var GitVisualizer = class {
     this.currentRepoData = null;
     this.currentOwner = "";
     this.currentRepo = "";
+    this.mainVisualizationComplete = false;
+    this.pendingConcepts = null;
     // Collision detection system
     this.occupiedSpaces = [];
     // Configurable timing and animation
@@ -4042,6 +4195,8 @@ var GitVisualizer = class {
       // Contributors start close to center
       stat: 40,
       // Stats close to center
+      concept: 120,
+      // Concepts further outside for better separation
       file: 80,
       // Files farther out for better separation
       default: 40
@@ -4097,6 +4252,9 @@ var GitVisualizer = class {
       this.showNodePanel(nodeData);
     }, this.apiEndpoint, this.apiHeaders);
     this.statsViz = new StatsVisualization(this.context, (nodeData) => {
+      this.showNodePanel(nodeData);
+    });
+    this.conceptsViz = new ConceptVisualization(this.context, (nodeData) => {
       this.showNodePanel(nodeData);
     });
     this.detailPanel = new DetailPanel();
@@ -4180,6 +4338,8 @@ var GitVisualizer = class {
       // Contributors after stats
       file: { min: 150, max: 190 },
       // Outer ring for files
+      concept: { min: 220, max: 280 },
+      // Concepts in the outermost ring with more spacing
       story: { min: 190, max: 230 },
       // Future: user stories
       function: { min: 230, max: 270 },
@@ -4194,9 +4354,17 @@ var GitVisualizer = class {
       return { x: centerX, y: centerY };
     }
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-    const baseAngle = index * goldenAngle;
-    const randomOffset = (Math.random() - 0.5) * 0.5;
-    const angle = baseAngle + randomOffset;
+    let angle;
+    if (nodeType === "concept") {
+      const conceptAngleStep = Math.PI * 2 / 3;
+      const baseAngle = index * conceptAngleStep;
+      const randomOffset = (Math.random() - 0.5) * 0.3;
+      angle = baseAngle + randomOffset;
+    } else {
+      const baseAngle = index * goldenAngle;
+      const randomOffset = (Math.random() - 0.5) * 0.5;
+      angle = baseAngle + randomOffset;
+    }
     const baseDistance = zone.min + (zone.max - zone.min) * Math.random();
     const distanceVariation = (Math.random() - 0.5) * 40;
     const distance = baseDistance + distanceVariation;
@@ -4388,11 +4556,23 @@ var GitVisualizer = class {
   }
   onExplorationComplete(explorationResult, mode) {
     console.log(`\u{1F38A} Processing ${mode} exploration results:`, explorationResult);
+    if (mode === "first_pass" && explorationResult) {
+      console.log(`\u{1F52E} Processing concept visualization from exploration data...`);
+      if (this.mainVisualizationComplete) {
+        console.log(`\u{1F52E} Main visualization complete, adding concepts now...`);
+        setTimeout(() => {
+          this.addConceptsSequentially(explorationResult);
+        }, 1e3);
+      } else {
+        console.log(`\u{1F52E} Main visualization in progress, storing concepts for later...`);
+        this.pendingConcepts = explorationResult;
+      }
+    }
     if (mode === "first_pass" && explorationResult.infrastructure) {
-      console.log(`\u{1F3D7}\uFE0F Infrastructure discovered: ${explorationResult.infrastructure.join(", ")}`);
+      console.log(`\u{1F3D7}\uFE0F Infrastructure discovered: ${explorationResult.infrastructure}`);
     }
     if (explorationResult.key_files) {
-      console.log(`\u{1F4C1} Key files identified: ${explorationResult.key_files.join(", ")}`);
+      console.log(`\u{1F4C1} Key files identified: ${explorationResult.key_files}`);
     }
   }
   clearVisualization() {
@@ -4401,11 +4581,14 @@ var GitVisualizer = class {
     this.allLinks = [];
     this.occupiedSpaces = [];
     this.currentZoom = 1;
+    this.mainVisualizationComplete = false;
+    this.pendingConcepts = null;
     this.repositoryViz.destroy();
     this.contributorsViz.destroy();
     this.linksViz.destroy();
     this.filesViz.destroy();
     this.statsViz.destroy();
+    this.conceptsViz.destroy();
   }
   addResources(resources) {
     this.allNodes.push(...resources.nodes);
@@ -4616,6 +4799,14 @@ var GitVisualizer = class {
   addFilesSequentially(files, index) {
     if (index >= files.length) {
       console.log("\u{1F389} All files added!");
+      this.mainVisualizationComplete = true;
+      if (this.pendingConcepts) {
+        console.log("\u{1F52E} Main visualization complete, adding pending concepts...");
+        setTimeout(() => {
+          this.addConceptsSequentially(this.pendingConcepts);
+          this.pendingConcepts = null;
+        }, 1e3);
+      }
       return;
     }
     const file = files[index];
@@ -4665,6 +4856,36 @@ var GitVisualizer = class {
     }, 200);
     setTimeout(() => {
       this.addFilesSequentially(files, index + 1);
+    }, this.nodeDelay);
+  }
+  addConceptsSequentially(explorationResult) {
+    console.log(`\u{1F52E} Starting sequential concept addition...`);
+    this.conceptsViz.setRepoData(this.currentRepoData);
+    const conceptResourceData = this.conceptsViz.create(explorationResult);
+    if (conceptResourceData.nodes.length === 0) {
+      console.log("\u{1F52E} No concept nodes to add");
+      return;
+    }
+    console.log(`\u{1F52E} Adding ${conceptResourceData.nodes.length} concept nodes sequentially...`);
+    this.addConceptNodesSequentially(conceptResourceData.nodes, 0);
+  }
+  addConceptNodesSequentially(conceptNodes, index) {
+    if (index >= conceptNodes.length) {
+      console.log("\u{1F389} All concept nodes added!");
+      return;
+    }
+    const node = conceptNodes[index];
+    console.log(`\u{1F52E} Adding concept ${index + 1}/${conceptNodes.length}: ${node.name} (${node.kind})`);
+    const position = this.calculateOrganicPosition("concept", index);
+    node.x = position.x;
+    node.y = position.y;
+    const nodeRadius = this.getNodeRadius(node.type);
+    this.registerOccupiedSpace(position.x, position.y, nodeRadius, node.id);
+    this.allNodes.push(node);
+    const conceptNodesAddedSoFar = conceptNodes.slice(0, index + 1);
+    this.conceptsViz.updateWithAnimation({ nodes: conceptNodesAddedSoFar, links: [] });
+    setTimeout(() => {
+      this.addConceptNodesSequentially(conceptNodes, index + 1);
     }, this.nodeDelay);
   }
   // 🌱 No more simulation methods needed - organic positioning is stable!

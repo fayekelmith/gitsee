@@ -12,6 +12,7 @@ import {
   LinksVisualization,
   FilesVisualization,
   StatsVisualization,
+  ConceptVisualization,
 } from "./resources/index.js";
 import { DetailPanel } from "./panel/index.js";
 import { SSEClient } from "./events/index.js";
@@ -29,6 +30,7 @@ class GitVisualizer {
   private linksViz!: LinksVisualization;
   private filesViz!: FilesVisualization;
   private statsViz!: StatsVisualization;
+  private conceptsViz!: ConceptVisualization;
 
   // Detail panel
   private detailPanel!: DetailPanel;
@@ -42,6 +44,8 @@ class GitVisualizer {
   private currentRepoData: any = null;
   private currentOwner: string = '';
   private currentRepo: string = '';
+  private mainVisualizationComplete: boolean = false;
+  private pendingConcepts: any = null;
 
   // Collision detection system
   private occupiedSpaces: Array<{
@@ -60,6 +64,7 @@ class GitVisualizer {
     repo: 40, // Repository nodes (not used much since repo is centered)
     contributor: 40, // Contributors start close to center
     stat: 40, // Stats close to center
+    concept: 120, // Concepts further outside for better separation
     file: 80, // Files farther out for better separation
     default: 40, // Fallback for any other node types
   };
@@ -146,6 +151,10 @@ class GitVisualizer {
     }, this.apiEndpoint, this.apiHeaders);
     this.statsViz = new StatsVisualization(this.context, (nodeData) => {
       // Stats click also shows repo panel
+      this.showNodePanel(nodeData);
+    });
+    this.conceptsViz = new ConceptVisualization(this.context, (nodeData) => {
+      // Concepts click also shows repo panel
       this.showNodePanel(nodeData);
     });
 
@@ -272,6 +281,7 @@ class GitVisualizer {
       stat: { min: 55, max: 75 }, // Close to repo - stats first!
       contributor: { min: 90, max: 130 }, // Contributors after stats
       file: { min: 150, max: 190 }, // Outer ring for files
+      concept: { min: 220, max: 280 }, // Concepts in the outermost ring with more spacing
       story: { min: 190, max: 230 }, // Future: user stories
       function: { min: 230, max: 270 }, // Future: functions
       component: { min: 270, max: 310 }, // Future: components
@@ -288,10 +298,20 @@ class GitVisualizer {
     // Golden angle for natural spiral (~137.5 degrees)
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 
-    // Base angle with golden spiral + some randomness
-    const baseAngle = index * goldenAngle;
-    const randomOffset = (Math.random() - 0.5) * 0.5; // ±15 degrees randomness
-    const angle = baseAngle + randomOffset;
+    // Special angle handling for concepts to improve horizontal distribution
+    let angle;
+    if (nodeType === "concept") {
+      // Use larger angular steps for concepts to spread them out more horizontally
+      const conceptAngleStep = (Math.PI * 2) / 3; // 120 degrees between concepts
+      const baseAngle = index * conceptAngleStep;
+      const randomOffset = (Math.random() - 0.5) * 0.3; // Less randomness for better spacing
+      angle = baseAngle + randomOffset;
+    } else {
+      // Base angle with golden spiral + some randomness for other node types
+      const baseAngle = index * goldenAngle;
+      const randomOffset = (Math.random() - 0.5) * 0.5; // ±15 degrees randomness
+      angle = baseAngle + randomOffset;
+    }
 
     // Distance with zone variation + randomness
     const baseDistance = zone.min + (zone.max - zone.min) * Math.random();
@@ -568,18 +588,29 @@ class GitVisualizer {
   private onExplorationComplete(explorationResult: any, mode: string): void {
     console.log(`🎊 Processing ${mode} exploration results:`, explorationResult);
 
-    // Here we could add visualization enhancements based on exploration results
-    // For example:
-    // - Add infrastructure badges to repository node
-    // - Show dependency connections
-    // - Highlight key files based on exploration
+    // Create and show concept visualization based on exploration results
+    if (mode === 'first_pass' && explorationResult) {
+      console.log(`🔮 Processing concept visualization from exploration data...`);
+
+      if (this.mainVisualizationComplete) {
+        // Main visualization is done, add concepts immediately
+        console.log(`🔮 Main visualization complete, adding concepts now...`);
+        setTimeout(() => {
+          this.addConceptsSequentially(explorationResult);
+        }, 1000);
+      } else {
+        // Main visualization still in progress, store concepts for later
+        console.log(`🔮 Main visualization in progress, storing concepts for later...`);
+        this.pendingConcepts = explorationResult;
+      }
+    }
 
     if (mode === 'first_pass' && explorationResult.infrastructure) {
-      console.log(`🏗️ Infrastructure discovered: ${explorationResult.infrastructure.join(', ')}`);
+      console.log(`🏗️ Infrastructure discovered: ${explorationResult.infrastructure}`);
     }
 
     if (explorationResult.key_files) {
-      console.log(`📁 Key files identified: ${explorationResult.key_files.join(', ')}`);
+      console.log(`📁 Key files identified: ${explorationResult.key_files}`);
     }
   }
 
@@ -589,6 +620,8 @@ class GitVisualizer {
     this.allLinks = [];
     this.occupiedSpaces = []; // Clear collision tracking
     this.currentZoom = 1.0; // Reset zoom level
+    this.mainVisualizationComplete = false; // Reset completion flag
+    this.pendingConcepts = null; // Clear pending concepts
 
     // Don't disconnect SSE here - keep connection for the new visualization
     // SSE will be disconnected only in destroy() method
@@ -599,6 +632,7 @@ class GitVisualizer {
     this.linksViz.destroy();
     this.filesViz.destroy();
     this.statsViz.destroy();
+    this.conceptsViz.destroy();
   }
 
   private addResources(resources: ResourceData): void {
@@ -875,6 +909,15 @@ class GitVisualizer {
   private addFilesSequentially(files: any[], index: number): void {
     if (index >= files.length) {
       console.log("🎉 All files added!");
+      this.mainVisualizationComplete = true;
+      // Check if we have pending concepts to add
+      if (this.pendingConcepts) {
+        console.log("🔮 Main visualization complete, adding pending concepts...");
+        setTimeout(() => {
+          this.addConceptsSequentially(this.pendingConcepts);
+          this.pendingConcepts = null;
+        }, 1000); // Delay after files complete
+      }
       return;
     }
 
@@ -945,6 +988,55 @@ class GitVisualizer {
     // Add next file after configurable delay
     setTimeout(() => {
       this.addFilesSequentially(files, index + 1);
+    }, this.nodeDelay);
+  }
+
+  private addConceptsSequentially(explorationResult: any): void {
+    console.log(`🔮 Starting sequential concept addition...`);
+
+    // Pass repo data to concepts viz for click handling
+    this.conceptsViz.setRepoData(this.currentRepoData);
+
+    // Create all concept nodes
+    const conceptResourceData = this.conceptsViz.create(explorationResult);
+
+    if (conceptResourceData.nodes.length === 0) {
+      console.log("🔮 No concept nodes to add");
+      return;
+    }
+
+    console.log(`🔮 Adding ${conceptResourceData.nodes.length} concept nodes sequentially...`);
+    this.addConceptNodesSequentially(conceptResourceData.nodes, 0);
+  }
+
+  private addConceptNodesSequentially(conceptNodes: NodeData[], index: number): void {
+    if (index >= conceptNodes.length) {
+      console.log("🎉 All concept nodes added!");
+      return;
+    }
+
+    const node = conceptNodes[index];
+    console.log(`🔮 Adding concept ${index + 1}/${conceptNodes.length}: ${node.name} (${node.kind})`);
+
+    // Position the concept node
+    const position = this.calculateOrganicPosition("concept", index);
+    node.x = position.x;
+    node.y = position.y;
+    const nodeRadius = this.getNodeRadius(node.type);
+    this.registerOccupiedSpace(position.x, position.y, nodeRadius, node.id);
+
+    // Add to our node collection
+    this.allNodes.push(node);
+
+    // Get all concept nodes added so far (including this one)
+    const conceptNodesAddedSoFar = conceptNodes.slice(0, index + 1);
+
+    // Update visualization with all concept nodes added so far
+    this.conceptsViz.updateWithAnimation({ nodes: conceptNodesAddedSoFar, links: [] });
+
+    // Continue with next concept node after delay
+    setTimeout(() => {
+      this.addConceptNodesSequentially(conceptNodes, index + 1);
     }, this.nodeDelay);
   }
 
