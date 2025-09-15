@@ -1,4 +1,6 @@
+import * as http from 'http';
 import { IncomingMessage, ServerResponse } from 'http';
+import { EventEmitter } from 'events';
 import { Octokit } from '@octokit/rest';
 
 interface GitSeeRequest {
@@ -18,7 +20,7 @@ interface GitSeeResponse {
     files?: FileInfo[];
     fileContent?: FileContent | null;
     stats?: RepoStats;
-    exploration?: ExplorationResult | {
+    exploration?: ExplorationResult$1 | {
         error: string;
     };
     error?: string;
@@ -26,7 +28,7 @@ interface GitSeeResponse {
         nodeDelay?: number;
     };
 }
-interface ExplorationResult {
+interface ExplorationResult$1 {
     summary: string;
     key_files: string[];
     features?: string[];
@@ -119,6 +121,7 @@ declare class GitSeeHandler {
     private cache;
     private options;
     private store;
+    private emitter;
     private contributors;
     private icons;
     private repository;
@@ -127,6 +130,7 @@ declare class GitSeeHandler {
     private files;
     private stats;
     constructor(options?: GitSeeOptions);
+    handleEvents(req: IncomingMessage, res: ServerResponse, owner: string, repo: string): Promise<void>;
     handle(req: IncomingMessage, res: ServerResponse): Promise<void>;
     private autoStartFirstPassExploration;
     private runBackgroundExploration;
@@ -134,6 +138,51 @@ declare class GitSeeHandler {
     private processRequest;
 }
 declare function createGitSeeHandler(options?: GitSeeOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+
+declare function createGitSeeServer(options?: GitSeeOptions): http.Server<typeof IncomingMessage, typeof ServerResponse>;
+
+type RepoContextMode = "first_pass" | "general";
+interface GeneralContextResult {
+    summary: string;
+    key_files: string[];
+    features: string[];
+}
+interface FirstPassContextResult {
+    summary: string;
+    key_files: string[];
+    infrastructure: string[];
+    dependencies: string[];
+    user_stories: string[];
+    pages: string[];
+}
+
+type ExplorationResult = GeneralContextResult | FirstPassContextResult;
+
+interface ExplorationEvent {
+    type: 'clone_started' | 'clone_completed' | 'exploration_started' | 'exploration_progress' | 'exploration_completed' | 'exploration_failed';
+    owner: string;
+    repo: string;
+    mode?: RepoContextMode;
+    data?: any;
+    error?: string;
+    timestamp: number;
+}
+declare class ExplorationEmitter extends EventEmitter {
+    private static instance;
+    static getInstance(): ExplorationEmitter;
+    private constructor();
+    private getRepoKey;
+    emitCloneStarted(owner: string, repo: string): void;
+    emitCloneCompleted(owner: string, repo: string, success: boolean, localPath?: string): void;
+    emitExplorationStarted(owner: string, repo: string, mode: RepoContextMode): void;
+    emitExplorationProgress(owner: string, repo: string, mode: RepoContextMode, progress: string): void;
+    emitExplorationCompleted(owner: string, repo: string, mode: RepoContextMode, result: ExplorationResult): void;
+    emitExplorationFailed(owner: string, repo: string, mode: RepoContextMode, error: string): void;
+    subscribeToRepo(owner: string, repo: string, callback: (event: ExplorationEvent) => void): () => void;
+    waitForConnection(owner: string, repo: string, timeoutMs?: number): Promise<void>;
+    getListenerCount(owner: string, repo: string): number;
+    cleanupRepo(owner: string, repo: string): void;
+}
 
 declare class GitSeeCache {
     private cache;
@@ -174,4 +223,4 @@ declare class BranchesResource extends BaseResource {
     getBranches(owner: string, repo: string): Promise<Branch[]>;
 }
 
-export { BaseResource, type Branch, BranchesResource, type Commit, CommitsResource, type Contributor, ContributorsResource, GitSeeCache, GitSeeHandler, type GitSeeOptions, type GitSeeRequest, type GitSeeResponse, IconsResource, type Repository, RepositoryResource, createGitSeeHandler };
+export { BaseResource, type Branch, BranchesResource, type Commit, CommitsResource, type Contributor, ContributorsResource, ExplorationEmitter, type ExplorationEvent, GitSeeCache, GitSeeHandler, type GitSeeOptions, type GitSeeRequest, type GitSeeResponse, IconsResource, type Repository, RepositoryResource, createGitSeeHandler, createGitSeeServer };

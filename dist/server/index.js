@@ -1274,6 +1274,135 @@ var FileStore = class {
   }
 };
 
+// server/events/ExplorationEmitter.ts
+import { EventEmitter } from "events";
+var ExplorationEmitter = class _ExplorationEmitter extends EventEmitter {
+  static getInstance() {
+    if (!this.instance) {
+      this.instance = new _ExplorationEmitter();
+    }
+    return this.instance;
+  }
+  constructor() {
+    super();
+    this.setMaxListeners(100);
+  }
+  getRepoKey(owner, repo) {
+    return `${owner}/${repo}`;
+  }
+  // Emit clone events
+  emitCloneStarted(owner, repo) {
+    const event = {
+      type: "clone_started",
+      owner,
+      repo,
+      timestamp: Date.now()
+    };
+    this.emit(this.getRepoKey(owner, repo), event);
+    console.log(`\u{1F514} Emitted clone_started for ${owner}/${repo}`);
+  }
+  emitCloneCompleted(owner, repo, success, localPath) {
+    const event = {
+      type: "clone_completed",
+      owner,
+      repo,
+      data: { success, localPath },
+      timestamp: Date.now()
+    };
+    this.emit(this.getRepoKey(owner, repo), event);
+    console.log(`\u{1F514} Emitted clone_completed for ${owner}/${repo}: ${success ? "success" : "failed"}`);
+  }
+  // Emit exploration events
+  emitExplorationStarted(owner, repo, mode) {
+    const event = {
+      type: "exploration_started",
+      owner,
+      repo,
+      mode,
+      timestamp: Date.now()
+    };
+    this.emit(this.getRepoKey(owner, repo), event);
+    console.log(`\u{1F514} Emitted exploration_started for ${owner}/${repo} (${mode})`);
+  }
+  emitExplorationProgress(owner, repo, mode, progress) {
+    const event = {
+      type: "exploration_progress",
+      owner,
+      repo,
+      mode,
+      data: { progress },
+      timestamp: Date.now()
+    };
+    this.emit(this.getRepoKey(owner, repo), event);
+    console.log(`\u{1F514} Emitted exploration_progress for ${owner}/${repo} (${mode}): ${progress}`);
+  }
+  emitExplorationCompleted(owner, repo, mode, result) {
+    const event = {
+      type: "exploration_completed",
+      owner,
+      repo,
+      mode,
+      data: { result },
+      timestamp: Date.now()
+    };
+    this.emit(this.getRepoKey(owner, repo), event);
+    console.log(`\u{1F514} Emitted exploration_completed for ${owner}/${repo} (${mode})`);
+  }
+  emitExplorationFailed(owner, repo, mode, error) {
+    const event = {
+      type: "exploration_failed",
+      owner,
+      repo,
+      mode,
+      error,
+      timestamp: Date.now()
+    };
+    this.emit(this.getRepoKey(owner, repo), event);
+    console.log(`\u{1F514} Emitted exploration_failed for ${owner}/${repo} (${mode}): ${error}`);
+  }
+  // Subscribe to repository events
+  subscribeToRepo(owner, repo, callback) {
+    const repoKey = this.getRepoKey(owner, repo);
+    this.on(repoKey, callback);
+    console.log(`\u{1F4E1} New subscriber for ${owner}/${repo} (total: ${this.listenerCount(repoKey)})`);
+    this.emit(`connection:${repoKey}`, { owner, repo });
+    return () => {
+      this.removeListener(repoKey, callback);
+      console.log(`\u{1F4E1} Unsubscribed from ${owner}/${repo} (remaining: ${this.listenerCount(repoKey)})`);
+    };
+  }
+  // Wait for at least one SSE connection
+  waitForConnection(owner, repo, timeoutMs = 5e3) {
+    return new Promise((resolve, reject) => {
+      const repoKey = this.getRepoKey(owner, repo);
+      if (this.listenerCount(repoKey) > 0) {
+        resolve();
+        return;
+      }
+      const timeout = setTimeout(() => {
+        this.removeListener(`connection:${repoKey}`, onConnection);
+        reject(new Error(`Timeout waiting for SSE connection to ${owner}/${repo}`));
+      }, timeoutMs);
+      const onConnection = () => {
+        clearTimeout(timeout);
+        this.removeListener(`connection:${repoKey}`, onConnection);
+        resolve();
+      };
+      this.once(`connection:${repoKey}`, onConnection);
+    });
+  }
+  // Get current listener count for debugging
+  getListenerCount(owner, repo) {
+    return this.listenerCount(this.getRepoKey(owner, repo));
+  }
+  // Cleanup old listeners (optional)
+  cleanupRepo(owner, repo) {
+    const repoKey = this.getRepoKey(owner, repo);
+    this.removeAllListeners(repoKey);
+    console.log(`\u{1F9F9} Cleaned up all listeners for ${owner}/${repo}`);
+  }
+};
+
 // server/handler.ts
 var GitSeeHandler = class {
   constructor(options = {}) {
@@ -1283,6 +1412,7 @@ var GitSeeHandler = class {
     });
     this.cache = new GitSeeCache(options.cache?.ttl);
     this.store = new FileStore();
+    this.emitter = ExplorationEmitter.getInstance();
     this.contributors = new ContributorsResource(this.octokit, this.cache);
     this.icons = new IconsResource(this.octokit, this.cache);
     this.repository = new RepositoryResource(this.octokit, this.cache);
@@ -1290,6 +1420,58 @@ var GitSeeHandler = class {
     this.branches = new BranchesResource(this.octokit, this.cache);
     this.files = new FilesResource(this.octokit, this.cache);
     this.stats = new StatsResource(this.octokit, this.cache);
+  }
+  async handleEvents(req, res, owner, repo) {
+    console.log(`\u{1F4E1} SSE connection established for ${owner}/${repo}`);
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Cache-Control"
+    });
+    res.write(`data: ${JSON.stringify({
+      type: "connected",
+      owner,
+      repo,
+      timestamp: Date.now()
+    })}
+
+`);
+    const unsubscribe = this.emitter.subscribeToRepo(owner, repo, (event) => {
+      try {
+        res.write(`data: ${JSON.stringify(event)}
+
+`);
+      } catch (error) {
+        console.error(`\u{1F4A5} Error writing SSE event for ${owner}/${repo}:`, error);
+      }
+    });
+    req.on("close", () => {
+      console.log(`\u{1F4E1} SSE connection closed for ${owner}/${repo}`);
+      unsubscribe();
+    });
+    req.on("error", (error) => {
+      console.error(`\u{1F4A5} SSE connection error for ${owner}/${repo}:`, error);
+      unsubscribe();
+    });
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(`data: ${JSON.stringify({
+          type: "heartbeat",
+          timestamp: Date.now()
+        })}
+
+`);
+      } catch (error) {
+        console.error(`\u{1F4A5} Heartbeat failed for ${owner}/${repo}:`, error);
+        clearInterval(heartbeat);
+        unsubscribe();
+      }
+    }, 3e4);
+    req.on("close", () => {
+      clearInterval(heartbeat);
+    });
   }
   async handle(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -1327,11 +1509,33 @@ var GitSeeHandler = class {
         const hasRecent = await this.store.hasRecentExploration(owner, repo, "first_pass", 24);
         if (!hasRecent) {
           console.log(`\u{1F680} Auto-starting first_pass exploration for ${owner}/${repo}...`);
+          this.emitter.emitExplorationStarted(owner, repo, "first_pass");
           this.runBackgroundExploration(owner, repo, "first_pass").catch((error) => {
             console.error(`\u{1F6A8} Background first_pass exploration failed for ${owner}/${repo}:`, error.message);
+            this.emitter.emitExplorationFailed(owner, repo, "first_pass", error.message);
           });
         } else {
-          console.log(`\u2705 Recent first_pass exploration found for ${owner}/${repo}, skipping auto-start`);
+          console.log(`\u2705 Recent first_pass exploration found for ${owner}/${repo}, emitting cached result`);
+          setImmediate(async () => {
+            try {
+              const cached = await this.store.getExploration(owner, repo, "first_pass");
+              if (cached?.result) {
+                console.log(`\u23F3 Waiting for SSE connection before emitting cached first_pass exploration for ${owner}/${repo}`);
+                try {
+                  await this.emitter.waitForConnection(owner, repo, 1e4);
+                  console.log(`\u{1F514} SSE connected! Emitting cached first_pass exploration for ${owner}/${repo}`);
+                  console.log(`\u{1F514} Infrastructure in cached result:`, cached.result.infrastructure);
+                  console.log(`\u{1F514} Current SSE listeners:`, this.emitter.getListenerCount(owner, repo));
+                  this.emitter.emitExplorationCompleted(owner, repo, "first_pass", cached.result);
+                } catch (timeoutError) {
+                  console.warn(`\u23F0 Timeout waiting for SSE connection, emitting anyway for ${owner}/${repo}`);
+                  this.emitter.emitExplorationCompleted(owner, repo, "first_pass", cached.result);
+                }
+              }
+            } catch (error) {
+              console.error(`\u{1F4A5} Error emitting cached exploration for ${owner}/${repo}:`, error);
+            }
+          });
         }
       } catch (error) {
         console.error(`\u{1F4A5} Error checking exploration status for ${owner}/${repo}:`, error);
@@ -1343,16 +1547,22 @@ var GitSeeHandler = class {
       await RepoCloner.waitForClone(owner, repo);
       const cloneResult = await RepoCloner.getCloneResult(owner, repo);
       if (cloneResult?.success && cloneResult.localPath) {
+        this.emitter.emitCloneCompleted(owner, repo, true, cloneResult.localPath);
         const prompt = mode === "first_pass" ? "Analyze this repository and provide a comprehensive overview" : "What are the key features and components of this codebase?";
         console.log(`\u{1F916} Running background ${mode} exploration for ${owner}/${repo}...`);
+        this.emitter.emitExplorationProgress(owner, repo, mode, "Running AI analysis...");
         const explorationResult = await explore(prompt, cloneResult.localPath, mode);
         await this.store.storeExploration(owner, repo, mode, explorationResult);
         console.log(`\u2705 Background ${mode} exploration completed for ${owner}/${repo}`);
+        this.emitter.emitExplorationCompleted(owner, repo, mode, explorationResult);
       } else {
         console.error(`\u274C Repository clone failed for background exploration: ${owner}/${repo}`);
+        this.emitter.emitCloneCompleted(owner, repo, false);
+        this.emitter.emitExplorationFailed(owner, repo, mode, "Repository clone failed");
       }
     } catch (error) {
       console.error(`\u{1F4A5} Background ${mode} exploration failed for ${owner}/${repo}:`, error);
+      this.emitter.emitExplorationFailed(owner, repo, mode, error instanceof Error ? error.message : "Unknown error");
     }
   }
   async parseRequestBody(req) {
@@ -1367,6 +1577,7 @@ var GitSeeHandler = class {
     const { owner, repo, data } = request;
     const response = {};
     console.log(`\u{1F504} Starting background clone for ${owner}/${repo}...`);
+    this.emitter.emitCloneStarted(owner, repo);
     RepoCloner.cloneInBackground(owner, repo);
     this.autoStartFirstPassExploration(owner, repo);
     if (this.options.visualization) {
@@ -1478,6 +1689,9 @@ var GitSeeHandler = class {
                 explorationMode
               );
               response.exploration = cached?.result;
+              if (cached?.result) {
+                this.emitter.emitExplorationCompleted(owner, repo, explorationMode, cached.result);
+              }
             } else {
               console.log(`\u{1F916} Running ${explorationMode} agent exploration...`);
               try {
@@ -1544,15 +1758,58 @@ function createGitSeeHandler(options = {}) {
   const handler = new GitSeeHandler(options);
   return (req, res) => handler.handle(req, res);
 }
+
+// server/server.ts
+import { createServer } from "http";
+import { URL } from "url";
+function createGitSeeServer(options = {}) {
+  const handler = new GitSeeHandler(options);
+  return createServer(async (req, res) => {
+    try {
+      const url = new URL(req.url || "/", `http://${req.headers.host}`);
+      if (url.pathname.startsWith("/api/gitsee/events/")) {
+        const pathParts = url.pathname.split("/");
+        if (pathParts.length >= 6) {
+          const owner = pathParts[4];
+          const repo = pathParts[5];
+          console.log(`\u{1F4E1} SSE request for ${owner}/${repo}`);
+          return await handler.handleEvents(req, res, owner, repo);
+        }
+      }
+      if (url.pathname === "/api/gitsee") {
+        return await handler.handle(req, res);
+      }
+      if (req.method === "OPTIONS") {
+        res.writeHead(200, {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Cache-Control"
+        });
+        res.end();
+        return;
+      }
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Not found" }));
+    } catch (error) {
+      console.error("Server error:", error);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({
+        error: error instanceof Error ? error.message : "Internal server error"
+      }));
+    }
+  });
+}
 export {
   BaseResource,
   BranchesResource,
   CommitsResource,
   ContributorsResource,
+  ExplorationEmitter,
   GitSeeCache,
   GitSeeHandler,
   IconsResource,
   RepositoryResource,
-  createGitSeeHandler
+  createGitSeeHandler,
+  createGitSeeServer
 };
 //# sourceMappingURL=index.js.map

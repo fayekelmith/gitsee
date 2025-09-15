@@ -14,6 +14,8 @@ import {
   StatsVisualization,
 } from "./resources/index.js";
 import { DetailPanel } from "./panel/index.js";
+import { SSEClient } from "./events/index.js";
+import type { ExplorationSSEEvent } from "./events/index.js";
 
 class GitVisualizer {
   private width: number;
@@ -30,6 +32,9 @@ class GitVisualizer {
 
   // Detail panel
   private detailPanel!: DetailPanel;
+
+  // SSE client for real-time updates
+  private sseClient!: SSEClient;
 
   // Data storage
   private allNodes: NodeData[] = [];
@@ -146,6 +151,9 @@ class GitVisualizer {
 
     // Initialize detail panel
     this.detailPanel = new DetailPanel();
+
+    // Initialize SSE client
+    this.sseClient = new SSEClient(this.apiEndpoint);
 
     // Create links group first to ensure it's at the bottom
     this.linksViz["getResourceGroup"]();
@@ -348,10 +356,17 @@ class GitVisualizer {
   async visualize(owner: string, repo: string): Promise<void> {
     try {
       console.log(`🚀 Visualizing ${owner}/${repo}...`);
-      
+
       // Store the current owner/repo for later use
       this.currentOwner = owner;
       this.currentRepo = repo;
+
+      // Connect to SSE for real-time updates (if not already connected)
+      if (!this.sseClient.isConnected()) {
+        this.connectToSSE(owner, repo);
+      } else {
+        console.log(`📡 SSE already connected for ${owner}/${repo}`);
+      }
 
       // Clear existing visualization
       this.clearVisualization();
@@ -486,12 +501,97 @@ class GitVisualizer {
     return response.json();
   }
 
+  private connectToSSE(owner: string, repo: string): void {
+    console.log(`📡 Setting up SSE for ${owner}/${repo}...`);
+
+    // Set up event handlers
+    this.sseClient.onExplorationStarted((event) => {
+      this.showExplorationStatus(`🤖 Starting ${event.mode} analysis...`, 'info');
+    });
+
+    this.sseClient.onExplorationProgress((event) => {
+      if (event.data?.progress) {
+        this.showExplorationStatus(`🔍 ${event.data.progress}`, 'info');
+      }
+    });
+
+    this.sseClient.onExplorationCompleted((event) => {
+      console.log(`📨 SSE exploration_completed event received:`, event);
+      this.showExplorationStatus(`✅ ${event.mode} analysis complete!`, 'success');
+
+      // If this is first_pass exploration, we could enhance the visualization
+      if (event.mode === 'first_pass' && event.data?.result) {
+        console.log(`🎉 First-pass exploration completed for ${owner}/${repo}:`, event.data.result);
+        console.log(`🎉 Infrastructure data:`, event.data.result.infrastructure);
+        this.onExplorationComplete(event.data.result, event.mode!);
+      }
+    });
+
+    this.sseClient.onExplorationFailed((event) => {
+      this.showExplorationStatus(`❌ Analysis failed: ${event.error}`, 'error');
+    });
+
+    this.sseClient.onCloneStarted((event) => {
+      this.showExplorationStatus('📥 Cloning repository...', 'info');
+    });
+
+    this.sseClient.onCloneCompleted((event) => {
+      if (event.data?.success) {
+        this.showExplorationStatus('✅ Repository cloned', 'success');
+      } else {
+        this.showExplorationStatus('❌ Repository clone failed', 'error');
+      }
+    });
+
+    // Connect to SSE stream (non-blocking)
+    this.sseClient.connect(owner, repo).catch((error) => {
+      console.error('Failed to connect to SSE:', error);
+      this.showExplorationStatus('⚠️ Real-time updates unavailable', 'warning');
+    });
+  }
+
+  private showExplorationStatus(message: string, type: 'info' | 'success' | 'error' | 'warning'): void {
+    console.log(`📱 Status: ${message}`);
+
+    // For now, just log to console
+    // In the future, this could show a toast notification or status bar
+    const emoji = {
+      info: 'ℹ️',
+      success: '✅',
+      error: '❌',
+      warning: '⚠️'
+    }[type];
+
+    console.log(`${emoji} ${message}`);
+  }
+
+  private onExplorationComplete(explorationResult: any, mode: string): void {
+    console.log(`🎊 Processing ${mode} exploration results:`, explorationResult);
+
+    // Here we could add visualization enhancements based on exploration results
+    // For example:
+    // - Add infrastructure badges to repository node
+    // - Show dependency connections
+    // - Highlight key files based on exploration
+
+    if (mode === 'first_pass' && explorationResult.infrastructure) {
+      console.log(`🏗️ Infrastructure discovered: ${explorationResult.infrastructure.join(', ')}`);
+    }
+
+    if (explorationResult.key_files) {
+      console.log(`📁 Key files identified: ${explorationResult.key_files.join(', ')}`);
+    }
+  }
+
   private clearVisualization(): void {
     console.log("🧹 Clearing visualization...");
     this.allNodes = [];
     this.allLinks = [];
     this.occupiedSpaces = []; // Clear collision tracking
     this.currentZoom = 1.0; // Reset zoom level
+
+    // Don't disconnect SSE here - keep connection for the new visualization
+    // SSE will be disconnected only in destroy() method
 
     // Clear all resource visualizations
     this.repositoryViz.destroy();
@@ -976,6 +1076,9 @@ class GitVisualizer {
   public destroy(): void {
     // Clean up visualization
     this.svg.selectAll("*").remove();
+
+    // Clean up SSE connection
+    this.sseClient.disconnect();
 
     // Clean up detail panel
     this.detailPanel.destroy();

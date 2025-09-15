@@ -3,12 +3,12 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
-import { createGitSeeHandler } from './dist/server/index.js';
+import { createGitSeeServer } from './dist/server/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Create the GitSee handler with slow node timing
-const gitSeeHandler = createGitSeeHandler({
+// Create the GitSee server with both API and SSE support
+const gitSeeServer = createGitSeeServer({
   token: process.env.GITHUB_TOKEN,
   cache: { ttl: 300 },
   visualization: {
@@ -35,12 +35,13 @@ const mimeTypes = {
   '.wasm': 'application/wasm'
 };
 
+// Extend the GitSee server to also handle static files
 const server = http.createServer(async (req, res) => {
   console.log(`${req.method} ${req.url}`);
 
-  // Handle GitSee API
-  if (req.url === '/api/gitsee') {
-    return gitSeeHandler(req, res);
+  // Handle GitSee API and SSE routes
+  if (req.url === '/api/gitsee' || req.url?.startsWith('/api/gitsee/events/')) {
+    return gitSeeServer.emit('request', req, res);
   }
 
   // Handle static files

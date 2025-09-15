@@ -1,5 +1,8 @@
 // Main exports for the GitSee server library
 export { GitSeeHandler, createGitSeeHandler } from "./handler.js";
+export { createGitSeeServer } from "./server.js";
+export { ExplorationEmitter } from "./events/index.js";
+export type { ExplorationEvent } from "./events/index.js";
 
 // Export types for library consumers
 export type {

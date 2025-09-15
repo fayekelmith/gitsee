@@ -13,12 +13,14 @@ import {
 import { GitSeeRequest, GitSeeResponse, GitSeeOptions } from "./types/index.js";
 import { RepoCloner, explore, RepoContextMode } from "./agent/index.js";
 import { FileStore } from "./persistence/index.js";
+import { ExplorationEmitter } from "./events/index.js";
 
 export class GitSeeHandler {
   private octokit: Octokit;
   private cache: GitSeeCache;
   private options: GitSeeOptions;
   private store: FileStore;
+  private emitter: ExplorationEmitter;
 
   // Resource modules
   private contributors: ContributorsResource;
@@ -37,6 +39,7 @@ export class GitSeeHandler {
 
     this.cache = new GitSeeCache(options.cache?.ttl);
     this.store = new FileStore();
+    this.emitter = ExplorationEmitter.getInstance();
 
     // Initialize resource modules
     this.contributors = new ContributorsResource(this.octokit, this.cache);
@@ -46,6 +49,66 @@ export class GitSeeHandler {
     this.branches = new BranchesResource(this.octokit, this.cache);
     this.files = new FilesResource(this.octokit, this.cache);
     this.stats = new StatsResource(this.octokit, this.cache);
+  }
+
+  async handleEvents(req: IncomingMessage, res: ServerResponse, owner: string, repo: string): Promise<void> {
+    console.log(`📡 SSE connection established for ${owner}/${repo}`);
+
+    // Set SSE headers
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control',
+    });
+
+    // Send initial connection event
+    res.write(`data: ${JSON.stringify({
+      type: 'connected',
+      owner,
+      repo,
+      timestamp: Date.now()
+    })}\n\n`);
+
+    // Subscribe to repository events
+    const unsubscribe = this.emitter.subscribeToRepo(owner, repo, (event) => {
+      try {
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+      } catch (error) {
+        console.error(`💥 Error writing SSE event for ${owner}/${repo}:`, error);
+      }
+    });
+
+    // Handle client disconnect
+    req.on('close', () => {
+      console.log(`📡 SSE connection closed for ${owner}/${repo}`);
+      unsubscribe();
+    });
+
+    req.on('error', (error) => {
+      console.error(`💥 SSE connection error for ${owner}/${repo}:`, error);
+      unsubscribe();
+    });
+
+    // Keep connection alive with periodic heartbeat
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(`data: ${JSON.stringify({
+          type: 'heartbeat',
+          timestamp: Date.now()
+        })}\n\n`);
+      } catch (error) {
+        console.error(`💥 Heartbeat failed for ${owner}/${repo}:`, error);
+        clearInterval(heartbeat);
+        unsubscribe();
+      }
+    }, 30000); // 30 second heartbeat
+
+    // Clean up heartbeat when connection closes
+    req.on('close', () => {
+      clearInterval(heartbeat);
+    });
   }
 
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -95,13 +158,39 @@ export class GitSeeHandler {
 
         if (!hasRecent) {
           console.log(`🚀 Auto-starting first_pass exploration for ${owner}/${repo}...`);
+          this.emitter.emitExplorationStarted(owner, repo, 'first_pass');
 
           // Fire and forget - don't await, let it run in background
           this.runBackgroundExploration(owner, repo, 'first_pass').catch(error => {
             console.error(`🚨 Background first_pass exploration failed for ${owner}/${repo}:`, error.message);
+            this.emitter.emitExplorationFailed(owner, repo, 'first_pass', error.message);
           });
         } else {
-          console.log(`✅ Recent first_pass exploration found for ${owner}/${repo}, skipping auto-start`);
+          console.log(`✅ Recent first_pass exploration found for ${owner}/${repo}, emitting cached result`);
+
+          // Wait for SSE connection then emit cached exploration
+          setImmediate(async () => {
+            try {
+              const cached = await this.store.getExploration(owner, repo, 'first_pass');
+              if (cached?.result) {
+                console.log(`⏳ Waiting for SSE connection before emitting cached first_pass exploration for ${owner}/${repo}`);
+
+                // Wait for SSE connection with timeout
+                try {
+                  await this.emitter.waitForConnection(owner, repo, 10000);
+                  console.log(`🔔 SSE connected! Emitting cached first_pass exploration for ${owner}/${repo}`);
+                  console.log(`🔔 Infrastructure in cached result:`, (cached.result as any).infrastructure);
+                  console.log(`🔔 Current SSE listeners:`, this.emitter.getListenerCount(owner, repo));
+                  this.emitter.emitExplorationCompleted(owner, repo, 'first_pass', cached.result);
+                } catch (timeoutError) {
+                  console.warn(`⏰ Timeout waiting for SSE connection, emitting anyway for ${owner}/${repo}`);
+                  this.emitter.emitExplorationCompleted(owner, repo, 'first_pass', cached.result);
+                }
+              }
+            } catch (error) {
+              console.error(`💥 Error emitting cached exploration for ${owner}/${repo}:`, error);
+            }
+          });
         }
       } catch (error) {
         console.error(`💥 Error checking exploration status for ${owner}/${repo}:`, error);
@@ -120,22 +209,30 @@ export class GitSeeHandler {
       const cloneResult = await RepoCloner.getCloneResult(owner, repo);
 
       if (cloneResult?.success && cloneResult.localPath) {
+        this.emitter.emitCloneCompleted(owner, repo, true, cloneResult.localPath);
+
         const prompt = mode === 'first_pass'
           ? "Analyze this repository and provide a comprehensive overview"
           : "What are the key features and components of this codebase?";
 
         console.log(`🤖 Running background ${mode} exploration for ${owner}/${repo}...`);
+        this.emitter.emitExplorationProgress(owner, repo, mode, "Running AI analysis...");
+
         const explorationResult = await explore(prompt, cloneResult.localPath, mode);
 
         // Store the results
         await this.store.storeExploration(owner, repo, mode, explorationResult);
 
         console.log(`✅ Background ${mode} exploration completed for ${owner}/${repo}`);
+        this.emitter.emitExplorationCompleted(owner, repo, mode, explorationResult);
       } else {
         console.error(`❌ Repository clone failed for background exploration: ${owner}/${repo}`);
+        this.emitter.emitCloneCompleted(owner, repo, false);
+        this.emitter.emitExplorationFailed(owner, repo, mode, "Repository clone failed");
       }
     } catch (error) {
       console.error(`💥 Background ${mode} exploration failed for ${owner}/${repo}:`, error);
+      this.emitter.emitExplorationFailed(owner, repo, mode, error instanceof Error ? error.message : "Unknown error");
     }
   }
 
@@ -156,6 +253,7 @@ export class GitSeeHandler {
 
     // 🚀 AGENTIC: Start background clone immediately (fire-and-forget)
     console.log(`🔄 Starting background clone for ${owner}/${repo}...`);
+    this.emitter.emitCloneStarted(owner, repo);
     RepoCloner.cloneInBackground(owner, repo);
 
     // 🤖 AGENTIC: Auto-start first_pass exploration if we don't have recent data (fire-and-forget)
@@ -295,6 +393,11 @@ export class GitSeeHandler {
                 explorationMode
               );
               response.exploration = cached?.result;
+
+              // Emit the cached result for any SSE listeners
+              if (cached?.result) {
+                this.emitter.emitExplorationCompleted(owner, repo, explorationMode, cached.result);
+              }
             } else {
               console.log(`🤖 Running ${explorationMode} agent exploration...`);
               try {

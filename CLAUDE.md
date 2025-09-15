@@ -8,7 +8,7 @@ Then run "afplay /System/Library/Sounds/Ping.aiff" so I can hear that its ready 
 
 ### guidance
 
-Please try to modularize things so its maintainable in the future. We are building a real product here... avoid mock code! But don't worry about backward compatibility for now, its still early. Also, try to keep things clean and simple.
+Please try to modularize things so its maintainable in the future. We are building a real product here... avoid mock code! But don't worry about backward compatibility for now, its still early. Feel free to delete deprecated code when you write more up-to-date implementations. IMPORTANT: try to keep things clean and simple.
 
 ## Architecture Overview
 
@@ -65,6 +65,8 @@ Please try to modularize things so its maintainable in the future. We are buildi
 3. **Client** receives data and creates **Visualization** instances
 4. **Visualizations** render nodes with organic positioning and collision detection
 5. **User clicks** trigger **DetailPanel** with dynamic content loading
+
+PLEASE UPDATE THIS FILE WHEN YOU CREATE A NEW CORE CLASS!
 
 ### future plans:
 

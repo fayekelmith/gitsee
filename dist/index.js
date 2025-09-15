@@ -3871,6 +3871,154 @@ var DetailPanel = class {
   }
 };
 
+// client/events/SSEClient.ts
+var SSEClient = class {
+  // Start with 1 second
+  constructor(baseUrl = "/api/gitsee") {
+    this.baseUrl = baseUrl;
+    this.eventSource = null;
+    this.eventHandlers = /* @__PURE__ */ new Map();
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+    this.reconnectDelay = 1e3;
+  }
+  /**
+   * Connect to SSE stream for a specific repository
+   */
+  connect(owner2, repo2) {
+    return new Promise((resolve, reject) => {
+      try {
+        this.disconnect();
+        const sseUrl = `${this.baseUrl}/events/${owner2}/${repo2}`;
+        console.log(`\u{1F4E1} Connecting to SSE: ${sseUrl}`);
+        this.eventSource = new EventSource(sseUrl);
+        this.eventSource.onopen = () => {
+          console.log(`\u2705 SSE connected to ${owner2}/${repo2}`);
+          console.log(`\u{1F4CA} EventSource readyState: ${this.eventSource?.readyState} (OPEN=1)`);
+          this.reconnectAttempts = 0;
+          resolve();
+        };
+        this.eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log(`\u{1F4E8} SSE event received:`, data.type, data);
+            const handlers = this.eventHandlers.get(data.type) || [];
+            const allHandlers = this.eventHandlers.get("*") || [];
+            [...handlers, ...allHandlers].forEach((handler) => {
+              try {
+                handler(data);
+              } catch (error) {
+                console.error("Error in SSE event handler:", error);
+              }
+            });
+          } catch (error) {
+            console.error("Error parsing SSE message:", error, event.data);
+          }
+        };
+        this.eventSource.onerror = (error) => {
+          console.error(`\u{1F4A5} SSE connection error for ${owner2}/${repo2}:`, error);
+          if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+            console.log(`\u{1F504} Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            setTimeout(() => {
+              this.connect(owner2, repo2).catch(console.error);
+            }, delay);
+          } else {
+            console.error(`\u274C Max reconnection attempts reached for ${owner2}/${repo2}`);
+            reject(new Error("Failed to connect to SSE after multiple attempts"));
+          }
+        };
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+  /**
+   * Disconnect from SSE stream
+   */
+  disconnect() {
+    if (this.eventSource) {
+      console.log("\u{1F4E1} Disconnecting SSE");
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+  }
+  /**
+   * Register event handler for specific event types
+   */
+  on(eventType, handler) {
+    if (!this.eventHandlers.has(eventType)) {
+      this.eventHandlers.set(eventType, []);
+    }
+    this.eventHandlers.get(eventType).push(handler);
+    console.log(`\u{1F4DD} Registered handler for '${eventType}' events`);
+    return () => {
+      const handlers = this.eventHandlers.get(eventType);
+      if (handlers) {
+        const index = handlers.indexOf(handler);
+        if (index > -1) {
+          handlers.splice(index, 1);
+          console.log(`\u{1F4DD} Unregistered handler for '${eventType}' events`);
+        }
+      }
+    };
+  }
+  /**
+   * Register handler for all events
+   */
+  onAll(handler) {
+    return this.on("*", handler);
+  }
+  /**
+   * Remove all event handlers for a specific event type
+   */
+  off(eventType) {
+    this.eventHandlers.delete(eventType);
+    console.log(`\u{1F4DD} Removed all handlers for '${eventType}' events`);
+  }
+  /**
+   * Remove all event handlers
+   */
+  offAll() {
+    this.eventHandlers.clear();
+    console.log("\u{1F4DD} Removed all event handlers");
+  }
+  /**
+   * Check if connected
+   */
+  isConnected() {
+    return this.eventSource?.readyState === EventSource.OPEN;
+  }
+  /**
+   * Get connection state
+   */
+  getState() {
+    return this.eventSource?.readyState ?? EventSource.CLOSED;
+  }
+  /**
+   * Convenience methods for common event types
+   */
+  onCloneStarted(handler) {
+    return this.on("clone_started", handler);
+  }
+  onCloneCompleted(handler) {
+    return this.on("clone_completed", handler);
+  }
+  onExplorationStarted(handler) {
+    return this.on("exploration_started", handler);
+  }
+  onExplorationProgress(handler) {
+    return this.on("exploration_progress", handler);
+  }
+  onExplorationCompleted(handler) {
+    return this.on("exploration_completed", handler);
+  }
+  onExplorationFailed(handler) {
+    return this.on("exploration_failed", handler);
+  }
+};
+
 // client/index.ts
 var GitVisualizer = class {
   constructor(containerSelector = "#visualization", apiEndpoint = "/api/gitsee", apiHeaders = {}) {
@@ -3952,6 +4100,7 @@ var GitVisualizer = class {
       this.showNodePanel(nodeData);
     });
     this.detailPanel = new DetailPanel();
+    this.sseClient = new SSEClient(this.apiEndpoint);
     this.linksViz["getResourceGroup"]();
   }
   /**
@@ -4083,6 +4232,11 @@ var GitVisualizer = class {
       console.log(`\u{1F680} Visualizing ${owner2}/${repo2}...`);
       this.currentOwner = owner2;
       this.currentRepo = repo2;
+      if (!this.sseClient.isConnected()) {
+        this.connectToSSE(owner2, repo2);
+      } else {
+        console.log(`\u{1F4E1} SSE already connected for ${owner2}/${repo2}`);
+      }
       this.clearVisualization();
       const data = await this.fetchRepoData(owner2, repo2);
       console.log("\u{1F4E6} API Response:", {
@@ -4184,6 +4338,62 @@ var GitVisualizer = class {
       );
     }
     return response.json();
+  }
+  connectToSSE(owner2, repo2) {
+    console.log(`\u{1F4E1} Setting up SSE for ${owner2}/${repo2}...`);
+    this.sseClient.onExplorationStarted((event) => {
+      this.showExplorationStatus(`\u{1F916} Starting ${event.mode} analysis...`, "info");
+    });
+    this.sseClient.onExplorationProgress((event) => {
+      if (event.data?.progress) {
+        this.showExplorationStatus(`\u{1F50D} ${event.data.progress}`, "info");
+      }
+    });
+    this.sseClient.onExplorationCompleted((event) => {
+      console.log(`\u{1F4E8} SSE exploration_completed event received:`, event);
+      this.showExplorationStatus(`\u2705 ${event.mode} analysis complete!`, "success");
+      if (event.mode === "first_pass" && event.data?.result) {
+        console.log(`\u{1F389} First-pass exploration completed for ${owner2}/${repo2}:`, event.data.result);
+        console.log(`\u{1F389} Infrastructure data:`, event.data.result.infrastructure);
+        this.onExplorationComplete(event.data.result, event.mode);
+      }
+    });
+    this.sseClient.onExplorationFailed((event) => {
+      this.showExplorationStatus(`\u274C Analysis failed: ${event.error}`, "error");
+    });
+    this.sseClient.onCloneStarted((event) => {
+      this.showExplorationStatus("\u{1F4E5} Cloning repository...", "info");
+    });
+    this.sseClient.onCloneCompleted((event) => {
+      if (event.data?.success) {
+        this.showExplorationStatus("\u2705 Repository cloned", "success");
+      } else {
+        this.showExplorationStatus("\u274C Repository clone failed", "error");
+      }
+    });
+    this.sseClient.connect(owner2, repo2).catch((error) => {
+      console.error("Failed to connect to SSE:", error);
+      this.showExplorationStatus("\u26A0\uFE0F Real-time updates unavailable", "warning");
+    });
+  }
+  showExplorationStatus(message, type2) {
+    console.log(`\u{1F4F1} Status: ${message}`);
+    const emoji = {
+      info: "\u2139\uFE0F",
+      success: "\u2705",
+      error: "\u274C",
+      warning: "\u26A0\uFE0F"
+    }[type2];
+    console.log(`${emoji} ${message}`);
+  }
+  onExplorationComplete(explorationResult, mode) {
+    console.log(`\u{1F38A} Processing ${mode} exploration results:`, explorationResult);
+    if (mode === "first_pass" && explorationResult.infrastructure) {
+      console.log(`\u{1F3D7}\uFE0F Infrastructure discovered: ${explorationResult.infrastructure.join(", ")}`);
+    }
+    if (explorationResult.key_files) {
+      console.log(`\u{1F4C1} Key files identified: ${explorationResult.key_files.join(", ")}`);
+    }
   }
   clearVisualization() {
     console.log("\u{1F9F9} Clearing visualization...");
@@ -4560,6 +4770,7 @@ var GitVisualizer = class {
   }
   destroy() {
     this.svg.selectAll("*").remove();
+    this.sseClient.disconnect();
     this.detailPanel.destroy();
     const styleSheet = document.getElementById("gitsee-styles");
     if (styleSheet) {
