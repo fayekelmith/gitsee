@@ -534,12 +534,12 @@ var RepoCloner = class {
   /**
    * Clone a repository in the background (fire-and-forget)
    */
-  static async cloneInBackground(owner, repo) {
+  static async cloneInBackground(owner, repo, options) {
     const repoKey = `${owner}/${repo}`;
     if (this.clonePromises.has(repoKey)) {
       return;
     }
-    const clonePromise = this.cloneRepo(owner, repo);
+    const clonePromise = this.cloneRepo(owner, repo, options);
     this.clonePromises.set(repoKey, clonePromise);
     clonePromise.finally(() => {
       setTimeout(() => {
@@ -555,10 +555,15 @@ var RepoCloner = class {
   /**
    * Clone a repository to /tmp/gitsee/{owner}/{repo}
    */
-  static async cloneRepo(owner, repo) {
+  static async cloneRepo(owner, repo, options) {
     const startTime = Date.now();
     const repoPath = path.join(this.BASE_PATH, owner, repo);
-    const githubUrl = `https://github.com/${owner}/${repo}.git`;
+    let githubUrl;
+    if (options?.username && options?.token) {
+      githubUrl = `https://${options.username}:${options.token}@github.com/${owner}/${repo}.git`;
+    } else {
+      githubUrl = `https://github.com/${owner}/${repo}.git`;
+    }
     console.log(`\u{1F4E5} Starting clone of ${owner}/${repo} to ${repoPath}`);
     try {
       if (fs.existsSync(repoPath)) {
@@ -573,7 +578,7 @@ var RepoCloner = class {
       }
       const parentDir = path.dirname(repoPath);
       fs.mkdirSync(parentDir, { recursive: true });
-      const result = await this.executeGitClone(githubUrl, repoPath);
+      const result = await this.executeGitClone(githubUrl, repoPath, options?.branch);
       const duration = Date.now() - startTime;
       if (result.success) {
         console.log(`\u2705 Successfully cloned ${owner}/${repo} in ${duration}ms`);
@@ -605,20 +610,23 @@ var RepoCloner = class {
   /**
    * Execute git clone command with shallow clone and single branch
    */
-  static executeGitClone(githubUrl, targetPath) {
+  static executeGitClone(githubUrl, targetPath, branch) {
     return new Promise((resolve) => {
-      const gitProcess = spawn("git", [
+      const gitArgs = [
         "clone",
         "--depth",
         "1",
         // Shallow clone (only latest commit)
         "--single-branch",
-        // Only clone the default branch
-        "--no-tags",
+        // Only clone the specified branch
+        "--no-tags"
         // Skip tags for speed
-        githubUrl,
-        targetPath
-      ]);
+      ];
+      if (branch) {
+        gitArgs.push("--branch", branch);
+      }
+      gitArgs.push(githubUrl, targetPath);
+      const gitProcess = spawn("git", gitArgs);
       let errorOutput = "";
       gitProcess.stderr.on("data", (data) => {
         errorOutput += data.toString();
@@ -663,7 +671,7 @@ var RepoCloner = class {
   /**
    * Wait for a repository clone to complete
    */
-  static async waitForClone(owner, repo) {
+  static async waitForClone(owner, repo, options) {
     const repoKey = `${owner}/${repo}`;
     if (this.isRepoCloned(owner, repo)) {
       return {
@@ -677,7 +685,7 @@ var RepoCloner = class {
       return await clonePromise;
     }
     console.log(`\u{1F680} Starting new clone for ${owner}/${repo}...`);
-    return await this.cloneRepo(owner, repo);
+    return await this.cloneRepo(owner, repo, options);
   }
   /**
    * Get clone result if available (non-blocking)
@@ -1059,13 +1067,12 @@ var CONFIG = {
     final_answer_description: general_exports.FINAL_ANSWER
   },
   services: {
-    file_lines: 40,
+    file_lines: 100,
     system: services_exports.EXPLORER,
     final_answer_description: services_exports.FINAL_ANSWER
   }
 };
 async function get_context(prompt, repoPath, mode = "general") {
-  console.log("GET CONTEXT", { mode, repoPath });
   const startTime = Date.now();
   const provider = process.env.LLM_PROVIDER || "anthropic";
   const apiKey = getApiKeyForProvider(provider);
@@ -1164,6 +1171,7 @@ async function get_context(prompt, repoPath, mode = "general") {
 }
 setTimeout(() => {
   return;
+  console.log("=====> get_context <=====");
   get_context(
     "How do I set up this project?",
     "/Users/evanfeenstra/code/sphinx2/hive",
@@ -1253,6 +1261,70 @@ async function explore(prompt, repoPath, mode = "first_pass") {
     }
   }
 }
+
+// server/agent/utils.ts
+function parse_files_contents(content) {
+  const files = /* @__PURE__ */ new Map();
+  const lines = content.split("\n");
+  let inCode = false;
+  let currentFileName = null;
+  let currentFileContent = [];
+  for (const line of lines) {
+    if (line.startsWith("```")) {
+      if (inCode) {
+        if (currentFileName) {
+          files.set(currentFileName, currentFileContent.join("\n"));
+          currentFileName = null;
+          currentFileContent = [];
+        }
+        inCode = false;
+      } else {
+        inCode = true;
+      }
+    } else if (inCode) {
+      currentFileContent.push(line);
+    } else {
+      if (line.trim()) {
+        currentFileName = line.trim();
+      }
+    }
+  }
+  return files;
+}
+
+// server/agent/index.ts
+async function clone_and_explore(owner, repo, prompt, mode = "general", clone_options) {
+  await RepoCloner.waitForClone(owner, repo, clone_options);
+  const cloneResult = await RepoCloner.getCloneResult(owner, repo);
+  if (!cloneResult?.success) {
+    throw new Error("Failed to clone repo");
+  }
+  const localPath = cloneResult.localPath;
+  const result = await get_context(prompt, localPath, mode);
+  return result;
+}
+async function clone_and_explore_parse_files(owner, repo, prompt, mode = "general", clone_options) {
+  const result = await clone_and_explore(
+    owner,
+    repo,
+    prompt,
+    mode,
+    clone_options
+  );
+  return parse_files_contents(result);
+}
+setTimeout(() => {
+  console.log("=====> clone_and_explore_parse_files <=====");
+  clone_and_explore_parse_files(
+    "stakwork",
+    "hive",
+    "How do I set up this project?",
+    "services"
+  ).then((result) => {
+    console.log("=============== FINAL RESULT: ===============");
+    console.log(result);
+  });
+});
 
 // server/persistence/FileStore.ts
 import * as fs3 from "fs";

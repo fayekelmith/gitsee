@@ -9,10 +9,11 @@ export type {
 export { explore } from "./explore-wrapper.js";
 export type { ExplorationResult } from "./explore-wrapper.js";
 
+import { parse_files_contents } from "./utils.js";
 import { RepoCloner, CloneOptions } from "./repo-cloner.js";
 import { get_context, RepoContextMode } from "./explore.js";
 
-export async function clone_and_get_context(
+export async function clone_and_explore(
   owner: string,
   repo: string,
   prompt: string,
@@ -29,3 +30,34 @@ export async function clone_and_get_context(
   const result = await get_context(prompt, localPath, mode);
   return result;
 }
+
+export async function clone_and_explore_parse_files(
+  owner: string,
+  repo: string,
+  prompt: string,
+  mode: RepoContextMode = "general",
+  clone_options?: CloneOptions
+): Promise<Map<string, string>> {
+  const result = await clone_and_explore(
+    owner,
+    repo,
+    prompt,
+    mode,
+    clone_options
+  );
+  return parse_files_contents(result);
+}
+
+setTimeout(() => {
+  return;
+  console.log("=====> clone_and_explore_parse_files <=====");
+  clone_and_explore_parse_files(
+    "stakwork",
+    "hive",
+    "How do I set up this project?",
+    "services"
+  ).then((result) => {
+    console.log("=============== FINAL RESULT: ===============");
+    console.log(result);
+  });
+});

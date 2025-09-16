@@ -33,7 +33,7 @@ const CONFIG: Record<RepoContextMode, ContextConfig> = {
     final_answer_description: prompts.GENERAL.FINAL_ANSWER,
   },
   services: {
-    file_lines: 40,
+    file_lines: 100,
     system: prompts.SERVICES.EXPLORER,
     final_answer_description: prompts.SERVICES.FINAL_ANSWER,
   },
@@ -165,6 +165,7 @@ export async function get_context(
 
 setTimeout(() => {
   return;
+  console.log("=====> get_context <=====");
   get_context(
     "How do I set up this project?",
     "/Users/evanfeenstra/code/sphinx2/hive",
