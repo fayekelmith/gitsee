@@ -16,11 +16,11 @@ export default defineConfig([
   {
     entry: ["client/index.ts"],
     format: ["esm"],
-    outDir: "dist",
+    outDir: "dist/client",
     noExternal: ["d3", "d3-force", "d3-selection", "d3-zoom"], // Bundle d3 dependencies
-    dts: false,
+    dts: true,
     sourcemap: true,
-    clean: true,
+    clean: false,
     splitting: false,
   },
 ]);

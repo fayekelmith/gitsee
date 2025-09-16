@@ -2,14 +2,30 @@
   "name": "gitsee",
   "version": "1.0.0",
   "description": "Git repository visualizer using D3.js graph visualization",
-  "main": "src/main.ts",
+  "main": "dist/client/index.js",
+  "types": "dist/client/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/client/index.js",
+      "types": "./dist/client/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server/index.js",
+      "types": "./dist/server/index.d.ts"
+    },
+    "./client": {
+      "import": "./dist/client/index.js",
+      "types": "./dist/client/index.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsup",
     "dev": "npm run build && node dev-server.js",
     "lint": "eslint client server --ext .js,.ts",
     "format": "prettier --write client/**/*.ts server/**/*.ts",
-    "test-agent": "node test-agent.js"
+    "test-agent": "node test-agent.js",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "git",
@@ -41,5 +57,9 @@
     "tsup": "^8.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
-  }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
 }
