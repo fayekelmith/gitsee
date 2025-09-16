@@ -129,57 +129,33 @@ export class GitSeeHandler {
   }
 
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    console.log("🔥 GitSeeHandler.handle() - START");
-
     // Set CORS headers
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    console.log("🔥 CORS headers set");
 
     if (req.method === "OPTIONS") {
-      console.log("🔥 OPTIONS request, responding with 200");
       res.writeHead(200);
       res.end();
       return;
     }
 
     if (req.method !== "POST") {
-      console.log("🔥 Method not POST:", req.method);
       res.writeHead(405, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Method not allowed" }));
       return;
     }
 
     try {
-      console.log("🔥 Parsing request body...");
       const body = await this.parseRequestBody(req);
-      console.log("🔥 Request body parsed:", body.length, "chars");
-
-      console.log("🔥 Parsing JSON...");
       const request: GitSeeRequest = JSON.parse(body);
-      console.log(
-        "🔥 JSON parsed - owner:",
-        request.owner,
-        "repo:",
-        request.repo,
-        "data:",
-        request.data
-      );
 
-      console.log("🔥 About to call processRequest...");
       const response = await this.processRequest(request);
-      console.log(
-        "🔥 processRequest completed, response keys:",
-        Object.keys(response)
-      );
 
-      console.log("🔥 Sending response...");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(response));
-      console.log("🔥 Response sent successfully");
     } catch (error) {
-      console.error("🔥 GitSee handler error:", error);
+      console.error("GitSee handler error:", error);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({
@@ -195,37 +171,18 @@ export class GitSeeHandler {
    * Use this when your framework already parsed the JSON body (e.g., express.json() middleware)
    */
   async handleJson(body: GitSeeRequest, res: ServerResponse): Promise<void> {
-    console.log("🔥 GitSeeHandler.handleJson() - START");
-
     // Set CORS headers
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    console.log("🔥 CORS headers set");
 
     try {
-      console.log(
-        "🔥 Using pre-parsed body - owner:",
-        body.owner,
-        "repo:",
-        body.repo,
-        "data:",
-        body.data
-      );
-
-      console.log("🔥 About to call processRequest...");
       const response = await this.processRequest(body);
-      console.log(
-        "🔥 processRequest completed, response keys:",
-        Object.keys(response)
-      );
 
-      console.log("🔥 Sending response...");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(response));
-      console.log("🔥 Response sent successfully");
     } catch (error) {
-      console.error("🔥 GitSee handleJson error:", error);
+      console.error("GitSee handleJson error:", error);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({
@@ -422,38 +379,19 @@ export class GitSeeHandler {
   }
 
   private async parseRequestBody(req: IncomingMessage): Promise<string> {
-    console.log("🔥 parseRequestBody - START");
     return new Promise((resolve, reject) => {
       let body = "";
-      console.log("🔥 Setting up data/end/error handlers...");
-
-      req.on("data", (chunk: any) => {
-        console.log("🔥 Received data chunk:", chunk.length, "bytes");
-        body += chunk;
-      });
-
-      req.on("end", () => {
-        console.log("🔥 Request body parsing complete:", body.length, "chars");
-        resolve(body);
-      });
-
-      req.on("error", (error) => {
-        console.log("🔥 Request body parsing error:", error);
-        reject(error);
-      });
-
-      console.log("🔥 Waiting for request data...");
+      req.on("data", (chunk: any) => (body += chunk));
+      req.on("end", () => resolve(body));
+      req.on("error", reject);
     });
   }
 
   private async processRequest(
     request: GitSeeRequest
   ): Promise<GitSeeResponse> {
-    console.log("🔥 processRequest - START");
     const { owner, repo, data, cloneOptions } = request;
     const response: GitSeeResponse = {};
-
-    console.log("🔥 Setting up Octokit and resources...");
     // Create per-request Octokit instance if token provided, otherwise use default
     const requestOctokit = cloneOptions?.token
       ? new Octokit({ auth: cloneOptions.token })
@@ -482,14 +420,12 @@ export class GitSeeHandler {
       ? new StatsResource(requestOctokit, this.cache)
       : this.stats;
 
-    console.log("🔥 Starting background operations...");
     // 🚀 AGENTIC: Start background clone immediately (fire-and-forget) with clone options
     console.log(`🔄 Starting background clone for ${owner}/${repo}...`);
     this.emitter.emitCloneStarted(owner, repo);
     RepoCloner.cloneInBackground(owner, repo, cloneOptions);
 
     // 🤖 AGENTIC: Auto-start first_pass exploration if we don't have recent data (fire-and-forget)
-    console.log("🔥 Starting first pass exploration...");
     this.autoStartFirstPassExploration(owner, repo, cloneOptions);
 
     // Add visualization options to response
@@ -517,11 +453,9 @@ export class GitSeeHandler {
       `🔍 Processing request for ${owner}/${repo} with data: [${data.join(", ")}]`
     );
 
-    console.log("🔥 Starting main data processing loop...");
     // Process each requested data type using resource modules
     for (const dataType of data) {
       try {
-        console.log(`🔥 Processing data type: ${dataType}`);
         switch (dataType) {
           case "repo_info":
             console.log(`🔍 Fetching repository info for ${owner}/${repo}...`);
@@ -712,8 +646,6 @@ export class GitSeeHandler {
       }
     }
 
-    console.log("🔥 Main data processing loop completed");
-    console.log("🔥 processRequest - END, returning response");
     return response;
   }
 }
