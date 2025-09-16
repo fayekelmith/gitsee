@@ -70,18 +70,21 @@ class GitVisualizer {
 
   // API configuration
   private apiEndpoint: string;
+  private sseEndpoint: string;
   private apiHeaders: Record<string, string>;
 
   constructor(
     containerSelector: string = "#visualization",
     apiEndpoint: string = "/api/gitsee",
-    apiHeaders: Record<string, string> = {}
+    apiHeaders: Record<string, string> = {},
+    sseEndpoint?: string
   ) {
     const container = d3.select(containerSelector);
     const containerNode = container.node() as Element;
 
     // Store the API configuration
     this.apiEndpoint = apiEndpoint;
+    this.sseEndpoint = sseEndpoint || apiEndpoint; // Use apiEndpoint as fallback for SSE
     this.apiHeaders = {
       "Content-Type": "application/json",
       ...apiHeaders, // User headers override defaults
@@ -165,8 +168,8 @@ class GitVisualizer {
     // Initialize detail panel
     this.detailPanel = new DetailPanel();
 
-    // Initialize SSE client
-    this.sseClient = new SSEClient(this.apiEndpoint);
+    // Initialize SSE client with separate endpoint
+    this.sseClient = new SSEClient(this.sseEndpoint);
 
     // Create links group first to ensure it's at the bottom
     this.linksViz["getResourceGroup"]();
@@ -1212,6 +1215,32 @@ class GitVisualizer {
     );
   }
 
+  public setSseEndpoint(sseEndpoint: string): void {
+    this.sseEndpoint = sseEndpoint;
+    // Reinitialize SSE client with new endpoint
+    this.sseClient.disconnect();
+    this.sseClient = new SSEClient(this.sseEndpoint);
+  }
+
+  public setEndpoints(apiEndpoint: string, sseEndpoint?: string): void {
+    this.apiEndpoint = apiEndpoint;
+    this.sseEndpoint = sseEndpoint || apiEndpoint;
+
+    // Update files visualization
+    this.filesViz = new FilesVisualization(
+      this.context,
+      (nodeData) => {
+        this.showNodePanel(nodeData);
+      },
+      this.apiEndpoint,
+      this.apiHeaders
+    );
+
+    // Update SSE client
+    this.sseClient.disconnect();
+    this.sseClient = new SSEClient(this.sseEndpoint);
+  }
+
   public setApiHeaders(apiHeaders: Record<string, string>): void {
     this.apiHeaders = {
       "Content-Type": "application/json",
@@ -1230,6 +1259,10 @@ class GitVisualizer {
 
   public getApiEndpoint(): string {
     return this.apiEndpoint;
+  }
+
+  public getSseEndpoint(): string {
+    return this.sseEndpoint;
   }
 
   public getApiHeaders(): Record<string, string> {

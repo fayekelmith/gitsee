@@ -4223,7 +4223,7 @@ var SSEClient = class {
 
 // client/index.ts
 var GitVisualizer = class {
-  constructor(containerSelector = "#visualization", apiEndpoint = "/api/gitsee", apiHeaders = {}) {
+  constructor(containerSelector = "#visualization", apiEndpoint = "/api/gitsee", apiHeaders = {}, sseEndpoint) {
     // Data storage
     this.allNodes = [];
     this.allLinks = [];
@@ -4257,6 +4257,7 @@ var GitVisualizer = class {
     const container = select_default2(containerSelector);
     const containerNode = container.node();
     this.apiEndpoint = apiEndpoint;
+    this.sseEndpoint = sseEndpoint || apiEndpoint;
     this.apiHeaders = {
       "Content-Type": "application/json",
       ...apiHeaders
@@ -4314,7 +4315,7 @@ var GitVisualizer = class {
       this.showNodePanel(nodeData);
     });
     this.detailPanel = new DetailPanel();
-    this.sseClient = new SSEClient(this.apiEndpoint);
+    this.sseClient = new SSEClient(this.sseEndpoint);
     this.linksViz["getResourceGroup"]();
   }
   /**
@@ -5078,6 +5079,25 @@ var GitVisualizer = class {
       this.apiHeaders
     );
   }
+  setSseEndpoint(sseEndpoint) {
+    this.sseEndpoint = sseEndpoint;
+    this.sseClient.disconnect();
+    this.sseClient = new SSEClient(this.sseEndpoint);
+  }
+  setEndpoints(apiEndpoint, sseEndpoint) {
+    this.apiEndpoint = apiEndpoint;
+    this.sseEndpoint = sseEndpoint || apiEndpoint;
+    this.filesViz = new FilesVisualization(
+      this.context,
+      (nodeData) => {
+        this.showNodePanel(nodeData);
+      },
+      this.apiEndpoint,
+      this.apiHeaders
+    );
+    this.sseClient.disconnect();
+    this.sseClient = new SSEClient(this.sseEndpoint);
+  }
   setApiHeaders(apiHeaders) {
     this.apiHeaders = {
       "Content-Type": "application/json",
@@ -5094,6 +5114,9 @@ var GitVisualizer = class {
   }
   getApiEndpoint() {
     return this.apiEndpoint;
+  }
+  getSseEndpoint() {
+    return this.sseEndpoint;
   }
   getApiHeaders() {
     return { ...this.apiHeaders };

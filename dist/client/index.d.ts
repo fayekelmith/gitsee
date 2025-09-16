@@ -23,8 +23,9 @@ declare class GitVisualizer {
     private zoomSpeed;
     private spiralDistances;
     private apiEndpoint;
+    private sseEndpoint;
     private apiHeaders;
-    constructor(containerSelector?: string, apiEndpoint?: string, apiHeaders?: Record<string, string>);
+    constructor(containerSelector?: string, apiEndpoint?: string, apiHeaders?: Record<string, string>, sseEndpoint?: string);
     private initializeVisualization;
     /**
      * 🔍 Collision Detection System
@@ -64,8 +65,11 @@ declare class GitVisualizer {
     hideDetailPanel(): void;
     toggleDetailPanel(): void;
     setApiEndpoint(apiEndpoint: string): void;
+    setSseEndpoint(sseEndpoint: string): void;
+    setEndpoints(apiEndpoint: string, sseEndpoint?: string): void;
     setApiHeaders(apiHeaders: Record<string, string>): void;
     getApiEndpoint(): string;
+    getSseEndpoint(): string;
     getApiHeaders(): Record<string, string>;
     destroy(): void;
 }
