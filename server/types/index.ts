@@ -1,3 +1,5 @@
+import { CloneOptions } from "../agent/index.js";
+
 export interface GitSeeRequest {
   owner: string;
   repo: string;
@@ -15,6 +17,8 @@ export interface GitSeeRequest {
   filePath?: string; // Required when requesting file_content
   explorationMode?: "general" | "first_pass"; // Type of exploration to run
   explorationPrompt?: string; // Custom prompt for exploration
+  // Optional clone options for private repos, auth, or different branches
+  cloneOptions?: CloneOptions;
 }
 
 export interface GitSeeResponse {

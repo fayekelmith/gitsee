@@ -578,7 +578,11 @@ var RepoCloner = class {
       }
       const parentDir = path.dirname(repoPath);
       fs.mkdirSync(parentDir, { recursive: true });
-      const result = await this.executeGitClone(githubUrl, repoPath, options?.branch);
+      const result = await this.executeGitClone(
+        githubUrl,
+        repoPath,
+        options?.branch
+      );
       const duration = Date.now() - startTime;
       if (result.success) {
         console.log(`\u2705 Successfully cloned ${owner}/${repo} in ${duration}ms`);
@@ -740,7 +744,7 @@ var RepoCloner = class {
     }
   }
 };
-RepoCloner.BASE_PATH = "/tmp/gitsee";
+RepoCloner.BASE_PATH = process.env.GITSEE_BASE_PATH || "/tmp/gitsee";
 RepoCloner.clonePromises = /* @__PURE__ */ new Map();
 
 // server/agent/explore.ts
@@ -1708,14 +1712,14 @@ var GitSeeHandler = class {
       );
     }
   }
-  autoStartFirstPassExploration(owner, repo) {
+  autoStartFirstPassExploration(owner, repo, cloneOptions) {
     setImmediate(async () => {
       try {
         const hasRecent = await this.store.hasRecentExploration(owner, repo, "first_pass", 24);
         if (!hasRecent) {
           console.log(`\u{1F680} Auto-starting first_pass exploration for ${owner}/${repo}...`);
           this.emitter.emitExplorationStarted(owner, repo, "first_pass");
-          this.runBackgroundExploration(owner, repo, "first_pass").catch((error) => {
+          this.runBackgroundExploration(owner, repo, "first_pass", cloneOptions).catch((error) => {
             console.error(`\u{1F6A8} Background first_pass exploration failed for ${owner}/${repo}:`, error.message);
             this.emitter.emitExplorationFailed(owner, repo, "first_pass", error.message);
           });
@@ -1747,9 +1751,9 @@ var GitSeeHandler = class {
       }
     });
   }
-  async runBackgroundExploration(owner, repo, mode) {
+  async runBackgroundExploration(owner, repo, mode, cloneOptions) {
     try {
-      await RepoCloner.waitForClone(owner, repo);
+      await RepoCloner.waitForClone(owner, repo, cloneOptions);
       const cloneResult = await RepoCloner.getCloneResult(owner, repo);
       if (cloneResult?.success && cloneResult.localPath) {
         this.emitter.emitCloneCompleted(owner, repo, true, cloneResult.localPath);
@@ -1779,12 +1783,20 @@ var GitSeeHandler = class {
     });
   }
   async processRequest(request) {
-    const { owner, repo, data } = request;
+    const { owner, repo, data, cloneOptions } = request;
     const response = {};
+    const requestOctokit = cloneOptions?.token ? new Octokit({ auth: cloneOptions.token }) : this.octokit;
+    const contributors = cloneOptions?.token ? new ContributorsResource(requestOctokit, this.cache) : this.contributors;
+    const icons = cloneOptions?.token ? new IconsResource(requestOctokit, this.cache) : this.icons;
+    const repository = cloneOptions?.token ? new RepositoryResource(requestOctokit, this.cache) : this.repository;
+    const commits = cloneOptions?.token ? new CommitsResource(requestOctokit, this.cache) : this.commits;
+    const branches = cloneOptions?.token ? new BranchesResource(requestOctokit, this.cache) : this.branches;
+    const files = cloneOptions?.token ? new FilesResource(requestOctokit, this.cache) : this.files;
+    const stats = cloneOptions?.token ? new StatsResource(requestOctokit, this.cache) : this.stats;
     console.log(`\u{1F504} Starting background clone for ${owner}/${repo}...`);
     this.emitter.emitCloneStarted(owner, repo);
-    RepoCloner.cloneInBackground(owner, repo);
-    this.autoStartFirstPassExploration(owner, repo);
+    RepoCloner.cloneInBackground(owner, repo, cloneOptions);
+    this.autoStartFirstPassExploration(owner, repo, cloneOptions);
     if (this.options.visualization) {
       response.options = {
         nodeDelay: this.options.visualization.nodeDelay || 800
@@ -1808,12 +1820,12 @@ var GitSeeHandler = class {
         switch (dataType) {
           case "repo_info":
             console.log(`\u{1F50D} Fetching repository info for ${owner}/${repo}...`);
-            response.repo = await this.repository.getRepoInfo(owner, repo);
+            response.repo = await repository.getRepoInfo(owner, repo);
             console.log(`\u{1F4CB} Repository info result: Found`);
             break;
           case "contributors":
             console.log(`\u{1F50D} Fetching contributors for ${owner}/${repo}...`);
-            response.contributors = await this.contributors.getContributors(
+            response.contributors = await contributors.getContributors(
               owner,
               repo
             );
@@ -1823,7 +1835,7 @@ var GitSeeHandler = class {
             break;
           case "icon":
             console.log(`\u{1F50D} Fetching icon for ${owner}/${repo}...`);
-            response.icon = await this.icons.getRepoIcon(owner, repo);
+            response.icon = await icons.getRepoIcon(owner, repo);
             console.log(
               `\u{1F4F7} Icon result:`,
               response.icon ? "Found" : "Not found"
@@ -1831,28 +1843,28 @@ var GitSeeHandler = class {
             break;
           case "commits":
             console.log(`\u{1F50D} Fetching commits for ${owner}/${repo}...`);
-            response.commits = await this.commits.getCommits(owner, repo);
+            response.commits = await commits.getCommits(owner, repo);
             console.log(
               `\u{1F4DD} Commits result: ${response.commits?.length || 0} found`
             );
             break;
           case "branches":
             console.log(`\u{1F50D} Fetching branches for ${owner}/${repo}...`);
-            response.branches = await this.branches.getBranches(owner, repo);
+            response.branches = await branches.getBranches(owner, repo);
             console.log(
               `\u{1F33F} Branches result: ${response.branches?.length || 0} found`
             );
             break;
           case "files":
             console.log(`\u{1F50D} Fetching key files for ${owner}/${repo}...`);
-            response.files = await this.files.getKeyFiles(owner, repo);
+            response.files = await files.getKeyFiles(owner, repo);
             console.log(
               `\u{1F4C1} Files result: ${response.files?.length || 0} found`
             );
             break;
           case "stats":
             console.log(`\u{1F50D} Fetching stats for ${owner}/${repo}...`);
-            response.stats = await this.stats.getRepoStats(owner, repo);
+            response.stats = await stats.getRepoStats(owner, repo);
             console.log(
               `\u{1F4CA} Stats result: ${response.stats?.stars} stars, ${response.stats?.totalPRs} PRs, ${response.stats?.totalCommits} commits, ${response.stats?.ageInYears}y old`
             );
@@ -1867,7 +1879,7 @@ var GitSeeHandler = class {
             console.log(
               `\u{1F50D} Fetching file content for ${owner}/${repo}:${request.filePath}...`
             );
-            response.fileContent = await this.files.getFileContent(
+            response.fileContent = await files.getFileContent(
               owner,
               repo,
               request.filePath
@@ -1900,7 +1912,7 @@ var GitSeeHandler = class {
             } else {
               console.log(`\u{1F916} Running ${explorationMode} agent exploration...`);
               try {
-                await RepoCloner.waitForClone(owner, repo);
+                await RepoCloner.waitForClone(owner, repo, cloneOptions);
                 const cloneResult = await RepoCloner.getCloneResult(
                   owner,
                   repo

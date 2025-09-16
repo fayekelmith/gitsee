@@ -3,6 +3,27 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { EventEmitter } from 'events';
 import { Octokit } from '@octokit/rest';
 
+interface CloneOptions {
+    username?: string;
+    token?: string;
+    branch?: string;
+}
+
+type RepoContextMode = "first_pass" | "general" | "services";
+interface GeneralContextResult {
+    summary: string;
+    key_files: string[];
+    features: string[];
+}
+interface FirstPassContextResult {
+    summary: string;
+    key_files: string[];
+    infrastructure: string[];
+    dependencies: string[];
+    user_stories: string[];
+    pages: string[];
+}
+
 interface GitSeeRequest {
     owner: string;
     repo: string;
@@ -10,6 +31,7 @@ interface GitSeeRequest {
     filePath?: string;
     explorationMode?: "general" | "first_pass";
     explorationPrompt?: string;
+    cloneOptions?: CloneOptions;
 }
 interface GitSeeResponse {
     repo?: any;
@@ -140,21 +162,6 @@ declare class GitSeeHandler {
 declare function createGitSeeHandler(options?: GitSeeOptions): (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 
 declare function createGitSeeServer(options?: GitSeeOptions): http.Server<typeof IncomingMessage, typeof ServerResponse>;
-
-type RepoContextMode = "first_pass" | "general" | "services";
-interface GeneralContextResult {
-    summary: string;
-    key_files: string[];
-    features: string[];
-}
-interface FirstPassContextResult {
-    summary: string;
-    key_files: string[];
-    infrastructure: string[];
-    dependencies: string[];
-    user_stories: string[];
-    pages: string[];
-}
 
 type ExplorationResult = GeneralContextResult | FirstPassContextResult | string;
 

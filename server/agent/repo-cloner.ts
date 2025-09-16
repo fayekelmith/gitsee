@@ -16,13 +16,18 @@ export interface CloneOptions {
 }
 
 export class RepoCloner {
-  private static readonly BASE_PATH = "/tmp/gitsee";
+  private static readonly BASE_PATH =
+    process.env.GITSEE_BASE_PATH || "/tmp/gitsee";
   private static clonePromises: Map<string, Promise<CloneResult>> = new Map();
 
   /**
    * Clone a repository in the background (fire-and-forget)
    */
-  static async cloneInBackground(owner: string, repo: string, options?: CloneOptions): Promise<void> {
+  static async cloneInBackground(
+    owner: string,
+    repo: string,
+    options?: CloneOptions
+  ): Promise<void> {
     const repoKey = `${owner}/${repo}`;
 
     // If already cloning, don't start another clone
@@ -45,7 +50,7 @@ export class RepoCloner {
       .catch((error) => {
         console.error(
           `🚨 Background clone failed for ${owner}/${repo}:`,
-          error.message,
+          error.message
         );
       });
   }
@@ -53,7 +58,11 @@ export class RepoCloner {
   /**
    * Clone a repository to /tmp/gitsee/{owner}/{repo}
    */
-  static async cloneRepo(owner: string, repo: string, options?: CloneOptions): Promise<CloneResult> {
+  static async cloneRepo(
+    owner: string,
+    repo: string,
+    options?: CloneOptions
+  ): Promise<CloneResult> {
     const startTime = Date.now();
     const repoPath = path.join(this.BASE_PATH, owner, repo);
 
@@ -71,7 +80,7 @@ export class RepoCloner {
       // Check if already exists
       if (fs.existsSync(repoPath)) {
         console.log(
-          `📂 Repository ${owner}/${repo} already exists at ${repoPath}`,
+          `📂 Repository ${owner}/${repo} already exists at ${repoPath}`
         );
         return {
           success: true,
@@ -85,7 +94,11 @@ export class RepoCloner {
       fs.mkdirSync(parentDir, { recursive: true });
 
       // Clone with shallow copy (depth 1) and single branch for speed
-      const result = await this.executeGitClone(githubUrl, repoPath, options?.branch);
+      const result = await this.executeGitClone(
+        githubUrl,
+        repoPath,
+        options?.branch
+      );
 
       const duration = Date.now() - startTime;
 
@@ -124,7 +137,7 @@ export class RepoCloner {
   private static executeGitClone(
     githubUrl: string,
     targetPath: string,
-    branch?: string,
+    branch?: string
   ): Promise<{ success: boolean; error?: string }> {
     return new Promise((resolve) => {
       // Build git clone arguments
@@ -200,7 +213,11 @@ export class RepoCloner {
   /**
    * Wait for a repository clone to complete
    */
-  static async waitForClone(owner: string, repo: string, options?: CloneOptions): Promise<CloneResult> {
+  static async waitForClone(
+    owner: string,
+    repo: string,
+    options?: CloneOptions
+  ): Promise<CloneResult> {
     const repoKey = `${owner}/${repo}`;
 
     // Check if already cloned
@@ -228,7 +245,7 @@ export class RepoCloner {
    */
   static async getCloneResult(
     owner: string,
-    repo: string,
+    repo: string
   ): Promise<CloneResult | null> {
     const repoKey = `${owner}/${repo}`;
 
