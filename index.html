@@ -23,6 +23,28 @@
   </head>
   <body>
     <svg id="visualization"></svg>
-    <script type="module" src="/dist/client/index.js"></script>
+
+    <script type="module">
+      import { GitVisualizer } from "./dist/client/index.js";
+
+      // Get repo from URL params or use default
+      const urlParams = new URLSearchParams(window.location.search);
+      const repoParam = urlParams.get("repo") || "stakwork/hive";
+      const [owner, repo] = repoParam.split("/");
+
+      // Create and configure visualizer
+      const visualizer = new GitVisualizer(
+        "#visualization", // container selector
+        "http://localhost:3000/gitsee", // API endpoint
+        {} // custom headers (optional)
+      );
+
+      // Start visualization
+      if (owner && repo) {
+        visualizer.visualize(owner, repo);
+      } else {
+        console.error("Invalid repo format. Use: ?repo=owner/repo");
+      }
+    </script>
   </body>
 </html>

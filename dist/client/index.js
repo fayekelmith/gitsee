@@ -3525,7 +3525,7 @@ var FilesVisualization = class extends BaseVisualizationResource {
       group.select("text").transition().duration(200).attr("fill", "#b6b6b6");
     });
   }
-  async getPanelContent(nodeData, owner2, repo2) {
+  async getPanelContent(nodeData, owner, repo) {
     const sections = [];
     sections.push({
       title: "Content",
@@ -3535,16 +3535,16 @@ var FilesVisualization = class extends BaseVisualizationResource {
     try {
       console.log(`\u{1F50D} Fetching content for file: ${nodeData.name}`);
       console.log(`\u{1F50D} API request details:`, {
-        owner: owner2,
-        repo: repo2,
+        owner,
+        repo,
         filePath: nodeData.path || nodeData.name
       });
       const response = await fetch(this.apiEndpoint, {
         method: "POST",
         headers: this.apiHeaders,
         body: JSON.stringify({
-          owner: owner2,
-          repo: repo2,
+          owner,
+          repo,
           data: ["file_content"],
           filePath: nodeData.path || nodeData.name
         })
@@ -4087,15 +4087,15 @@ var SSEClient = class {
   /**
    * Connect to SSE stream for a specific repository
    */
-  connect(owner2, repo2) {
+  connect(owner, repo) {
     return new Promise((resolve, reject) => {
       try {
         this.disconnect();
-        const sseUrl = `${this.baseUrl}/events/${owner2}/${repo2}`;
+        const sseUrl = `${this.baseUrl}/events/${owner}/${repo}`;
         console.log(`\u{1F4E1} Connecting to SSE: ${sseUrl}`);
         this.eventSource = new EventSource(sseUrl);
         this.eventSource.onopen = () => {
-          console.log(`\u2705 SSE connected to ${owner2}/${repo2}`);
+          console.log(`\u2705 SSE connected to ${owner}/${repo}`);
           console.log(`\u{1F4CA} EventSource readyState: ${this.eventSource?.readyState} (OPEN=1)`);
           this.reconnectAttempts = 0;
           resolve();
@@ -4118,16 +4118,16 @@ var SSEClient = class {
           }
         };
         this.eventSource.onerror = (error) => {
-          console.error(`\u{1F4A5} SSE connection error for ${owner2}/${repo2}:`, error);
+          console.error(`\u{1F4A5} SSE connection error for ${owner}/${repo}:`, error);
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
             const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
             console.log(`\u{1F504} Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
             setTimeout(() => {
-              this.connect(owner2, repo2).catch(console.error);
+              this.connect(owner, repo).catch(console.error);
             }, delay);
           } else {
-            console.error(`\u274C Max reconnection attempts reached for ${owner2}/${repo2}`);
+            console.error(`\u274C Max reconnection attempts reached for ${owner}/${repo}`);
             reject(new Error("Failed to connect to SSE after multiple attempts"));
           }
         };
@@ -4299,9 +4299,14 @@ var GitVisualizer = class {
       }
     );
     this.linksViz = new LinksVisualization(this.context);
-    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
-      this.showNodePanel(nodeData);
-    }, this.apiEndpoint, this.apiHeaders);
+    this.filesViz = new FilesVisualization(
+      this.context,
+      (nodeData) => {
+        this.showNodePanel(nodeData);
+      },
+      this.apiEndpoint,
+      this.apiHeaders
+    );
     this.statsViz = new StatsVisualization(this.context, (nodeData) => {
       this.showNodePanel(nodeData);
     });
@@ -4451,18 +4456,18 @@ var GitVisualizer = class {
       `\u{1F50D} Gradual zoom out to ${targetZoom.toFixed(2)}x (repo stays centered)`
     );
   }
-  async visualize(owner2, repo2) {
+  async visualize(owner, repo) {
     try {
-      console.log(`\u{1F680} Visualizing ${owner2}/${repo2}...`);
-      this.currentOwner = owner2;
-      this.currentRepo = repo2;
+      console.log(`\u{1F680} Visualizing ${owner}/${repo}...`);
+      this.currentOwner = owner;
+      this.currentRepo = repo;
       if (!this.sseClient.isConnected()) {
-        this.connectToSSE(owner2, repo2);
+        this.connectToSSE(owner, repo);
       } else {
-        console.log(`\u{1F4E1} SSE already connected for ${owner2}/${repo2}`);
+        console.log(`\u{1F4E1} SSE already connected for ${owner}/${repo}`);
       }
       this.clearVisualization();
-      const data = await this.fetchRepoData(owner2, repo2);
+      const data = await this.fetchRepoData(owner, repo);
       console.log("\u{1F4E6} API Response:", {
         hasRepo: !!data.repo,
         hasContributors: !!data.contributors,
@@ -4478,14 +4483,14 @@ var GitVisualizer = class {
       }
       if (data.repo) {
         this.currentRepoData = {
-          name: data.repo?.full_name || `${owner2}/${repo2}`,
+          name: data.repo?.full_name || `${owner}/${repo}`,
           description: data.repo?.description,
           ...data.repo
         };
         console.log(`\u{1F50D} Stored repo data:`, {
           name: this.currentRepoData.name,
           full_name: data.repo?.full_name,
-          fallback: `${owner2}/${repo2}`
+          fallback: `${owner}/${repo}`
         });
         this.statsViz.setRepoData(this.currentRepoData);
         const repoData = {
@@ -4541,18 +4546,18 @@ var GitVisualizer = class {
           data.icon ? 1e3 : 500
         );
       }
-      console.log(`\u2705 Successfully started visualization for ${owner2}/${repo2}`);
+      console.log(`\u2705 Successfully started visualization for ${owner}/${repo}`);
     } catch (error) {
       console.error("Error visualizing repository:", error);
     }
   }
-  async fetchRepoData(owner2, repo2) {
+  async fetchRepoData(owner, repo) {
     const response = await fetch(this.apiEndpoint, {
       method: "POST",
       headers: this.apiHeaders,
       body: JSON.stringify({
-        owner: owner2,
-        repo: repo2,
+        owner,
+        repo,
         data: ["repo_info", "contributors", "icon", "files", "stats"]
       })
     });
@@ -4563,10 +4568,13 @@ var GitVisualizer = class {
     }
     return response.json();
   }
-  connectToSSE(owner2, repo2) {
-    console.log(`\u{1F4E1} Setting up SSE for ${owner2}/${repo2}...`);
+  connectToSSE(owner, repo) {
+    console.log(`\u{1F4E1} Setting up SSE for ${owner}/${repo}...`);
     this.sseClient.onExplorationStarted((event) => {
-      this.showExplorationStatus(`\u{1F916} Starting ${event.mode} analysis...`, "info");
+      this.showExplorationStatus(
+        `\u{1F916} Starting ${event.mode} analysis...`,
+        "info"
+      );
     });
     this.sseClient.onExplorationProgress((event) => {
       if (event.data?.progress) {
@@ -4575,10 +4583,19 @@ var GitVisualizer = class {
     });
     this.sseClient.onExplorationCompleted((event) => {
       console.log(`\u{1F4E8} SSE exploration_completed event received:`, event);
-      this.showExplorationStatus(`\u2705 ${event.mode} analysis complete!`, "success");
+      this.showExplorationStatus(
+        `\u2705 ${event.mode} analysis complete!`,
+        "success"
+      );
       if (event.mode === "first_pass" && event.data?.result) {
-        console.log(`\u{1F389} First-pass exploration completed for ${owner2}/${repo2}:`, event.data.result);
-        console.log(`\u{1F389} Infrastructure data:`, event.data.result.infrastructure);
+        console.log(
+          `\u{1F389} First-pass exploration completed for ${owner}/${repo}:`,
+          event.data.result
+        );
+        console.log(
+          `\u{1F389} Infrastructure data:`,
+          event.data.result.infrastructure
+        );
         this.onExplorationComplete(event.data.result, event.mode);
       }
     });
@@ -4595,7 +4612,7 @@ var GitVisualizer = class {
         this.showExplorationStatus("\u274C Repository clone failed", "error");
       }
     });
-    this.sseClient.connect(owner2, repo2).catch((error) => {
+    this.sseClient.connect(owner, repo).catch((error) => {
       console.error("Failed to connect to SSE:", error);
       this.showExplorationStatus("\u26A0\uFE0F Real-time updates unavailable", "warning");
     });
@@ -4611,21 +4628,30 @@ var GitVisualizer = class {
     console.log(`${emoji} ${message}`);
   }
   onExplorationComplete(explorationResult, mode) {
-    console.log(`\u{1F38A} Processing ${mode} exploration results:`, explorationResult);
+    console.log(
+      `\u{1F38A} Processing ${mode} exploration results:`,
+      explorationResult
+    );
     if (mode === "first_pass" && explorationResult) {
-      console.log(`\u{1F52E} Processing concept visualization from exploration data...`);
+      console.log(
+        `\u{1F52E} Processing concept visualization from exploration data...`
+      );
       if (this.mainVisualizationComplete) {
         console.log(`\u{1F52E} Main visualization complete, adding concepts now...`);
         setTimeout(() => {
           this.addConceptsSequentially(explorationResult);
         }, 1e3);
       } else {
-        console.log(`\u{1F52E} Main visualization in progress, storing concepts for later...`);
+        console.log(
+          `\u{1F52E} Main visualization in progress, storing concepts for later...`
+        );
         this.pendingConcepts = explorationResult;
       }
     }
     if (mode === "first_pass" && explorationResult.infrastructure) {
-      console.log(`\u{1F3D7}\uFE0F Infrastructure discovered: ${explorationResult.infrastructure}`);
+      console.log(
+        `\u{1F3D7}\uFE0F Infrastructure discovered: ${explorationResult.infrastructure}`
+      );
     }
     if (explorationResult.key_files) {
       console.log(`\u{1F4C1} Key files identified: ${explorationResult.key_files}`);
@@ -4857,7 +4883,9 @@ var GitVisualizer = class {
       console.log("\u{1F389} All files added!");
       this.mainVisualizationComplete = true;
       if (this.pendingConcepts) {
-        console.log("\u{1F52E} Main visualization complete, adding pending concepts...");
+        console.log(
+          "\u{1F52E} Main visualization complete, adding pending concepts..."
+        );
         setTimeout(() => {
           this.addConceptsSequentially(this.pendingConcepts);
           this.pendingConcepts = null;
@@ -4922,7 +4950,9 @@ var GitVisualizer = class {
       console.log("\u{1F52E} No concept nodes to add");
       return;
     }
-    console.log(`\u{1F52E} Adding ${conceptResourceData.nodes.length} concept nodes sequentially...`);
+    console.log(
+      `\u{1F52E} Adding ${conceptResourceData.nodes.length} concept nodes sequentially...`
+    );
     this.addConceptNodesSequentially(conceptResourceData.nodes, 0);
   }
   addConceptNodesSequentially(conceptNodes, index) {
@@ -4931,7 +4961,9 @@ var GitVisualizer = class {
       return;
     }
     const node = conceptNodes[index];
-    console.log(`\u{1F52E} Adding concept ${index + 1}/${conceptNodes.length}: ${node.name} (${node.kind})`);
+    console.log(
+      `\u{1F52E} Adding concept ${index + 1}/${conceptNodes.length}: ${node.name} (${node.kind})`
+    );
     const position = this.calculateOrganicPosition("concept", index);
     node.x = position.x;
     node.y = position.y;
@@ -4939,7 +4971,10 @@ var GitVisualizer = class {
     this.registerOccupiedSpace(position.x, position.y, nodeRadius, node.id);
     this.allNodes.push(node);
     const conceptNodesAddedSoFar = conceptNodes.slice(0, index + 1);
-    this.conceptsViz.updateWithAnimation({ nodes: conceptNodesAddedSoFar, links: [] });
+    this.conceptsViz.updateWithAnimation({
+      nodes: conceptNodesAddedSoFar,
+      links: []
+    });
     setTimeout(() => {
       this.addConceptNodesSequentially(conceptNodes, index + 1);
     }, this.nodeDelay);
@@ -4993,14 +5028,20 @@ var GitVisualizer = class {
         console.error("No current owner/repo stored");
         content = {
           name: nodeData.name,
-          sections: [{
-            title: "Content",
-            type: "content",
-            data: "// Could not determine repository owner/name"
-          }]
+          sections: [
+            {
+              title: "Content",
+              type: "content",
+              data: "// Could not determine repository owner/name"
+            }
+          ]
         };
       } else {
-        content = await this.filesViz.getPanelContent(nodeData, this.currentOwner, this.currentRepo);
+        content = await this.filesViz.getPanelContent(
+          nodeData,
+          this.currentOwner,
+          this.currentRepo
+        );
       }
     } else if (nodeData.type === "contributor") {
       content = this.contributorsViz.getPanelContent(nodeData);
@@ -5028,18 +5069,28 @@ var GitVisualizer = class {
   }
   setApiEndpoint(apiEndpoint) {
     this.apiEndpoint = apiEndpoint;
-    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
-      this.showNodePanel(nodeData);
-    }, this.apiEndpoint, this.apiHeaders);
+    this.filesViz = new FilesVisualization(
+      this.context,
+      (nodeData) => {
+        this.showNodePanel(nodeData);
+      },
+      this.apiEndpoint,
+      this.apiHeaders
+    );
   }
   setApiHeaders(apiHeaders) {
     this.apiHeaders = {
       "Content-Type": "application/json",
       ...apiHeaders
     };
-    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
-      this.showNodePanel(nodeData);
-    }, this.apiEndpoint, this.apiHeaders);
+    this.filesViz = new FilesVisualization(
+      this.context,
+      (nodeData) => {
+        this.showNodePanel(nodeData);
+      },
+      this.apiEndpoint,
+      this.apiHeaders
+    );
   }
   getApiEndpoint() {
     return this.apiEndpoint;
@@ -5057,15 +5108,6 @@ var GitVisualizer = class {
     }
   }
 };
-var urlParams = new URLSearchParams(window.location.search);
-var repoParam = urlParams.get("repo") || "stakwork/hive";
-var [owner, repo] = repoParam.split("/");
-var visualizer = new GitVisualizer();
-if (owner && repo) {
-  visualizer.visualize(owner, repo);
-} else {
-  console.error("Invalid repo format. Use: ?repo=owner/repo");
-}
 export {
   GitVisualizer
 };

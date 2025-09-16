@@ -16,7 +16,6 @@ import {
 } from "./resources/index.js";
 import { DetailPanel } from "./panel/index.js";
 import { SSEClient } from "./events/index.js";
-import type { ExplorationSSEEvent } from "./events/index.js";
 
 class GitVisualizer {
   private width: number;
@@ -42,8 +41,8 @@ class GitVisualizer {
   private allNodes: NodeData[] = [];
   private allLinks: LinkData[] = [];
   private currentRepoData: any = null;
-  private currentOwner: string = '';
-  private currentRepo: string = '';
+  private currentOwner: string = "";
+  private currentRepo: string = "";
   private mainVisualizationComplete: boolean = false;
   private pendingConcepts: any = null;
 
@@ -74,18 +73,18 @@ class GitVisualizer {
   private apiHeaders: Record<string, string>;
 
   constructor(
-    containerSelector: string = "#visualization", 
+    containerSelector: string = "#visualization",
     apiEndpoint: string = "/api/gitsee",
     apiHeaders: Record<string, string> = {}
   ) {
     const container = d3.select(containerSelector);
     const containerNode = container.node() as Element;
-    
+
     // Store the API configuration
     this.apiEndpoint = apiEndpoint;
     this.apiHeaders = {
-      'Content-Type': 'application/json',
-      ...apiHeaders // User headers override defaults
+      "Content-Type": "application/json",
+      ...apiHeaders, // User headers override defaults
     };
 
     if (!containerNode) {
@@ -145,10 +144,15 @@ class GitVisualizer {
       }
     );
     this.linksViz = new LinksVisualization(this.context);
-    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
-      // Show file panel when file node is clicked
-      this.showNodePanel(nodeData);
-    }, this.apiEndpoint, this.apiHeaders);
+    this.filesViz = new FilesVisualization(
+      this.context,
+      (nodeData) => {
+        // Show file panel when file node is clicked
+        this.showNodePanel(nodeData);
+      },
+      this.apiEndpoint,
+      this.apiHeaders
+    );
     this.statsViz = new StatsVisualization(this.context, (nodeData) => {
       // Stats click also shows repo panel
       this.showNodePanel(nodeData);
@@ -183,7 +187,12 @@ class GitVisualizer {
     return Math.min(baseRadius + contribCount * 0.1, maxRadius);
   }
 
-  private checkCollision(x: number, y: number, radius: number, nodeType?: string): boolean {
+  private checkCollision(
+    x: number,
+    y: number,
+    radius: number,
+    nodeType?: string
+  ): boolean {
     return this.occupiedSpaces.some((space) => {
       const dx = x - space.x;
       const dy = y - space.y;
@@ -425,11 +434,11 @@ class GitVisualizer {
           description: data.repo?.description,
           ...data.repo,
         };
-        
+
         console.log(`🔍 Stored repo data:`, {
           name: this.currentRepoData.name,
           full_name: data.repo?.full_name,
-          fallback: `${owner}/${repo}`
+          fallback: `${owner}/${repo}`,
         });
 
         // Pass repo data to stats visualization
@@ -534,71 +543,91 @@ class GitVisualizer {
 
     // Set up event handlers
     this.sseClient.onExplorationStarted((event) => {
-      this.showExplorationStatus(`🤖 Starting ${event.mode} analysis...`, 'info');
+      this.showExplorationStatus(
+        `🤖 Starting ${event.mode} analysis...`,
+        "info"
+      );
     });
 
     this.sseClient.onExplorationProgress((event) => {
       if (event.data?.progress) {
-        this.showExplorationStatus(`🔍 ${event.data.progress}`, 'info');
+        this.showExplorationStatus(`🔍 ${event.data.progress}`, "info");
       }
     });
 
     this.sseClient.onExplorationCompleted((event) => {
       console.log(`📨 SSE exploration_completed event received:`, event);
-      this.showExplorationStatus(`✅ ${event.mode} analysis complete!`, 'success');
+      this.showExplorationStatus(
+        `✅ ${event.mode} analysis complete!`,
+        "success"
+      );
 
       // If this is first_pass exploration, we could enhance the visualization
-      if (event.mode === 'first_pass' && event.data?.result) {
-        console.log(`🎉 First-pass exploration completed for ${owner}/${repo}:`, event.data.result);
-        console.log(`🎉 Infrastructure data:`, event.data.result.infrastructure);
+      if (event.mode === "first_pass" && event.data?.result) {
+        console.log(
+          `🎉 First-pass exploration completed for ${owner}/${repo}:`,
+          event.data.result
+        );
+        console.log(
+          `🎉 Infrastructure data:`,
+          event.data.result.infrastructure
+        );
         this.onExplorationComplete(event.data.result, event.mode!);
       }
     });
 
     this.sseClient.onExplorationFailed((event) => {
-      this.showExplorationStatus(`❌ Analysis failed: ${event.error}`, 'error');
+      this.showExplorationStatus(`❌ Analysis failed: ${event.error}`, "error");
     });
 
     this.sseClient.onCloneStarted((event) => {
-      this.showExplorationStatus('📥 Cloning repository...', 'info');
+      this.showExplorationStatus("📥 Cloning repository...", "info");
     });
 
     this.sseClient.onCloneCompleted((event) => {
       if (event.data?.success) {
-        this.showExplorationStatus('✅ Repository cloned', 'success');
+        this.showExplorationStatus("✅ Repository cloned", "success");
       } else {
-        this.showExplorationStatus('❌ Repository clone failed', 'error');
+        this.showExplorationStatus("❌ Repository clone failed", "error");
       }
     });
 
     // Connect to SSE stream (non-blocking)
     this.sseClient.connect(owner, repo).catch((error) => {
-      console.error('Failed to connect to SSE:', error);
-      this.showExplorationStatus('⚠️ Real-time updates unavailable', 'warning');
+      console.error("Failed to connect to SSE:", error);
+      this.showExplorationStatus("⚠️ Real-time updates unavailable", "warning");
     });
   }
 
-  private showExplorationStatus(message: string, type: 'info' | 'success' | 'error' | 'warning'): void {
+  private showExplorationStatus(
+    message: string,
+    type: "info" | "success" | "error" | "warning"
+  ): void {
     console.log(`📱 Status: ${message}`);
 
     // For now, just log to console
     // In the future, this could show a toast notification or status bar
     const emoji = {
-      info: 'ℹ️',
-      success: '✅',
-      error: '❌',
-      warning: '⚠️'
+      info: "ℹ️",
+      success: "✅",
+      error: "❌",
+      warning: "⚠️",
     }[type];
 
     console.log(`${emoji} ${message}`);
   }
 
   private onExplorationComplete(explorationResult: any, mode: string): void {
-    console.log(`🎊 Processing ${mode} exploration results:`, explorationResult);
+    console.log(
+      `🎊 Processing ${mode} exploration results:`,
+      explorationResult
+    );
 
     // Create and show concept visualization based on exploration results
-    if (mode === 'first_pass' && explorationResult) {
-      console.log(`🔮 Processing concept visualization from exploration data...`);
+    if (mode === "first_pass" && explorationResult) {
+      console.log(
+        `🔮 Processing concept visualization from exploration data...`
+      );
 
       if (this.mainVisualizationComplete) {
         // Main visualization is done, add concepts immediately
@@ -608,13 +637,17 @@ class GitVisualizer {
         }, 1000);
       } else {
         // Main visualization still in progress, store concepts for later
-        console.log(`🔮 Main visualization in progress, storing concepts for later...`);
+        console.log(
+          `🔮 Main visualization in progress, storing concepts for later...`
+        );
         this.pendingConcepts = explorationResult;
       }
     }
 
-    if (mode === 'first_pass' && explorationResult.infrastructure) {
-      console.log(`🏗️ Infrastructure discovered: ${explorationResult.infrastructure}`);
+    if (mode === "first_pass" && explorationResult.infrastructure) {
+      console.log(
+        `🏗️ Infrastructure discovered: ${explorationResult.infrastructure}`
+      );
     }
 
     if (explorationResult.key_files) {
@@ -920,7 +953,9 @@ class GitVisualizer {
       this.mainVisualizationComplete = true;
       // Check if we have pending concepts to add
       if (this.pendingConcepts) {
-        console.log("🔮 Main visualization complete, adding pending concepts...");
+        console.log(
+          "🔮 Main visualization complete, adding pending concepts..."
+        );
         setTimeout(() => {
           this.addConceptsSequentially(this.pendingConcepts);
           this.pendingConcepts = null;
@@ -1013,18 +1048,25 @@ class GitVisualizer {
       return;
     }
 
-    console.log(`🔮 Adding ${conceptResourceData.nodes.length} concept nodes sequentially...`);
+    console.log(
+      `🔮 Adding ${conceptResourceData.nodes.length} concept nodes sequentially...`
+    );
     this.addConceptNodesSequentially(conceptResourceData.nodes, 0);
   }
 
-  private addConceptNodesSequentially(conceptNodes: NodeData[], index: number): void {
+  private addConceptNodesSequentially(
+    conceptNodes: NodeData[],
+    index: number
+  ): void {
     if (index >= conceptNodes.length) {
       console.log("🎉 All concept nodes added!");
       return;
     }
 
     const node = conceptNodes[index];
-    console.log(`🔮 Adding concept ${index + 1}/${conceptNodes.length}: ${node.name} (${node.kind})`);
+    console.log(
+      `🔮 Adding concept ${index + 1}/${conceptNodes.length}: ${node.name} (${node.kind})`
+    );
 
     // Position the concept node
     const position = this.calculateOrganicPosition("concept", index);
@@ -1040,7 +1082,10 @@ class GitVisualizer {
     const conceptNodesAddedSoFar = conceptNodes.slice(0, index + 1);
 
     // Update visualization with all concept nodes added so far
-    this.conceptsViz.updateWithAnimation({ nodes: conceptNodesAddedSoFar, links: [] });
+    this.conceptsViz.updateWithAnimation({
+      nodes: conceptNodesAddedSoFar,
+      links: [],
+    });
 
     // Continue with next concept node after delay
     setTimeout(() => {
@@ -1091,7 +1136,6 @@ class GitVisualizer {
     document.head.appendChild(styleSheet);
   }
 
-
   private async showNodePanel(nodeData: NodeData): Promise<void> {
     // Get panel content based on node type
     let content;
@@ -1107,17 +1151,23 @@ class GitVisualizer {
     } else if (nodeData.type === "file") {
       // Use the stored owner/repo from visualize() call
       if (!this.currentOwner || !this.currentRepo) {
-        console.error('No current owner/repo stored');
+        console.error("No current owner/repo stored");
         content = {
           name: nodeData.name,
-          sections: [{
-            title: "Content",
-            type: "content" as const,
-            data: "// Could not determine repository owner/name"
-          }]
+          sections: [
+            {
+              title: "Content",
+              type: "content" as const,
+              data: "// Could not determine repository owner/name",
+            },
+          ],
         };
       } else {
-        content = await this.filesViz.getPanelContent(nodeData, this.currentOwner, this.currentRepo);
+        content = await this.filesViz.getPanelContent(
+          nodeData,
+          this.currentOwner,
+          this.currentRepo
+        );
       }
     } else if (nodeData.type === "contributor") {
       content = this.contributorsViz.getPanelContent(nodeData);
@@ -1152,20 +1202,30 @@ class GitVisualizer {
   public setApiEndpoint(apiEndpoint: string): void {
     this.apiEndpoint = apiEndpoint;
     // Update the files visualization with the new endpoint
-    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
-      this.showNodePanel(nodeData);
-    }, this.apiEndpoint, this.apiHeaders);
+    this.filesViz = new FilesVisualization(
+      this.context,
+      (nodeData) => {
+        this.showNodePanel(nodeData);
+      },
+      this.apiEndpoint,
+      this.apiHeaders
+    );
   }
 
   public setApiHeaders(apiHeaders: Record<string, string>): void {
     this.apiHeaders = {
-      'Content-Type': 'application/json',
-      ...apiHeaders
+      "Content-Type": "application/json",
+      ...apiHeaders,
     };
     // Update the files visualization with the new headers
-    this.filesViz = new FilesVisualization(this.context, (nodeData) => {
-      this.showNodePanel(nodeData);
-    }, this.apiEndpoint, this.apiHeaders);
+    this.filesViz = new FilesVisualization(
+      this.context,
+      (nodeData) => {
+        this.showNodePanel(nodeData);
+      },
+      this.apiEndpoint,
+      this.apiHeaders
+    );
   }
 
   public getApiEndpoint(): string {
@@ -1192,18 +1252,6 @@ class GitVisualizer {
       styleSheet.remove();
     }
   }
-}
-
-// Initialize the visualizer when the page loads
-const urlParams = new URLSearchParams(window.location.search);
-const repoParam = urlParams.get("repo") || "stakwork/hive";
-const [owner, repo] = repoParam.split("/");
-
-const visualizer = new GitVisualizer();
-if (owner && repo) {
-  visualizer.visualize(owner, repo);
-} else {
-  console.error("Invalid repo format. Use: ?repo=owner/repo");
 }
 
 // Export for library usage
