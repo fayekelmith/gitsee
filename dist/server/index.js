@@ -1635,25 +1635,30 @@ var GitSeeHandler = class {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
+      Connection: "keep-alive",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Cache-Control"
     });
-    res.write(`data: ${JSON.stringify({
-      type: "connected",
-      owner,
-      repo,
-      timestamp: Date.now()
-    })}
+    res.write(
+      `data: ${JSON.stringify({
+        type: "connected",
+        owner,
+        repo,
+        timestamp: Date.now()
+      })}
 
-`);
+`
+    );
     const unsubscribe = this.emitter.subscribeToRepo(owner, repo, (event) => {
       try {
         res.write(`data: ${JSON.stringify(event)}
 
 `);
       } catch (error) {
-        console.error(`\u{1F4A5} Error writing SSE event for ${owner}/${repo}:`, error);
+        console.error(
+          `\u{1F4A5} Error writing SSE event for ${owner}/${repo}:`,
+          error
+        );
       }
     });
     req.on("close", () => {
@@ -1666,12 +1671,14 @@ var GitSeeHandler = class {
     });
     const heartbeat = setInterval(() => {
       try {
-        res.write(`data: ${JSON.stringify({
-          type: "heartbeat",
-          timestamp: Date.now()
-        })}
+        res.write(
+          `data: ${JSON.stringify({
+            type: "heartbeat",
+            timestamp: Date.now()
+          })}
 
-`);
+`
+        );
       } catch (error) {
         console.error(`\u{1F4A5} Heartbeat failed for ${owner}/${repo}:`, error);
         clearInterval(heartbeat);
@@ -1683,27 +1690,88 @@ var GitSeeHandler = class {
     });
   }
   async handle(req, res) {
+    console.log("\u{1F525} GitSeeHandler.handle() - START");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    console.log("\u{1F525} CORS headers set");
     if (req.method === "OPTIONS") {
+      console.log("\u{1F525} OPTIONS request, responding with 200");
       res.writeHead(200);
       res.end();
       return;
     }
     if (req.method !== "POST") {
+      console.log("\u{1F525} Method not POST:", req.method);
       res.writeHead(405, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: "Method not allowed" }));
       return;
     }
     try {
+      console.log("\u{1F525} Parsing request body...");
       const body = await this.parseRequestBody(req);
+      console.log("\u{1F525} Request body parsed:", body.length, "chars");
+      console.log("\u{1F525} Parsing JSON...");
       const request = JSON.parse(body);
+      console.log(
+        "\u{1F525} JSON parsed - owner:",
+        request.owner,
+        "repo:",
+        request.repo,
+        "data:",
+        request.data
+      );
+      console.log("\u{1F525} About to call processRequest...");
       const response = await this.processRequest(request);
+      console.log(
+        "\u{1F525} processRequest completed, response keys:",
+        Object.keys(response)
+      );
+      console.log("\u{1F525} Sending response...");
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(response));
+      console.log("\u{1F525} Response sent successfully");
     } catch (error) {
-      console.error("GitSee handler error:", error);
+      console.error("\u{1F525} GitSee handler error:", error);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Internal server error"
+        })
+      );
+    }
+  }
+  /**
+   * Handle request with pre-parsed JSON body (for Express.js integration)
+   * Use this when your framework already parsed the JSON body (e.g., express.json() middleware)
+   */
+  async handleJson(body, res) {
+    console.log("\u{1F525} GitSeeHandler.handleJson() - START");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    console.log("\u{1F525} CORS headers set");
+    try {
+      console.log(
+        "\u{1F525} Using pre-parsed body - owner:",
+        body.owner,
+        "repo:",
+        body.repo,
+        "data:",
+        body.data
+      );
+      console.log("\u{1F525} About to call processRequest...");
+      const response = await this.processRequest(body);
+      console.log(
+        "\u{1F525} processRequest completed, response keys:",
+        Object.keys(response)
+      );
+      console.log("\u{1F525} Sending response...");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(response));
+      console.log("\u{1F525} Response sent successfully");
+    } catch (error) {
+      console.error("\u{1F525} GitSee handleJson error:", error);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({
@@ -1715,39 +1783,93 @@ var GitSeeHandler = class {
   autoStartFirstPassExploration(owner, repo, cloneOptions) {
     setImmediate(async () => {
       try {
-        const hasRecent = await this.store.hasRecentExploration(owner, repo, "first_pass", 24);
+        const hasRecent = await this.store.hasRecentExploration(
+          owner,
+          repo,
+          "first_pass",
+          24
+        );
         if (!hasRecent) {
-          console.log(`\u{1F680} Auto-starting first_pass exploration for ${owner}/${repo}...`);
+          console.log(
+            `\u{1F680} Auto-starting first_pass exploration for ${owner}/${repo}...`
+          );
           this.emitter.emitExplorationStarted(owner, repo, "first_pass");
-          this.runBackgroundExploration(owner, repo, "first_pass", cloneOptions).catch((error) => {
-            console.error(`\u{1F6A8} Background first_pass exploration failed for ${owner}/${repo}:`, error.message);
-            this.emitter.emitExplorationFailed(owner, repo, "first_pass", error.message);
+          this.runBackgroundExploration(
+            owner,
+            repo,
+            "first_pass",
+            cloneOptions
+          ).catch((error) => {
+            console.error(
+              `\u{1F6A8} Background first_pass exploration failed for ${owner}/${repo}:`,
+              error.message
+            );
+            this.emitter.emitExplorationFailed(
+              owner,
+              repo,
+              "first_pass",
+              error.message
+            );
           });
         } else {
-          console.log(`\u2705 Recent first_pass exploration found for ${owner}/${repo}, emitting cached result`);
+          console.log(
+            `\u2705 Recent first_pass exploration found for ${owner}/${repo}, emitting cached result`
+          );
           setImmediate(async () => {
             try {
-              const cached = await this.store.getExploration(owner, repo, "first_pass");
+              const cached = await this.store.getExploration(
+                owner,
+                repo,
+                "first_pass"
+              );
               if (cached?.result) {
-                console.log(`\u23F3 Waiting for SSE connection before emitting cached first_pass exploration for ${owner}/${repo}`);
+                console.log(
+                  `\u23F3 Waiting for SSE connection before emitting cached first_pass exploration for ${owner}/${repo}`
+                );
                 try {
                   await this.emitter.waitForConnection(owner, repo, 1e4);
-                  console.log(`\u{1F514} SSE connected! Emitting cached first_pass exploration for ${owner}/${repo}`);
-                  console.log(`\u{1F514} Infrastructure in cached result:`, cached.result.infrastructure);
-                  console.log(`\u{1F514} Current SSE listeners:`, this.emitter.getListenerCount(owner, repo));
-                  this.emitter.emitExplorationCompleted(owner, repo, "first_pass", cached.result);
+                  console.log(
+                    `\u{1F514} SSE connected! Emitting cached first_pass exploration for ${owner}/${repo}`
+                  );
+                  console.log(
+                    `\u{1F514} Infrastructure in cached result:`,
+                    cached.result.infrastructure
+                  );
+                  console.log(
+                    `\u{1F514} Current SSE listeners:`,
+                    this.emitter.getListenerCount(owner, repo)
+                  );
+                  this.emitter.emitExplorationCompleted(
+                    owner,
+                    repo,
+                    "first_pass",
+                    cached.result
+                  );
                 } catch (timeoutError) {
-                  console.warn(`\u23F0 Timeout waiting for SSE connection, emitting anyway for ${owner}/${repo}`);
-                  this.emitter.emitExplorationCompleted(owner, repo, "first_pass", cached.result);
+                  console.warn(
+                    `\u23F0 Timeout waiting for SSE connection, emitting anyway for ${owner}/${repo}`
+                  );
+                  this.emitter.emitExplorationCompleted(
+                    owner,
+                    repo,
+                    "first_pass",
+                    cached.result
+                  );
                 }
               }
             } catch (error) {
-              console.error(`\u{1F4A5} Error emitting cached exploration for ${owner}/${repo}:`, error);
+              console.error(
+                `\u{1F4A5} Error emitting cached exploration for ${owner}/${repo}:`,
+                error
+              );
             }
           });
         }
       } catch (error) {
-        console.error(`\u{1F4A5} Error checking exploration status for ${owner}/${repo}:`, error);
+        console.error(
+          `\u{1F4A5} Error checking exploration status for ${owner}/${repo}:`,
+          error
+        );
       }
     });
   }
@@ -1756,35 +1878,87 @@ var GitSeeHandler = class {
       await RepoCloner.waitForClone(owner, repo, cloneOptions);
       const cloneResult = await RepoCloner.getCloneResult(owner, repo);
       if (cloneResult?.success && cloneResult.localPath) {
-        this.emitter.emitCloneCompleted(owner, repo, true, cloneResult.localPath);
+        this.emitter.emitCloneCompleted(
+          owner,
+          repo,
+          true,
+          cloneResult.localPath
+        );
         const prompt = mode === "first_pass" ? "Analyze this repository and provide a comprehensive overview" : "What are the key features and components of this codebase?";
-        console.log(`\u{1F916} Running background ${mode} exploration for ${owner}/${repo}...`);
-        this.emitter.emitExplorationProgress(owner, repo, mode, "Running AI analysis...");
-        const explorationResult = await explore(prompt, cloneResult.localPath, mode);
+        console.log(
+          `\u{1F916} Running background ${mode} exploration for ${owner}/${repo}...`
+        );
+        this.emitter.emitExplorationProgress(
+          owner,
+          repo,
+          mode,
+          "Running AI analysis..."
+        );
+        const explorationResult = await explore(
+          prompt,
+          cloneResult.localPath,
+          mode
+        );
         await this.store.storeExploration(owner, repo, mode, explorationResult);
-        console.log(`\u2705 Background ${mode} exploration completed for ${owner}/${repo}`);
-        this.emitter.emitExplorationCompleted(owner, repo, mode, explorationResult);
+        console.log(
+          `\u2705 Background ${mode} exploration completed for ${owner}/${repo}`
+        );
+        this.emitter.emitExplorationCompleted(
+          owner,
+          repo,
+          mode,
+          explorationResult
+        );
       } else {
-        console.error(`\u274C Repository clone failed for background exploration: ${owner}/${repo}`);
+        console.error(
+          `\u274C Repository clone failed for background exploration: ${owner}/${repo}`
+        );
         this.emitter.emitCloneCompleted(owner, repo, false);
-        this.emitter.emitExplorationFailed(owner, repo, mode, "Repository clone failed");
+        this.emitter.emitExplorationFailed(
+          owner,
+          repo,
+          mode,
+          "Repository clone failed"
+        );
       }
     } catch (error) {
-      console.error(`\u{1F4A5} Background ${mode} exploration failed for ${owner}/${repo}:`, error);
-      this.emitter.emitExplorationFailed(owner, repo, mode, error instanceof Error ? error.message : "Unknown error");
+      console.error(
+        `\u{1F4A5} Background ${mode} exploration failed for ${owner}/${repo}:`,
+        error
+      );
+      this.emitter.emitExplorationFailed(
+        owner,
+        repo,
+        mode,
+        error instanceof Error ? error.message : "Unknown error"
+      );
     }
   }
   async parseRequestBody(req) {
+    console.log("\u{1F525} parseRequestBody - START");
     return new Promise((resolve, reject) => {
       let body = "";
-      req.on("data", (chunk) => body += chunk);
-      req.on("end", () => resolve(body));
-      req.on("error", reject);
+      console.log("\u{1F525} Setting up data/end/error handlers...");
+      req.on("data", (chunk) => {
+        console.log("\u{1F525} Received data chunk:", chunk.length, "bytes");
+        body += chunk;
+      });
+      req.on("end", () => {
+        console.log("\u{1F525} Request body parsing complete:", body.length, "chars");
+        resolve(body);
+      });
+      req.on("error", (error) => {
+        console.log("\u{1F525} Request body parsing error:", error);
+        reject(error);
+      });
+      console.log("\u{1F525} Waiting for request data...");
     });
   }
   async processRequest(request) {
+    console.log("\u{1F525} processRequest - START");
     const { owner, repo, data, cloneOptions } = request;
     const response = {};
+    console.log("\u{1F525} Setting up Octokit and resources...");
     const requestOctokit = cloneOptions?.token ? new Octokit({ auth: cloneOptions.token }) : this.octokit;
     const contributors = cloneOptions?.token ? new ContributorsResource(requestOctokit, this.cache) : this.contributors;
     const icons = cloneOptions?.token ? new IconsResource(requestOctokit, this.cache) : this.icons;
@@ -1793,9 +1967,11 @@ var GitSeeHandler = class {
     const branches = cloneOptions?.token ? new BranchesResource(requestOctokit, this.cache) : this.branches;
     const files = cloneOptions?.token ? new FilesResource(requestOctokit, this.cache) : this.files;
     const stats = cloneOptions?.token ? new StatsResource(requestOctokit, this.cache) : this.stats;
+    console.log("\u{1F525} Starting background operations...");
     console.log(`\u{1F504} Starting background clone for ${owner}/${repo}...`);
     this.emitter.emitCloneStarted(owner, repo);
     RepoCloner.cloneInBackground(owner, repo, cloneOptions);
+    console.log("\u{1F525} Starting first pass exploration...");
     this.autoStartFirstPassExploration(owner, repo, cloneOptions);
     if (this.options.visualization) {
       response.options = {
@@ -1815,8 +1991,10 @@ var GitSeeHandler = class {
     console.log(
       `\u{1F50D} Processing request for ${owner}/${repo} with data: [${data.join(", ")}]`
     );
+    console.log("\u{1F525} Starting main data processing loop...");
     for (const dataType of data) {
       try {
+        console.log(`\u{1F525} Processing data type: ${dataType}`);
         switch (dataType) {
           case "repo_info":
             console.log(`\u{1F50D} Fetching repository info for ${owner}/${repo}...`);
@@ -1907,7 +2085,12 @@ var GitSeeHandler = class {
               );
               response.exploration = cached?.result;
               if (cached?.result) {
-                this.emitter.emitExplorationCompleted(owner, repo, explorationMode, cached.result);
+                this.emitter.emitExplorationCompleted(
+                  owner,
+                  repo,
+                  explorationMode,
+                  cached.result
+                );
               }
             } else {
               console.log(`\u{1F916} Running ${explorationMode} agent exploration...`);
@@ -1968,6 +2151,8 @@ var GitSeeHandler = class {
         );
       }
     }
+    console.log("\u{1F525} Main data processing loop completed");
+    console.log("\u{1F525} processRequest - END, returning response");
     return response;
   }
 };

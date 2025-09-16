@@ -154,6 +154,11 @@ declare class GitSeeHandler {
     constructor(options?: GitSeeOptions);
     handleEvents(req: IncomingMessage, res: ServerResponse, owner: string, repo: string): Promise<void>;
     handle(req: IncomingMessage, res: ServerResponse): Promise<void>;
+    /**
+     * Handle request with pre-parsed JSON body (for Express.js integration)
+     * Use this when your framework already parsed the JSON body (e.g., express.json() middleware)
+     */
+    handleJson(body: GitSeeRequest, res: ServerResponse): Promise<void>;
     private autoStartFirstPassExploration;
     private runBackgroundExploration;
     private parseRequestBody;
