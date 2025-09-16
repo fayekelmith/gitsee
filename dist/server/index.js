@@ -1289,7 +1289,7 @@ function parse_files_contents(content) {
       }
     }
   }
-  return files;
+  return Object.fromEntries(files);
 }
 
 // server/agent/index.ts
@@ -1313,17 +1313,17 @@ async function clone_and_explore_parse_files(owner, repo, prompt, mode = "genera
   );
   return parse_files_contents(result);
 }
-setTimeout(() => {
-  console.log("=====> clone_and_explore_parse_files <=====");
-  clone_and_explore_parse_files(
+setTimeout(async () => {
+  return;
+  console.log("======> clone_and_explore_parse_files <======");
+  const result = await clone_and_explore_parse_files(
     "stakwork",
     "hive",
     "How do I set up this project?",
     "services"
-  ).then((result) => {
-    console.log("=============== FINAL RESULT: ===============");
-    console.log(result);
-  });
+  );
+  console.log("=============== FINAL RESULT: ===============");
+  console.log(result);
 });
 
 // server/persistence/FileStore.ts

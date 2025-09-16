@@ -1,4 +1,4 @@
-export function parse_files_contents(content: string): Map<string, string> {
+export function parse_files_contents(content: string): { [k: string]: string } {
   const files = new Map<string, string>();
   const lines = content.split("\n");
 
@@ -32,5 +32,5 @@ export function parse_files_contents(content: string): Map<string, string> {
     }
   }
 
-  return files;
+  return Object.fromEntries(files);
 }
