@@ -129,6 +129,8 @@ export class GitSeeHandler {
   }
 
   async handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    // console.log(`🔗 GitSeeHandler.handle() - URL: ${req.url}`);
+
     // Set CORS headers
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");

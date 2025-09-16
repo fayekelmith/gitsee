@@ -35,7 +35,7 @@
       // Create and configure visualizer with hybrid approach
       const visualizer = new GitVisualizer(
         "#visualization", // container selector
-        "/api/gitsee", // API endpoint (Next.js proxy for auth)
+        "/api/gitsee?swarmId=asdf", // API endpoint (Next.js proxy for auth)
         {}, // custom headers (optional)
         "http://localhost:3000/api/gitsee" // SSE endpoint (direct to EC2)
       );

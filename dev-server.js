@@ -37,10 +37,15 @@ const mimeTypes = {
 
 // Extend the GitSee server to also handle static files
 const server = http.createServer(async (req, res) => {
-  console.log(`${req.method} ${req.url}`);
+  console.log(`=====> ${req.method} ${req.url}`);
 
-  // Handle GitSee API routes
-  if (req.url === "/api/gitsee" && req.method === "POST") {
+  // Handle GitSee API routes (with URL parameters)
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  if (url.pathname === "/api/gitsee" && req.method === "POST") {
+    // Log URL parameters if present
+    if (url.search) {
+      console.log(`📝 URL parameters:`, Object.fromEntries(url.searchParams));
+    }
     try {
       return await gitSeeHandler.handle(req, res);
     } catch (error) {
@@ -51,9 +56,9 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Handle GitSee SSE routes
-  if (req.url?.startsWith("/api/gitsee/events/")) {
-    const match = req.url.match(/\/api\/gitsee\/events\/([^\/]+)\/([^\/]+)/);
+  // Handle GitSee SSE routes (with URL parameters)
+  if (url.pathname.startsWith("/api/gitsee/events/")) {
+    const match = url.pathname.match(/\/api\/gitsee\/events\/([^\/]+)\/([^\/]+)/);
     if (match && req.method === "GET") {
       const [, owner, repo] = match;
       console.log(`📡 SSE connection for ${owner}/${repo}`);
