@@ -11,7 +11,7 @@ Interactive repository visualization library with D3.js.
 ```html
 <div id="viz" style="width: 800px; height: 600px;"></div>
 <script type="module">
-  import { GitVisualizer } from "./dist/index.js";
+  import { GitVisualizer } from "./dist/client/index.js";
 
   const viz = new GitVisualizer("#viz");
   viz.visualizeRepository("owner/repo-name");
@@ -19,6 +19,17 @@ Interactive repository visualization library with D3.js.
 ```
 
 ### Server-Side API
+
+```js
+// Create the GitSee server with both API and SSE support
+const gitSeeServer = createGitSeeServer({
+  token: process.env.GITHUB_TOKEN,
+  cache: { ttl: 300 },
+  visualization: {
+    nodeDelay: 1200, // 1.2 seconds between nodes (contributors, files, etc.)
+  },
+});
+```
 
 ```bash
 # Start server
