@@ -4246,8 +4246,8 @@ var GitVisualizer = class {
       // Contributors start close to center
       stat: 40,
       // Stats close to center
-      concept: 140,
-      // Concepts outside files with good separation
+      concept: 80,
+      // Reduced from 140 - concepts need tighter spiral steps
       file: 80,
       // Files farther out for better separation
       default: 40
@@ -4321,11 +4321,18 @@ var GitVisualizer = class {
   /**
    * 🔍 Collision Detection System
    */
-  getNodeRadius(nodeType, contributions) {
+  getNodeRadius(nodeType, contributions, nodeData) {
     if (nodeType === "repo") return 35;
     if (nodeType === "file") return 18;
     if (nodeType === "stat") return 22;
-    if (nodeType === "concept") return 35;
+    if (nodeType === "concept") {
+      if (nodeData && nodeData.name) {
+        const textLength = nodeData.name.length;
+        const estimatedWidth = textLength * 7 + 16;
+        return 20;
+      }
+      return 20;
+    }
     const baseRadius = 16;
     const maxRadius = 22;
     const contribCount = contributions || 0;
@@ -4336,39 +4343,56 @@ var GitVisualizer = class {
       const dx = x - space.x;
       const dy = y - space.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      let buffer = 40;
-      if (nodeType === "concept" || space.nodeId.startsWith("concept-")) {
-        buffer = 80;
+      let buffer = 25;
+      if (nodeType === "concept") {
+        if (space.nodeId.startsWith("concept-")) {
+          buffer = 15;
+        } else if (space.nodeId.startsWith("file-")) {
+          buffer = 35;
+        } else {
+          buffer = 25;
+        }
+      } else if (space.nodeId.startsWith("concept-")) {
+        buffer = nodeType === "file" ? 35 : 20;
+      } else {
+        if (nodeType === "contributor" || space.nodeId.startsWith("contributor-")) {
+          buffer = 40;
+        } else if (nodeType === "file" || space.nodeId.startsWith("file-")) {
+          buffer = 35;
+        } else if (nodeType === "stat" || space.nodeId.startsWith("stat-")) {
+          buffer = 30;
+        }
       }
       const minDistance = radius + space.radius + buffer;
       return distance < minDistance;
     });
   }
-  findNonCollidingPosition(nodeType, index, contributions) {
-    const radius = this.getNodeRadius(nodeType, contributions);
+  findNonCollidingPosition(nodeType, index, contributions, nodeData) {
+    const radius = this.getNodeRadius(nodeType, contributions, nodeData);
     const centerX = this.width / 2;
     const centerY = this.height / 2;
     let position = this.calculateOrganicPositionRaw(nodeType, index);
     if (!this.checkCollision(position.x, position.y, radius, nodeType)) {
       return position;
     }
-    const spiralStep = nodeType === "concept" ? 30 : 20;
+    const spiralStep = nodeType === "concept" ? 25 : 20;
     const spiralDistance = this.spiralDistances[nodeType] || this.spiralDistances.default;
     let spiralRadius = radius + spiralDistance;
     let attempts = 0;
-    const maxAttempts = nodeType === "concept" ? 80 : 50;
+    const maxAttempts = nodeType === "concept" ? 200 : 50;
     while (attempts < maxAttempts) {
-      const angleStep = Math.PI * 2 / 12;
-      for (let i = 0; i < 12; i++) {
+      const angleStep = Math.PI * 2 / 16;
+      for (let i = 0; i < 16; i++) {
         const angle = i * angleStep;
         const testX = position.x + Math.cos(angle) * spiralRadius;
         const testY = position.y + Math.sin(angle) * spiralRadius;
-        if (testX < radius || testX > this.width - radius || testY < radius || testY > this.height - radius) {
+        const margin = nodeType === "concept" ? radius * 1.5 : radius;
+        if (testX < margin || testX > this.width - margin || testY < margin || testY > this.height - margin) {
           continue;
         }
         if (!this.checkCollision(testX, testY, radius, nodeType)) {
           console.log(
-            `\u{1F300} Found collision-free position for ${nodeType} after ${attempts + 1} attempts`
+            `\u{1F300} Found collision-free position for ${nodeType} after ${attempts + 1} attempts at radius ${Math.round(spiralRadius)}`
           );
           return { x: testX, y: testY };
         }
@@ -4377,7 +4401,7 @@ var GitVisualizer = class {
       attempts++;
     }
     console.warn(
-      `\u26A0\uFE0F Could not find collision-free position for ${nodeType}, using original`
+      `\u26A0\uFE0F Could not find collision-free position for ${nodeType} after ${maxAttempts} attempts, using original`
     );
     return position;
   }
@@ -4401,7 +4425,7 @@ var GitVisualizer = class {
       file: { min: 150, max: 190 },
       // Outer ring for files
       concept: { min: 240, max: 300 },
-      // Concepts outside files but not too far
+      // Expanded zone with more breathing room
       story: { min: 190, max: 230 },
       // Future: user stories
       function: { min: 230, max: 270 },
@@ -4438,8 +4462,13 @@ var GitVisualizer = class {
     return { x, y };
   }
   // Public interface that includes collision detection
-  calculateOrganicPosition(nodeType, index, contributions) {
-    return this.findNonCollidingPosition(nodeType, index, contributions);
+  calculateOrganicPosition(nodeType, index, contributions, nodeData) {
+    return this.findNonCollidingPosition(
+      nodeType,
+      index,
+      contributions,
+      nodeData
+    );
   }
   // Track current zoom level
   calculateGradualZoomOut() {
@@ -4965,10 +4994,15 @@ var GitVisualizer = class {
     console.log(
       `\u{1F52E} Adding concept ${index + 1}/${conceptNodes.length}: ${node.name} (${node.kind})`
     );
-    const position = this.calculateOrganicPosition("concept", index);
+    const position = this.calculateOrganicPosition(
+      "concept",
+      index,
+      void 0,
+      node
+    );
     node.x = position.x;
     node.y = position.y;
-    const nodeRadius = this.getNodeRadius(node.type);
+    const nodeRadius = this.getNodeRadius(node.type, void 0, node);
     this.registerOccupiedSpace(position.x, position.y, nodeRadius, node.id);
     this.allNodes.push(node);
     const conceptNodesAddedSoFar = conceptNodes.slice(0, index + 1);

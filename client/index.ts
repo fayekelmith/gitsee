@@ -63,7 +63,7 @@ class GitVisualizer {
     repo: 40, // Repository nodes (not used much since repo is centered)
     contributor: 40, // Contributors start close to center
     stat: 40, // Stats close to center
-    concept: 140, // Concepts outside files with good separation
+    concept: 80, // Reduced from 140 - concepts need tighter spiral steps
     file: 80, // Files farther out for better separation
     default: 40, // Fallback for any other node types
   };
@@ -178,11 +178,26 @@ class GitVisualizer {
   /**
    * 🔍 Collision Detection System
    */
-  private getNodeRadius(nodeType: string, contributions?: number): number {
+  private getNodeRadius(
+    nodeType: string,
+    contributions?: number,
+    nodeData?: NodeData
+  ): number {
     if (nodeType === "repo") return 35;
     if (nodeType === "file") return 18; // Files are rectangular but use this for collision
     if (nodeType === "stat") return 22; // Stats are circles
-    if (nodeType === "concept") return 35; // Concepts are longer boxes, need more space
+    if (nodeType === "concept") {
+      // Concepts are rectangles - use a much smaller effective radius
+      // Since we know the largest is 125x25, let's be more conservative
+      if (nodeData && nodeData.name) {
+        const textLength = nodeData.name.length;
+        const estimatedWidth = textLength * 7 + 16; // ~7px per char + 16px padding
+        // Use height-based radius since concepts are much wider than tall
+        // This creates smaller collision zones that are more realistic
+        return 20; // Fixed small radius for all concepts
+      }
+      return 20; // Much smaller fallback
+    }
     // For contributors, calculate size based on contributions
     const baseRadius = 16;
     const maxRadius = 22;
@@ -201,10 +216,36 @@ class GitVisualizer {
       const dy = y - space.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      // Extra horizontal buffer for concept nodes since they're longer
-      let buffer = 40; // Default buffer
-      if (nodeType === "concept" || space.nodeId.startsWith("concept-")) {
-        buffer = 80; // Larger buffer for concepts due to their horizontal nature
+      // Enhanced buffer system - lenient only for concepts
+      let buffer = 25; // Normal base buffer for non-concepts
+
+      // Special handling for concepts
+      if (nodeType === "concept") {
+        if (space.nodeId.startsWith("concept-")) {
+          // Concept to concept: smaller buffer since they're rectangles
+          buffer = 15; // Lenient for concept-to-concept
+        } else if (space.nodeId.startsWith("file-")) {
+          // Concept to file: larger buffer to prevent overlap
+          buffer = 35;
+        } else {
+          // Concept to other nodes: normal buffer
+          buffer = 25;
+        }
+      } else if (space.nodeId.startsWith("concept-")) {
+        // Other nodes to concepts: larger buffer for files
+        buffer = nodeType === "file" ? 35 : 20;
+      } else {
+        // Non-concept to non-concept: use larger buffer for good spacing
+        if (
+          nodeType === "contributor" ||
+          space.nodeId.startsWith("contributor-")
+        ) {
+          buffer = 40; // Contributors need good spacing
+        } else if (nodeType === "file" || space.nodeId.startsWith("file-")) {
+          buffer = 35; // Files need good spacing
+        } else if (nodeType === "stat" || space.nodeId.startsWith("stat-")) {
+          buffer = 30; // Stats need good spacing
+        }
       }
 
       const minDistance = radius + space.radius + buffer;
@@ -215,9 +256,10 @@ class GitVisualizer {
   private findNonCollidingPosition(
     nodeType: string,
     index: number,
-    contributions?: number
+    contributions?: number,
+    nodeData?: NodeData
   ): { x: number; y: number } {
-    const radius = this.getNodeRadius(nodeType, contributions);
+    const radius = this.getNodeRadius(nodeType, contributions, nodeData);
     const centerX = this.width / 2;
     const centerY = this.height / 2;
 
@@ -230,36 +272,37 @@ class GitVisualizer {
     }
 
     // If collision, try spiraling outward from the original position
-    const spiralStep = nodeType === "concept" ? 30 : 20; // Larger steps for concepts
+    const spiralStep = nodeType === "concept" ? 25 : 20; // Smaller steps for more attempts
     // Use configured spiral distance for this node type
     const spiralDistance =
       this.spiralDistances[nodeType as keyof typeof this.spiralDistances] ||
       this.spiralDistances.default;
     let spiralRadius = radius + spiralDistance;
     let attempts = 0;
-    const maxAttempts = nodeType === "concept" ? 80 : 50; // More attempts for concepts
+    const maxAttempts = nodeType === "concept" ? 200 : 50; // Reasonable attempts for concepts
 
     while (attempts < maxAttempts) {
-      const angleStep = (Math.PI * 2) / 12; // 12 positions per ring
+      const angleStep = (Math.PI * 2) / 16; // 16 positions per ring for more options
 
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 16; i++) {
         const angle = i * angleStep;
         const testX = position.x + Math.cos(angle) * spiralRadius;
         const testY = position.y + Math.sin(angle) * spiralRadius;
 
-        // Keep within screen bounds
+        // Keep within screen bounds with more margin for concepts
+        const margin = nodeType === "concept" ? radius * 1.5 : radius;
         if (
-          testX < radius ||
-          testX > this.width - radius ||
-          testY < radius ||
-          testY > this.height - radius
+          testX < margin ||
+          testX > this.width - margin ||
+          testY < margin ||
+          testY > this.height - margin
         ) {
           continue;
         }
 
         if (!this.checkCollision(testX, testY, radius, nodeType)) {
           console.log(
-            `🌀 Found collision-free position for ${nodeType} after ${attempts + 1} attempts`
+            `🌀 Found collision-free position for ${nodeType} after ${attempts + 1} attempts at radius ${Math.round(spiralRadius)}`
           );
           return { x: testX, y: testY };
         }
@@ -270,7 +313,7 @@ class GitVisualizer {
     }
 
     console.warn(
-      `⚠️ Could not find collision-free position for ${nodeType}, using original`
+      `⚠️ Could not find collision-free position for ${nodeType} after ${maxAttempts} attempts, using original`
     );
     return position;
   }
@@ -301,7 +344,7 @@ class GitVisualizer {
       stat: { min: 55, max: 75 }, // Close to repo - stats first!
       contributor: { min: 90, max: 130 }, // Contributors after stats
       file: { min: 150, max: 190 }, // Outer ring for files
-      concept: { min: 240, max: 300 }, // Concepts outside files but not too far
+      concept: { min: 240, max: 300 }, // Expanded zone with more breathing room
       story: { min: 190, max: 230 }, // Future: user stories
       function: { min: 230, max: 270 }, // Future: functions
       component: { min: 270, max: 310 }, // Future: components
@@ -353,9 +396,15 @@ class GitVisualizer {
   private calculateOrganicPosition(
     nodeType: string,
     index: number,
-    contributions?: number
+    contributions?: number,
+    nodeData?: NodeData
   ): { x: number; y: number } {
-    return this.findNonCollidingPosition(nodeType, index, contributions);
+    return this.findNonCollidingPosition(
+      nodeType,
+      index,
+      contributions,
+      nodeData
+    );
   }
 
   private currentZoom: number = 1.0; // Track current zoom level
@@ -1071,11 +1120,16 @@ class GitVisualizer {
       `🔮 Adding concept ${index + 1}/${conceptNodes.length}: ${node.name} (${node.kind})`
     );
 
-    // Position the concept node
-    const position = this.calculateOrganicPosition("concept", index);
+    // Position the concept node with better collision detection
+    const position = this.calculateOrganicPosition(
+      "concept",
+      index,
+      undefined,
+      node
+    );
     node.x = position.x;
     node.y = position.y;
-    const nodeRadius = this.getNodeRadius(node.type);
+    const nodeRadius = this.getNodeRadius(node.type, undefined, node);
     this.registerOccupiedSpace(position.x, position.y, nodeRadius, node.id);
 
     // Add to our node collection

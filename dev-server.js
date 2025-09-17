@@ -12,7 +12,7 @@ const gitSeeHandler = new GitSeeHandler({
   token: process.env.GITHUB_TOKEN,
   cache: { ttl: 300 },
   visualization: {
-    nodeDelay: 1200, // 1.2 seconds between nodes (contributors, files, etc.)
+    nodeDelay: 100, // 1.2 seconds between nodes (contributors, files, etc.)
   },
 });
 
@@ -58,7 +58,9 @@ const server = http.createServer(async (req, res) => {
 
   // Handle GitSee SSE routes (with URL parameters)
   if (url.pathname.startsWith("/api/gitsee/events/")) {
-    const match = url.pathname.match(/\/api\/gitsee\/events\/([^\/]+)\/([^\/]+)/);
+    const match = url.pathname.match(
+      /\/api\/gitsee\/events\/([^\/]+)\/([^\/]+)/
+    );
     if (match && req.method === "GET") {
       const [, owner, repo] = match;
       console.log(`📡 SSE connection for ${owner}/${repo}`);
