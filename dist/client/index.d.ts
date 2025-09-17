@@ -25,7 +25,7 @@ declare class GitVisualizer {
     private apiEndpoint;
     private sseEndpoint;
     private apiHeaders;
-    constructor(containerSelector?: string, apiEndpoint?: string, apiHeaders?: Record<string, string>, sseEndpoint?: string);
+    constructor(containerSelector?: string, apiEndpoint?: string, apiHeaders?: Record<string, string>, sseEndpoint?: string, nodeDelay?: number);
     private initializeVisualization;
     /**
      * 🔍 Collision Detection System
@@ -71,6 +71,8 @@ declare class GitVisualizer {
     getApiEndpoint(): string;
     getSseEndpoint(): string;
     getApiHeaders(): Record<string, string>;
+    setNodeDelay(nodeDelay: number): void;
+    getNodeDelay(): number;
     destroy(): void;
 }
 

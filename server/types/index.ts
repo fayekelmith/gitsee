@@ -32,9 +32,7 @@ export interface GitSeeResponse {
   stats?: RepoStats;
   exploration?: ExplorationResult | { error: string } | string;
   error?: string;
-  options?: {
-    nodeDelay?: number;
-  };
+  // No more backend options
 }
 
 export interface ExplorationResult {
@@ -51,9 +49,6 @@ export interface GitSeeOptions {
   token?: string;
   cache?: {
     ttl?: number; // seconds
-  };
-  visualization?: {
-    nodeDelay?: number; // milliseconds between node additions (contributors, files, etc.)
   };
 }
 

@@ -1918,15 +1918,6 @@ var GitSeeHandler = class {
     this.emitter.emitCloneStarted(owner, repo);
     RepoCloner.cloneInBackground(owner, repo, cloneOptions);
     this.autoStartFirstPassExploration(owner, repo, cloneOptions);
-    if (this.options.visualization) {
-      response.options = {
-        nodeDelay: this.options.visualization.nodeDelay || 800
-      };
-    } else {
-      response.options = {
-        nodeDelay: 800
-      };
-    }
     if (!owner || !repo) {
       throw new Error("Owner and repo are required");
     }

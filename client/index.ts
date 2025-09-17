@@ -77,7 +77,8 @@ class GitVisualizer {
     containerSelector: string = "#visualization",
     apiEndpoint: string = "/api/gitsee",
     apiHeaders: Record<string, string> = {},
-    sseEndpoint?: string
+    sseEndpoint?: string,
+    nodeDelay: number = 800
   ) {
     const container = d3.select(containerSelector);
     const containerNode = container.node() as Element;
@@ -89,6 +90,9 @@ class GitVisualizer {
       "Content-Type": "application/json",
       ...apiHeaders, // User headers override defaults
     };
+
+    // Store the node delay configuration
+    this.nodeDelay = nodeDelay;
 
     if (!containerNode) {
       throw new Error(`Container element not found: ${containerSelector}`);
@@ -473,11 +477,7 @@ class GitVisualizer {
         throw new Error(data.error);
       }
 
-      // Extract visualization configuration from response
-      if (data.options?.nodeDelay) {
-        this.nodeDelay = data.options.nodeDelay;
-        console.log(`⚙️ Using node delay: ${this.nodeDelay}ms`);
-      }
+      // No more backend configuration extraction needed
 
       // Step 1: Store repo data and create repository visualization (without icon first)
       if (data.repo) {
@@ -1321,6 +1321,14 @@ class GitVisualizer {
 
   public getApiHeaders(): Record<string, string> {
     return { ...this.apiHeaders };
+  }
+
+  public setNodeDelay(nodeDelay: number): void {
+    this.nodeDelay = nodeDelay;
+  }
+
+  public getNodeDelay(): number {
+    return this.nodeDelay;
   }
 
   public destroy(): void {

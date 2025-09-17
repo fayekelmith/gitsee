@@ -25,9 +25,6 @@ Interactive repository visualization library with D3.js.
 const gitSeeServer = createGitSeeServer({
   token: process.env.GITHUB_TOKEN,
   cache: { ttl: 300 },
-  visualization: {
-    nodeDelay: 1200, // 1.2 seconds between nodes (contributors, files, etc.)
-  },
 });
 ```
 

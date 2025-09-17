@@ -1,6 +1,13 @@
 export interface NodeData {
   id: string;
-  type: "repo" | "contributor" | "commit" | "branch" | "file" | "stat" | "concept";
+  type:
+    | "repo"
+    | "contributor"
+    | "commit"
+    | "branch"
+    | "file"
+    | "stat"
+    | "concept";
   name: string;
   x?: number;
   y?: number;
@@ -33,9 +40,6 @@ export interface ApiResponse {
   files?: any[];
   stats?: any;
   error?: string;
-  options?: {
-    nodeDelay?: number;
-  };
 }
 
 export interface VisualizationContext {

@@ -46,9 +46,6 @@ interface GitSeeResponse {
         error: string;
     } | string;
     error?: string;
-    options?: {
-        nodeDelay?: number;
-    };
 }
 interface ExplorationResult$1 {
     summary: string;
@@ -63,9 +60,6 @@ interface GitSeeOptions {
     token?: string;
     cache?: {
         ttl?: number;
-    };
-    visualization?: {
-        nodeDelay?: number;
     };
 }
 interface Contributor {

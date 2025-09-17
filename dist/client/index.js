@@ -4223,7 +4223,7 @@ var SSEClient = class {
 
 // client/index.ts
 var GitVisualizer = class {
-  constructor(containerSelector = "#visualization", apiEndpoint = "/api/gitsee", apiHeaders = {}, sseEndpoint) {
+  constructor(containerSelector = "#visualization", apiEndpoint = "/api/gitsee", apiHeaders = {}, sseEndpoint, nodeDelay = 800) {
     // Data storage
     this.allNodes = [];
     this.allLinks = [];
@@ -4263,6 +4263,7 @@ var GitVisualizer = class {
       ...apiHeaders
       // User headers override defaults
     };
+    this.nodeDelay = nodeDelay;
     if (!containerNode) {
       throw new Error(`Container element not found: ${containerSelector}`);
     }
@@ -4506,10 +4507,6 @@ var GitVisualizer = class {
       });
       if (data.error) {
         throw new Error(data.error);
-      }
-      if (data.options?.nodeDelay) {
-        this.nodeDelay = data.options.nodeDelay;
-        console.log(`\u2699\uFE0F Using node delay: ${this.nodeDelay}ms`);
       }
       if (data.repo) {
         this.currentRepoData = {
@@ -5154,6 +5151,12 @@ var GitVisualizer = class {
   }
   getApiHeaders() {
     return { ...this.apiHeaders };
+  }
+  setNodeDelay(nodeDelay) {
+    this.nodeDelay = nodeDelay;
+  }
+  getNodeDelay() {
+    return this.nodeDelay;
   }
   destroy() {
     this.svg.selectAll("*").remove();

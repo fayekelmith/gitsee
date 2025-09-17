@@ -11,9 +11,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const gitSeeHandler = new GitSeeHandler({
   token: process.env.GITHUB_TOKEN,
   cache: { ttl: 300 },
-  visualization: {
-    nodeDelay: 100, // 1.2 seconds between nodes (contributors, files, etc.)
-  },
 });
 
 // Simple static file server

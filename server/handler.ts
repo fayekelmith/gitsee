@@ -430,17 +430,7 @@ export class GitSeeHandler {
     // 🤖 AGENTIC: Auto-start first_pass exploration if we don't have recent data (fire-and-forget)
     this.autoStartFirstPassExploration(owner, repo, cloneOptions);
 
-    // Add visualization options to response
-    if (this.options.visualization) {
-      response.options = {
-        nodeDelay: this.options.visualization.nodeDelay || 800,
-      };
-    } else {
-      // Default options
-      response.options = {
-        nodeDelay: 800,
-      };
-    }
+    // No more visualization options sent from backend
 
     // Validate input
     if (!owner || !repo) {
