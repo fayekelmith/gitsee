@@ -22,7 +22,7 @@ export class DetailPanel {
       .select("body")
       .append("div")
       .attr("class", "gitsee-detail-panel")
-      .style("position", "fixed")
+      .style("position", "absolute")
       .style("top", "20px")
       .style("left", "20px")
       .style("width", "300px")
@@ -103,7 +103,7 @@ export class DetailPanel {
       // Add avatar
       headerFlex
         .append("img")
-        .attr("src", content.avatar)
+        .attr("src", content.avatar as string)
         .attr("alt", `${content.name} avatar`)
         .style("width", "40px")
         .style("height", "40px")
@@ -178,7 +178,7 @@ export class DetailPanel {
       .style("font-family", "system-ui, -apple-system, sans-serif");
 
     // Check if data contains HTML tags, if so use innerHTML, otherwise use text
-    if (data.includes('<') && data.includes('>')) {
+    if (data.includes("<") && data.includes(">")) {
       textContainer.node().innerHTML = data;
     } else {
       textContainer.text(data);
