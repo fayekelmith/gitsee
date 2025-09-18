@@ -74,4 +74,6 @@ PLEASE UPDATE THIS FILE WHEN YOU CREATE A NEW CORE CLASS!
 
 ### future plans:
 
+- git tool (commit history?)
+
 - use github listCommits with file "path" to create edges between contributors and files
