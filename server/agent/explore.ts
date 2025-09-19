@@ -25,28 +25,14 @@ interface ContextConfig {
   system: string;
 }
 
-const CONFIG: Record<RepoContextMode, ContextConfig> = {
-  generic: {
-    file_lines: 80,
-    system: "",
-    final_answer_description: "",
-  },
-  first_pass: {
-    file_lines: 100,
-    system: prompts.FIRST_PASS.EXPLORER,
-    final_answer_description: prompts.FIRST_PASS.FINAL_ANSWER,
-  },
-  features: {
-    file_lines: 40,
-    system: prompts.FEATURES.EXPLORER,
-    final_answer_description: prompts.FEATURES.FINAL_ANSWER,
-  },
-  services: {
-    file_lines: 100,
-    system: prompts.SERVICES.EXPLORER,
-    final_answer_description: prompts.SERVICES.FINAL_ANSWER,
-  },
-};
+function getConfig(mode: RepoContextMode): ContextConfig {
+  const m = prompts[mode];
+  return {
+    file_lines: m.FILE_LINES || 80,
+    system: m.EXPLORER,
+    final_answer_description: m.FINAL_ANSWER,
+  };
+}
 
 export interface FeaturesContextResult {
   summary: string;
@@ -71,7 +57,7 @@ export async function get_context(
   final_answer_description?: string
 ): Promise<string> {
   const startTime = Date.now();
-
+  const CONF = getConfig(mode);
   const provider = process.env.LLM_PROVIDER || "anthropic";
   const apiKey = getApiKeyForProvider(provider);
   const model = await getModel(provider as Provider, apiKey as string);
@@ -101,7 +87,7 @@ export async function get_context(
       }),
       execute: async ({ file_path }: { file_path: string }) => {
         try {
-          return getFileSummary(file_path, repoPath, CONFIG[mode].file_lines);
+          return getFileSummary(file_path, repoPath, CONF.file_lines);
         } catch (e) {
           return "Bad file path";
         }
@@ -123,8 +109,7 @@ export async function get_context(
     }),
     final_answer: tool({
       // The tool that signals the end of the process
-      description:
-        final_answer_description || CONFIG[mode].final_answer_description,
+      description: final_answer_description || CONF.final_answer_description,
       inputSchema: z.object({ answer: z.string() }),
       execute: async ({ answer }: { answer: string }) => answer,
     }),
@@ -136,7 +121,7 @@ export async function get_context(
     model,
     tools,
     prompt,
-    system: system_prompt || CONFIG[mode].system,
+    system: system_prompt || CONF.system,
     stopWhen: hasToolCall("final_answer"),
     onStepFinish: (sf) => logStep(sf.content),
   });
