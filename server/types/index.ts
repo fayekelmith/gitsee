@@ -15,7 +15,7 @@ export interface GitSeeRequest {
     | "exploration"
   )[];
   filePath?: string; // Required when requesting file_content
-  explorationMode?: "general" | "first_pass"; // Type of exploration to run
+  explorationMode?: "features" | "first_pass"; // Type of exploration to run
   explorationPrompt?: string; // Custom prompt for exploration
   // Optional clone options for private repos, auth, or different branches
   cloneOptions?: CloneOptions;
@@ -38,7 +38,7 @@ export interface GitSeeResponse {
 export interface ExplorationResult {
   summary: string;
   key_files: string[];
-  features?: string[]; // For general mode
+  features?: string[]; // For features mode
   infrastructure?: string[]; // For first_pass mode
   dependencies?: string[]; // For first_pass mode
   user_stories?: string[]; // For first_pass mode

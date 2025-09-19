@@ -1,12 +1,12 @@
 import {
   get_context,
   RepoContextMode,
-  GeneralContextResult,
+  FeaturesContextResult,
   FirstPassContextResult,
 } from "./explore.js";
 
 export type ExplorationResult =
-  | GeneralContextResult
+  | FeaturesContextResult
   | FirstPassContextResult
   | string; // services
 
@@ -72,7 +72,7 @@ export async function explore(
         summary: parsedResult.summary || jsonString,
         key_files: parsedResult.key_files || [],
         features: parsedResult.features || [],
-      } as GeneralContextResult;
+      } as FeaturesContextResult;
     }
 
     const endTime = Date.now();
@@ -101,7 +101,7 @@ export async function explore(
         summary: `Exploration failed: ${error instanceof Error ? error.message : "Unknown error"}`,
         key_files: [],
         features: [],
-      } as GeneralContextResult;
+      } as FeaturesContextResult;
     }
   }
 }

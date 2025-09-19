@@ -13,7 +13,11 @@ function logStep(contents: any) {
   }
 }
 
-export type RepoContextMode = "first_pass" | "general" | "services";
+export type RepoContextMode =
+  | "generic"
+  | "first_pass"
+  | "features"
+  | "services";
 
 interface ContextConfig {
   file_lines: number;
@@ -22,15 +26,20 @@ interface ContextConfig {
 }
 
 const CONFIG: Record<RepoContextMode, ContextConfig> = {
+  generic: {
+    file_lines: 80,
+    system: "",
+    final_answer_description: "",
+  },
   first_pass: {
     file_lines: 100,
     system: prompts.FIRST_PASS.EXPLORER,
     final_answer_description: prompts.FIRST_PASS.FINAL_ANSWER,
   },
-  general: {
+  features: {
     file_lines: 40,
-    system: prompts.GENERAL.EXPLORER,
-    final_answer_description: prompts.GENERAL.FINAL_ANSWER,
+    system: prompts.FEATURES.EXPLORER,
+    final_answer_description: prompts.FEATURES.FINAL_ANSWER,
   },
   services: {
     file_lines: 100,
@@ -39,7 +48,7 @@ const CONFIG: Record<RepoContextMode, ContextConfig> = {
   },
 };
 
-export interface GeneralContextResult {
+export interface FeaturesContextResult {
   summary: string;
   key_files: string[];
   features: string[];
@@ -57,7 +66,9 @@ export interface FirstPassContextResult {
 export async function get_context(
   prompt: string | ModelMessage[],
   repoPath: string,
-  mode: RepoContextMode = "general"
+  mode: RepoContextMode = "features",
+  system_prompt?: string,
+  final_answer_description?: string
 ): Promise<string> {
   const startTime = Date.now();
 
@@ -112,7 +123,8 @@ export async function get_context(
     }),
     final_answer: tool({
       // The tool that signals the end of the process
-      description: CONFIG[mode].final_answer_description,
+      description:
+        final_answer_description || CONFIG[mode].final_answer_description,
       inputSchema: z.object({ answer: z.string() }),
       execute: async ({ answer }: { answer: string }) => answer,
     }),
@@ -124,7 +136,7 @@ export async function get_context(
     model,
     tools,
     prompt,
-    system: CONFIG[mode].system,
+    system: system_prompt || CONFIG[mode].system,
     stopWhen: hasToolCall("final_answer"),
     onStepFinish: (sf) => logStep(sf.content),
   });

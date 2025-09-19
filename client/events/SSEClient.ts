@@ -1,8 +1,16 @@
 export interface ExplorationSSEEvent {
-  type: 'connected' | 'clone_started' | 'clone_completed' | 'exploration_started' | 'exploration_progress' | 'exploration_completed' | 'exploration_failed' | 'heartbeat';
+  type:
+    | "connected"
+    | "clone_started"
+    | "clone_completed"
+    | "exploration_started"
+    | "exploration_progress"
+    | "exploration_completed"
+    | "exploration_failed"
+    | "heartbeat";
   owner: string;
   repo: string;
-  mode?: 'general' | 'first_pass';
+  mode?: "features" | "first_pass";
   data?: any;
   error?: string;
   timestamp: number;
@@ -17,9 +25,7 @@ export class SSEClient {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000; // Start with 1 second
 
-  constructor(
-    private baseUrl: string = '/api/gitsee'
-  ) {}
+  constructor(private baseUrl: string = "/api/gitsee") {}
 
   /**
    * Connect to SSE stream for a specific repository
@@ -37,7 +43,9 @@ export class SSEClient {
 
         this.eventSource.onopen = () => {
           console.log(`✅ SSE connected to ${owner}/${repo}`);
-          console.log(`📊 EventSource readyState: ${this.eventSource?.readyState} (OPEN=1)`);
+          console.log(
+            `📊 EventSource readyState: ${this.eventSource?.readyState} (OPEN=1)`
+          );
           this.reconnectAttempts = 0; // Reset on successful connection
           resolve();
         };
@@ -49,18 +57,17 @@ export class SSEClient {
 
             // Emit to all registered handlers
             const handlers = this.eventHandlers.get(data.type) || [];
-            const allHandlers = this.eventHandlers.get('*') || [];
+            const allHandlers = this.eventHandlers.get("*") || [];
 
-            [...handlers, ...allHandlers].forEach(handler => {
+            [...handlers, ...allHandlers].forEach((handler) => {
               try {
                 handler(data);
               } catch (error) {
-                console.error('Error in SSE event handler:', error);
+                console.error("Error in SSE event handler:", error);
               }
             });
-
           } catch (error) {
-            console.error('Error parsing SSE message:', error, event.data);
+            console.error("Error parsing SSE message:", error, event.data);
           }
         };
 
@@ -69,19 +76,25 @@ export class SSEClient {
 
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
-            const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Exponential backoff
+            const delay =
+              this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Exponential backoff
 
-            console.log(`🔄 Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            console.log(
+              `🔄 Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+            );
 
             setTimeout(() => {
               this.connect(owner, repo).catch(console.error);
             }, delay);
           } else {
-            console.error(`❌ Max reconnection attempts reached for ${owner}/${repo}`);
-            reject(new Error('Failed to connect to SSE after multiple attempts'));
+            console.error(
+              `❌ Max reconnection attempts reached for ${owner}/${repo}`
+            );
+            reject(
+              new Error("Failed to connect to SSE after multiple attempts")
+            );
           }
         };
-
       } catch (error) {
         reject(error);
       }
@@ -93,7 +106,7 @@ export class SSEClient {
    */
   disconnect(): void {
     if (this.eventSource) {
-      console.log('📡 Disconnecting SSE');
+      console.log("📡 Disconnecting SSE");
       this.eventSource.close();
       this.eventSource = null;
     }
@@ -127,7 +140,7 @@ export class SSEClient {
    * Register handler for all events
    */
   onAll(handler: SSEEventHandler): () => void {
-    return this.on('*', handler);
+    return this.on("*", handler);
   }
 
   /**
@@ -143,7 +156,7 @@ export class SSEClient {
    */
   offAll(): void {
     this.eventHandlers.clear();
-    console.log('📝 Removed all event handlers');
+    console.log("📝 Removed all event handlers");
   }
 
   /**
@@ -164,26 +177,26 @@ export class SSEClient {
    * Convenience methods for common event types
    */
   onCloneStarted(handler: SSEEventHandler): () => void {
-    return this.on('clone_started', handler);
+    return this.on("clone_started", handler);
   }
 
   onCloneCompleted(handler: SSEEventHandler): () => void {
-    return this.on('clone_completed', handler);
+    return this.on("clone_completed", handler);
   }
 
   onExplorationStarted(handler: SSEEventHandler): () => void {
-    return this.on('exploration_started', handler);
+    return this.on("exploration_started", handler);
   }
 
   onExplorationProgress(handler: SSEEventHandler): () => void {
-    return this.on('exploration_progress', handler);
+    return this.on("exploration_progress", handler);
   }
 
   onExplorationCompleted(handler: SSEEventHandler): () => void {
-    return this.on('exploration_completed', handler);
+    return this.on("exploration_completed", handler);
   }
 
   onExplorationFailed(handler: SSEEventHandler): () => void {
-    return this.on('exploration_failed', handler);
+    return this.on("exploration_failed", handler);
   }
 }

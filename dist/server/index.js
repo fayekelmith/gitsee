@@ -779,9 +779,9 @@ Return a simple JSON object with the following fields:
 }
 `;
 
-// server/agent/prompts/general.ts
-var general_exports = {};
-__export(general_exports, {
+// server/agent/prompts/features.ts
+var features_exports = {};
+__export(features_exports, {
   EXPLORER: () => EXPLORER2,
   FINAL_ANSWER: () => FINAL_ANSWER2
 });
@@ -811,14 +811,14 @@ __export(services_exports, {
   FINAL_ANSWER: () => FINAL_ANSWER3
 });
 var EXPLORER3 = `
-You are a codebase exploration assistant. Your job is to identify the various services, integrations, and environment variables need to setup and run this codebase. Take your time exploring the codebase to find the most likely setup services, and env vars. You might need to use the fulltext_search tool to find instance of "process.env." or other similar patterns, based on the coding language(s) used in the project. You will be asked to output actual configuration files at the end, so make sure you find everything you need to do that.
+You are a codebase exploration assistant. Your job is to identify the various services, integrations, and environment variables need to setup and run this codebase. Take your time exploring the codebase to find the most likely setup services, and env vars. You might need to use the fulltext_search tool to find instance of "process.env." or other similar patterns, based on the coding language(s) used in the project. You will be asked to output actual configuration files at the end, so make sure you find everything you need to do that!
 `;
 var FINAL_ANSWER3 = `
 Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF YOUR EXPLORATION.
 
 Return three files: a pm2.config.js, a .env file, and a docker-compose.yml. Please put the title of each file, then the content in backticks.
 
-- pm2.config.js: the actual dev services for running this project. Often its just one single service! But sometimes the backend/frontend might be separate services.
+- pm2.config.js: the actual dev services for running this project. Often its just one single service! But sometimes the backend/frontend might be separate services. IMPORTANT: each service env should have a INSTALL_COMMAND so our sandbox system knows how to install dependencies! You can also add optional BUILD_COMMAND, TEST_COMMAND, E2E_TEST_COMMAND, and PRE_START_COMMAND if you find those in the package file. (PRE_START_COMMAND is like a command before starting, such as running migrations).
 - .env: the environment variables needed to run the project, with example values.
 - docker-compose.yml: the auxiliary services needed to run the project, such as databases, caches, queues, etc. IMPORTANT: there is a special "app" service in the docker-compsose.yaml that you MUST include! It is the service in which the codebase is mounted. Here is the EXACT content that it should have:
 \`\`\`
@@ -1060,15 +1060,20 @@ function logStep(contents) {
   }
 }
 var CONFIG = {
+  generic: {
+    file_lines: 80,
+    system: "",
+    final_answer_description: ""
+  },
   first_pass: {
     file_lines: 100,
     system: first_pass_exports.EXPLORER,
     final_answer_description: first_pass_exports.FINAL_ANSWER
   },
-  general: {
+  features: {
     file_lines: 40,
-    system: general_exports.EXPLORER,
-    final_answer_description: general_exports.FINAL_ANSWER
+    system: features_exports.EXPLORER,
+    final_answer_description: features_exports.FINAL_ANSWER
   },
   services: {
     file_lines: 100,
@@ -1076,7 +1081,7 @@ var CONFIG = {
     final_answer_description: services_exports.FINAL_ANSWER
   }
 };
-async function get_context(prompt, repoPath, mode = "general") {
+async function get_context(prompt, repoPath, mode = "features", system_prompt, final_answer_description) {
   const startTime = Date.now();
   const provider = process.env.LLM_PROVIDER || "anthropic";
   const apiKey = getApiKeyForProvider(provider);
@@ -1124,7 +1129,7 @@ async function get_context(prompt, repoPath, mode = "general") {
     }),
     final_answer: tool({
       // The tool that signals the end of the process
-      description: CONFIG[mode].final_answer_description,
+      description: final_answer_description || CONFIG[mode].final_answer_description,
       inputSchema: z.object({ answer: z.string() }),
       execute: async ({ answer }) => answer
     })
@@ -1136,7 +1141,7 @@ async function get_context(prompt, repoPath, mode = "general") {
     model,
     tools,
     prompt,
-    system: CONFIG[mode].system,
+    system: system_prompt || CONFIG[mode].system,
     stopWhen: hasToolCall("final_answer"),
     onStepFinish: (sf) => logStep(sf.content)
   });
@@ -1297,17 +1302,23 @@ function parse_files_contents(content) {
 }
 
 // server/agent/index.ts
-async function clone_and_explore(owner, repo, prompt, mode = "general", clone_options) {
+async function clone_and_explore(owner, repo, prompt, mode = "features", clone_options, overrides) {
   await RepoCloner.waitForClone(owner, repo, clone_options);
   const cloneResult = await RepoCloner.getCloneResult(owner, repo);
   if (!cloneResult?.success) {
     throw new Error("Failed to clone repo");
   }
   const localPath = cloneResult.localPath;
-  const result = await get_context(prompt, localPath, mode);
+  const result = await get_context(
+    prompt,
+    localPath,
+    mode,
+    overrides?.system_prompt,
+    overrides?.final_answer_description
+  );
   return result;
 }
-async function clone_and_explore_parse_files(owner, repo, prompt, mode = "general", clone_options) {
+async function clone_and_explore_parse_files(owner, repo, prompt, mode = "features", clone_options) {
   const result = await clone_and_explore(
     owner,
     repo,
@@ -1405,7 +1416,7 @@ var FileStore = class {
       return [];
     }
     const explorations = [];
-    const modes = ["first_pass", "general"];
+    const modes = ["first_pass", "features"];
     for (const mode of modes) {
       const exploration = await this.getExploration(owner, repo, mode);
       if (exploration) {
@@ -1427,9 +1438,9 @@ var FileStore = class {
     const stored = await this.getExploration(owner, repo, "first_pass");
     return stored?.result || null;
   }
-  // Helper to get general exploration data typed correctly
-  async getGeneralExploration(owner, repo) {
-    const stored = await this.getExploration(owner, repo, "general");
+  // Helper to get features exploration data typed correctly
+  async getFeaturesExploration(owner, repo) {
+    const stored = await this.getExploration(owner, repo, "features");
     return stored?.result || null;
   }
   // List all stored repositories with exploration status
@@ -1446,14 +1457,14 @@ var FileStore = class {
         const repo = parts.slice(1).join("-");
         const explorations = await this.getAllExplorations(owner, repo);
         const hasFirstPass = explorations.some((e) => e.mode === "first_pass");
-        const hasGeneral = explorations.some((e) => e.mode === "general");
+        const hasFeatures = explorations.some((e) => e.mode === "features");
         const lastExplored = explorations.length > 0 ? Math.max(...explorations.map((e) => e.timestamp)) : void 0;
         repos.push({
           owner,
           repo,
           explorations: {
             first_pass: hasFirstPass,
-            general: hasGeneral
+            features: hasFeatures
           },
           lastExplored
         });
@@ -1468,7 +1479,7 @@ var FileStore = class {
     for (const repoInfo of repos) {
       if (repoInfo.lastExplored && repoInfo.lastExplored < cutoff) {
         const repoDir = this.getRepoDir(repoInfo.owner, repoInfo.repo);
-        const modes = ["first_pass", "general"];
+        const modes = ["first_pass", "features"];
         for (const mode of modes) {
           const filePath = path3.join(repoDir, `exploration-${mode}.json`);
           if (fs3.existsSync(filePath)) {
@@ -2002,7 +2013,7 @@ var GitSeeHandler = class {
             break;
           case "exploration":
             console.log(`\u{1F50D} Fetching exploration data for ${owner}/${repo}...`);
-            const explorationMode = request.explorationMode || "general";
+            const explorationMode = request.explorationMode || "features";
             if (await this.store.hasRecentExploration(
               owner,
               repo,

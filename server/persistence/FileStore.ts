@@ -1,14 +1,14 @@
 import * as fs from "fs";
 import * as path from "path";
 import {
-  GeneralContextResult,
+  FeaturesContextResult,
   FirstPassContextResult,
   RepoContextMode,
 } from "../agent/index.js";
 
 // Union type for all exploration results
 export type ExplorationResult =
-  | GeneralContextResult
+  | FeaturesContextResult
   | FirstPassContextResult
   | string;
 
@@ -123,7 +123,7 @@ export class FileStore {
     }
 
     const explorations: StoredExploration[] = [];
-    const modes: RepoContextMode[] = ["first_pass", "general"];
+    const modes: RepoContextMode[] = ["first_pass", "features"];
 
     for (const mode of modes) {
       const exploration = await this.getExploration(owner, repo, mode);
@@ -159,13 +159,13 @@ export class FileStore {
     return (stored?.result as FirstPassContextResult) || null;
   }
 
-  // Helper to get general exploration data typed correctly
-  async getGeneralExploration(
+  // Helper to get features exploration data typed correctly
+  async getFeaturesExploration(
     owner: string,
     repo: string
-  ): Promise<GeneralContextResult | null> {
-    const stored = await this.getExploration(owner, repo, "general");
-    return (stored?.result as GeneralContextResult) || null;
+  ): Promise<FeaturesContextResult | null> {
+    const stored = await this.getExploration(owner, repo, "features");
+    return (stored?.result as FeaturesContextResult) || null;
   }
 
   // List all stored repositories with exploration status
@@ -175,7 +175,7 @@ export class FileStore {
       repo: string;
       explorations: {
         first_pass: boolean;
-        general: boolean;
+        features: boolean;
       };
       lastExplored?: number;
     }>
@@ -195,7 +195,7 @@ export class FileStore {
 
         const explorations = await this.getAllExplorations(owner, repo);
         const hasFirstPass = explorations.some((e) => e.mode === "first_pass");
-        const hasGeneral = explorations.some((e) => e.mode === "general");
+        const hasFeatures = explorations.some((e) => e.mode === "features");
 
         const lastExplored =
           explorations.length > 0
@@ -207,7 +207,7 @@ export class FileStore {
           repo,
           explorations: {
             first_pass: hasFirstPass,
-            general: hasGeneral,
+            features: hasFeatures,
           },
           lastExplored,
         });
@@ -227,7 +227,7 @@ export class FileStore {
         const repoDir = this.getRepoDir(repoInfo.owner, repoInfo.repo);
 
         // Only remove exploration files, keep basic data
-        const modes: RepoContextMode[] = ["first_pass", "general"];
+        const modes: RepoContextMode[] = ["first_pass", "features"];
         for (const mode of modes) {
           const filePath = path.join(repoDir, `exploration-${mode}.json`);
           if (fs.existsSync(filePath)) {

@@ -4096,7 +4096,9 @@ var SSEClient = class {
         this.eventSource = new EventSource(sseUrl);
         this.eventSource.onopen = () => {
           console.log(`\u2705 SSE connected to ${owner}/${repo}`);
-          console.log(`\u{1F4CA} EventSource readyState: ${this.eventSource?.readyState} (OPEN=1)`);
+          console.log(
+            `\u{1F4CA} EventSource readyState: ${this.eventSource?.readyState} (OPEN=1)`
+          );
           this.reconnectAttempts = 0;
           resolve();
         };
@@ -4122,13 +4124,19 @@ var SSEClient = class {
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
             const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-            console.log(`\u{1F504} Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+            console.log(
+              `\u{1F504} Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
+            );
             setTimeout(() => {
               this.connect(owner, repo).catch(console.error);
             }, delay);
           } else {
-            console.error(`\u274C Max reconnection attempts reached for ${owner}/${repo}`);
-            reject(new Error("Failed to connect to SSE after multiple attempts"));
+            console.error(
+              `\u274C Max reconnection attempts reached for ${owner}/${repo}`
+            );
+            reject(
+              new Error("Failed to connect to SSE after multiple attempts")
+            );
           }
         };
       } catch (error) {

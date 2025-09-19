@@ -9,8 +9,8 @@ interface CloneOptions {
     branch?: string;
 }
 
-type RepoContextMode = "first_pass" | "general" | "services";
-interface GeneralContextResult {
+type RepoContextMode = "generic" | "first_pass" | "features" | "services";
+interface FeaturesContextResult {
     summary: string;
     key_files: string[];
     features: string[];
@@ -29,7 +29,7 @@ interface GitSeeRequest {
     repo: string;
     data: ("contributors" | "icon" | "repo_info" | "commits" | "branches" | "files" | "stats" | "file_content" | "exploration")[];
     filePath?: string;
-    explorationMode?: "general" | "first_pass";
+    explorationMode?: "features" | "first_pass";
     explorationPrompt?: string;
     cloneOptions?: CloneOptions;
 }
@@ -162,7 +162,7 @@ declare function createGitSeeHandler(options?: GitSeeOptions): (req: IncomingMes
 
 declare function createGitSeeServer(options?: GitSeeOptions): http.Server<typeof IncomingMessage, typeof ServerResponse>;
 
-type ExplorationResult = GeneralContextResult | FirstPassContextResult | string;
+type ExplorationResult = FeaturesContextResult | FirstPassContextResult | string;
 
 interface ExplorationEvent {
     type: 'clone_started' | 'clone_completed' | 'exploration_started' | 'exploration_progress' | 'exploration_completed' | 'exploration_failed';

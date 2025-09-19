@@ -534,7 +534,7 @@ export class GitSeeHandler {
           case "exploration":
             console.log(`🔍 Fetching exploration data for ${owner}/${repo}...`);
             const explorationMode: RepoContextMode =
-              request.explorationMode || "general";
+              request.explorationMode || "features";
 
             // Check if we have recent exploration data
             if (
