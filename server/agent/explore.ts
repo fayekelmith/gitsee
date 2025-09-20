@@ -49,6 +49,18 @@ export interface FirstPassContextResult {
   pages: string[];
 }
 
+function makeFad(
+  final_answer_description: string | undefined,
+  conf: ContextConfig
+) {
+  let fad = conf.final_answer_description;
+  if (final_answer_description) {
+    const generic = prompts.generic.FINAL_ANSWER;
+    fad = generic + `\n\n` + final_answer_description;
+  }
+  return fad;
+}
+
 export async function get_context(
   prompt: string | ModelMessage[],
   repoPath: string,
@@ -61,6 +73,7 @@ export async function get_context(
   const provider = process.env.LLM_PROVIDER || "anthropic";
   const apiKey = getApiKeyForProvider(provider);
   const model = await getModel(provider as Provider, apiKey as string);
+  const fad = makeFad(final_answer_description, CONF);
   const tools = {
     repo_overview: tool({
       description:
@@ -109,7 +122,7 @@ export async function get_context(
     }),
     final_answer: tool({
       // The tool that signals the end of the process
-      description: final_answer_description || CONF.final_answer_description,
+      description: fad,
       inputSchema: z.object({ answer: z.string() }),
       execute: async ({ answer }: { answer: string }) => answer,
     }),
