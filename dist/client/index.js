@@ -3939,13 +3939,17 @@ var ConceptVisualization = class extends BaseVisualizationResource {
 
 // client/panel/DetailPanel.ts
 var DetailPanel = class {
-  constructor() {
+  constructor(container) {
     this.isVisible = false;
+    this.container = container || document.body;
     this.createPanel();
     this.injectStyles();
   }
   createPanel() {
-    this.panel = select_default2("body").append("div").attr("class", "gitsee-detail-panel").style("position", "absolute").style("top", "20px").style("left", "20px").style("width", "300px").style("max-height", "calc(100vh - 40px)").style("background", "#21262d").style("border", "1px solid #30363d").style("border-radius", "8px").style("box-shadow", "0 8px 24px rgba(0, 0, 0, 0.4)").style("z-index", "1000").style("transform", "translateX(-110%)").style("transition", "transform 0.3s ease").style("overflow", "hidden");
+    if (this.container !== document.body) {
+      select_default2(this.container).style("position", "relative");
+    }
+    this.panel = select_default2(this.container).append("div").attr("class", "gitsee-detail-panel").style("position", "absolute").style("top", "20px").style("left", "20px").style("width", "300px").style("max-height", this.container === document.body ? "calc(100vh - 40px)" : "calc(100% - 40px)").style("background", "#21262d").style("border", "1px solid #30363d").style("border-radius", "8px").style("box-shadow", "0 8px 24px rgba(0, 0, 0, 0.4)").style("z-index", "1000").style("transform", "translateX(-110%)").style("transition", "transform 0.3s ease").style("overflow", "hidden");
     this.panel.append("button").attr("class", "close-button").style("position", "absolute").style("top", "12px").style("right", "12px").style("width", "24px").style("height", "24px").style("border", "none").style("background", "transparent").style("color", "#7d8590").style("cursor", "pointer").style("border-radius", "4px").style("display", "flex").style("align-items", "center").style("justify-content", "center").style("font-size", "16px").style("line-height", "1").style("transition", "all 0.2s ease").text("\xD7").on("mouseover", function() {
       select_default2(this).style("background", "#30363d").style("color", "#e6edf3");
     }).on("mouseout", function() {
@@ -4262,8 +4266,8 @@ var GitVisualizer = class {
       // Fallback for any other node types
     };
     this.currentZoom = 1;
-    const container = select_default2(containerSelector);
-    const containerNode = container.node();
+    const originalContainer = select_default2(containerSelector);
+    const containerNode = originalContainer.node();
     this.apiEndpoint = apiEndpoint;
     this.sseEndpoint = sseEndpoint || apiEndpoint;
     this.apiHeaders = {
@@ -4278,7 +4282,17 @@ var GitVisualizer = class {
     const rect = containerNode.getBoundingClientRect();
     this.width = rect.width || 800;
     this.height = rect.height || 600;
-    this.svg = container;
+    if (containerNode.tagName === "svg") {
+      const parent = select_default2(containerNode.parentNode);
+      const wrapper = parent.insert("div", () => containerNode).style("position", "relative").style("width", this.width + "px").style("height", this.height + "px").style("overflow", "hidden");
+      wrapper.node().appendChild(containerNode);
+      this.svg = originalContainer;
+      this.panelContainer = wrapper.node();
+    } else {
+      originalContainer.style("position", "relative").style("overflow", "hidden");
+      this.svg = originalContainer.append("svg");
+      this.panelContainer = containerNode;
+    }
     this.svg.attr("width", this.width).attr("height", this.height);
     this.injectStyles();
     this.initializeVisualization();
@@ -4323,7 +4337,7 @@ var GitVisualizer = class {
     this.conceptsViz = new ConceptVisualization(this.context, (nodeData) => {
       this.showNodePanel(nodeData);
     });
-    this.detailPanel = new DetailPanel();
+    this.detailPanel = new DetailPanel(this.panelContainer);
     this.sseClient = new SSEClient(this.sseEndpoint);
     this.linksViz["getResourceGroup"]();
   }

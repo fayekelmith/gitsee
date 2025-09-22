@@ -3,6 +3,7 @@ declare class GitVisualizer {
     private height;
     private svg;
     private context;
+    private panelContainer;
     private repositoryViz;
     private contributorsViz;
     private linksViz;

@@ -751,12 +751,23 @@ RepoCloner.clonePromises = /* @__PURE__ */ new Map();
 import { generateText, tool, hasToolCall } from "ai";
 import { getModel, getApiKeyForProvider } from "aieo";
 
+// server/agent/prompts/index.ts
+var prompts_exports = {};
+__export(prompts_exports, {
+  features: () => features_exports,
+  first_pass: () => first_pass_exports,
+  generic: () => generic,
+  services: () => services_exports
+});
+
 // server/agent/prompts/first_pass.ts
 var first_pass_exports = {};
 __export(first_pass_exports, {
   EXPLORER: () => EXPLORER,
+  FILE_LINES: () => FILE_LINES,
   FINAL_ANSWER: () => FINAL_ANSWER
 });
+var FILE_LINES = 100;
 var EXPLORER = `
 You are a codebase exploration assistant. Use the provided tools to quickly explore the codebase and get a high-level understanding. DONT GO DEEP. Focus on general language and framework, specific core libraries, integrations, and features. Try to understand the main user story of the codebase just by looking at the file structure. YOU NEED TO RETURN AN ANSWER AS FAST AS POSSIBLE! So the best approach is 3-4 tool calls only: 1) repo_overview 2) file_summary of the package.json (or other main package file), 3) The main router file of page/endpoint names, ONLY if you can identify it first try, and 4) final_answer. DO NOT GO DEEPER THAN THIS.
 `;
@@ -783,8 +794,10 @@ Return a simple JSON object with the following fields:
 var features_exports = {};
 __export(features_exports, {
   EXPLORER: () => EXPLORER2,
+  FILE_LINES: () => FILE_LINES2,
   FINAL_ANSWER: () => FINAL_ANSWER2
 });
+var FILE_LINES2 = 40;
 var EXPLORER2 = `
 You are a codebase exploration assistant. Use the provided tools to explore the codebase and answer the user's question. Focus on general language and framework first, then specific core libraries, integrations, and features. Try to understand the core functionallity (user stories) of the codebase. Explore files, functions, and component names to understand the main user stories, pages, UX components, or workflows in the application.
 `;
@@ -808,8 +821,10 @@ Return a simple JSON object with the following fields:
 var services_exports = {};
 __export(services_exports, {
   EXPLORER: () => EXPLORER3,
+  FILE_LINES: () => FILE_LINES3,
   FINAL_ANSWER: () => FINAL_ANSWER3
 });
+var FILE_LINES3 = 100;
 var EXPLORER3 = `
 You are a codebase exploration assistant. Your job is to identify the various services, integrations, and environment variables need to setup and run this codebase. Take your time exploring the codebase to find the most likely setup services, and env vars. You might need to use the fulltext_search tool to find instance of "process.env." or other similar patterns, based on the coding language(s) used in the project. You will be asked to output actual configuration files at the end, so make sure you find everything you need to do that!
 `;
@@ -818,7 +833,7 @@ Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF 
 
 Return three files: a pm2.config.js, a .env file, and a docker-compose.yml. Please put the title of each file, then the content in backticks.
 
-- pm2.config.js: the actual dev services for running this project. Often its just one single service! But sometimes the backend/frontend might be separate services. IMPORTANT: each service env should have a INSTALL_COMMAND so our sandbox system knows how to install dependencies! You can also add optional BUILD_COMMAND, TEST_COMMAND, E2E_TEST_COMMAND, and PRE_START_COMMAND if you find those in the package file. (PRE_START_COMMAND is like a command before starting, such as running migrations).
+- pm2.config.js: the actual dev services for running this project. Often its just one single service! But sometimes the backend/frontend might be separate services. IMPORTANT: each service env should have a INSTALL_COMMAND so our sandbox system knows how to install dependencies! You can also add optional BUILD_COMMAND, TEST_COMMAND, E2E_TEST_COMMAND, and PRE_START_COMMAND if you find those in the package file. (PRE_START_COMMAND is like a command before starting, such as running migrations). Please name one of the services "frontend" no matter what. The cwd should start with /workspaces/your-repo-name. For instance, if the frontend is within an "app" dir, the cwd should be "/workspaces/your-repo-name/app".
 - .env: the environment variables needed to run the project, with example values.
 - docker-compose.yml: the auxiliary services needed to run the project, such as databases, caches, queues, etc. IMPORTANT: there is a special "app" service in the docker-compsose.yaml that you MUST include! It is the service in which the codebase is mounted. Here is the EXACT content that it should have:
 \`\`\`
@@ -846,7 +861,7 @@ module.exports = {
     {
       name: "frontend",
       script: "npm run dev",
-      cwd: "/workspaces/my-project",
+      cwd: "/workspaces/my-repo",
       instances: 1,
       autorestart: true,
       watch: false,
@@ -908,6 +923,13 @@ volumes:
 \`\`\`
 
 `;
+
+// server/agent/prompts/index.ts
+var generic = {
+  FILE_LINES: 80,
+  EXPLORER: `You are a code exploration assistant. Please use the provided tools to answer the user's prompt.`,
+  FINAL_ANSWER: `Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF YOUR EXPLORATION.`
+};
 
 // server/agent/explore.ts
 import { z } from "zod";
@@ -1059,33 +1081,31 @@ function logStep(contents) {
     }
   }
 }
-var CONFIG = {
-  generic: {
-    file_lines: 80,
-    system: "",
-    final_answer_description: ""
-  },
-  first_pass: {
-    file_lines: 100,
-    system: first_pass_exports.EXPLORER,
-    final_answer_description: first_pass_exports.FINAL_ANSWER
-  },
-  features: {
-    file_lines: 40,
-    system: features_exports.EXPLORER,
-    final_answer_description: features_exports.FINAL_ANSWER
-  },
-  services: {
-    file_lines: 100,
-    system: services_exports.EXPLORER,
-    final_answer_description: services_exports.FINAL_ANSWER
+function getConfig(mode) {
+  const m = prompts_exports[mode];
+  return {
+    file_lines: m.FILE_LINES || 80,
+    system: m.EXPLORER,
+    final_answer_description: m.FINAL_ANSWER
+  };
+}
+function makeFad(final_answer_description, conf) {
+  let fad = conf.final_answer_description;
+  if (final_answer_description) {
+    const generic2 = generic.FINAL_ANSWER;
+    fad = generic2 + `
+
+` + final_answer_description;
   }
-};
+  return fad;
+}
 async function get_context(prompt, repoPath, mode = "features", system_prompt, final_answer_description) {
   const startTime = Date.now();
+  const CONF = getConfig(mode);
   const provider = process.env.LLM_PROVIDER || "anthropic";
   const apiKey = getApiKeyForProvider(provider);
   const model = await getModel(provider, apiKey);
+  const fad = makeFad(final_answer_description, CONF);
   const tools = {
     repo_overview: tool({
       description: "Get a high-level view of the codebase architecture and structure. Use this to understand the project layout and identify where specific functionality might be located. Call this when you need to: 1) Orient yourself in an unfamiliar codebase, 2) Locate which directories/files might contain relevant code for a user's question, 3) Understand the overall project structure before diving deeper. Don't call this if you already know which specific files you need to examine.",
@@ -1108,7 +1128,7 @@ async function get_context(prompt, repoPath, mode = "features", system_prompt, f
       }),
       execute: async ({ file_path }) => {
         try {
-          return getFileSummary(file_path, repoPath, CONFIG[mode].file_lines);
+          return getFileSummary(file_path, repoPath, CONF.file_lines);
         } catch (e) {
           return "Bad file path";
         }
@@ -1129,7 +1149,7 @@ async function get_context(prompt, repoPath, mode = "features", system_prompt, f
     }),
     final_answer: tool({
       // The tool that signals the end of the process
-      description: final_answer_description || CONFIG[mode].final_answer_description,
+      description: fad,
       inputSchema: z.object({ answer: z.string() }),
       execute: async ({ answer }) => answer
     })
@@ -1141,7 +1161,7 @@ async function get_context(prompt, repoPath, mode = "features", system_prompt, f
     model,
     tools,
     prompt,
-    system: system_prompt || CONFIG[mode].system,
+    system: system_prompt || CONF.system,
     stopWhen: hasToolCall("final_answer"),
     onStepFinish: (sf) => logStep(sf.content)
   });

@@ -9,7 +9,7 @@ Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF 
 
 Return three files: a pm2.config.js, a .env file, and a docker-compose.yml. Please put the title of each file, then the content in backticks.
 
-- pm2.config.js: the actual dev services for running this project. Often its just one single service! But sometimes the backend/frontend might be separate services. IMPORTANT: each service env should have a INSTALL_COMMAND so our sandbox system knows how to install dependencies! You can also add optional BUILD_COMMAND, TEST_COMMAND, E2E_TEST_COMMAND, and PRE_START_COMMAND if you find those in the package file. (PRE_START_COMMAND is like a command before starting, such as running migrations).
+- pm2.config.js: the actual dev services for running this project. Often its just one single service! But sometimes the backend/frontend might be separate services. IMPORTANT: each service env should have a INSTALL_COMMAND so our sandbox system knows how to install dependencies! You can also add optional BUILD_COMMAND, TEST_COMMAND, E2E_TEST_COMMAND, and PRE_START_COMMAND if you find those in the package file. (PRE_START_COMMAND is like a command before starting, such as running migrations). Please name one of the services "frontend" no matter what. The cwd should start with /workspaces/your-repo-name. For instance, if the frontend is within an "app" dir, the cwd should be "/workspaces/your-repo-name/app".
 - .env: the environment variables needed to run the project, with example values.
 - docker-compose.yml: the auxiliary services needed to run the project, such as databases, caches, queues, etc. IMPORTANT: there is a special "app" service in the docker-compsose.yaml that you MUST include! It is the service in which the codebase is mounted. Here is the EXACT content that it should have:
 \`\`\`
@@ -37,7 +37,7 @@ module.exports = {
     {
       name: "frontend",
       script: "npm run dev",
-      cwd: "/workspaces/my-project",
+      cwd: "/workspaces/my-repo",
       instances: 1,
       autorestart: true,
       watch: false,

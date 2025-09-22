@@ -10,23 +10,30 @@ export class DetailPanel {
     unknown
   >;
   private isVisible: boolean = false;
+  private container: HTMLElement;
 
-  constructor() {
+  constructor(container?: HTMLElement) {
+    this.container = container || document.body;
     this.createPanel();
     this.injectStyles();
   }
 
   private createPanel(): void {
+    // Ensure container has relative positioning
+    if (this.container !== document.body) {
+      d3.select(this.container).style("position", "relative");
+    }
+
     // Create the floating panel
     this.panel = d3
-      .select("body")
+      .select(this.container)
       .append("div")
       .attr("class", "gitsee-detail-panel")
       .style("position", "absolute")
       .style("top", "20px")
       .style("left", "20px")
       .style("width", "300px")
-      .style("max-height", "calc(100vh - 40px)")
+      .style("max-height", this.container === document.body ? "calc(100vh - 40px)" : "calc(100% - 40px)")
       .style("background", "#21262d")
       .style("border", "1px solid #30363d")
       .style("border-radius", "8px")

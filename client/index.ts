@@ -22,6 +22,7 @@ class GitVisualizer {
   private height: number;
   private svg: any;
   private context!: VisualizationContext;
+  private panelContainer!: HTMLElement;
 
   // Resource visualizations
   private repositoryViz!: RepositoryVisualization;
@@ -80,8 +81,8 @@ class GitVisualizer {
     sseEndpoint?: string,
     nodeDelay: number = 800
   ) {
-    const container = d3.select(containerSelector);
-    const containerNode = container.node() as Element;
+    const originalContainer = d3.select(containerSelector);
+    const containerNode = originalContainer.node() as Element;
 
     // Store the API configuration
     this.apiEndpoint = apiEndpoint;
@@ -103,7 +104,30 @@ class GitVisualizer {
     this.width = rect.width || 800; // fallback width
     this.height = rect.height || 600; // fallback height
 
-    this.svg = container;
+    // Create a wrapper div for the SVG and panel if we're dealing with an SVG element
+    if (containerNode.tagName === 'svg') {
+      // Get the parent of the SVG
+      const parent = d3.select(containerNode.parentNode as Element);
+
+      // Create wrapper div
+      const wrapper = parent.insert("div", () => containerNode)
+        .style("position", "relative")
+        .style("width", this.width + "px")
+        .style("height", this.height + "px")
+        .style("overflow", "hidden");
+
+      // Move the SVG into the wrapper
+      wrapper.node()!.appendChild(containerNode);
+
+      this.svg = originalContainer;
+      this.panelContainer = wrapper.node() as HTMLElement;
+    } else {
+      // If it's already a div, just use it directly
+      originalContainer.style("position", "relative").style("overflow", "hidden");
+      this.svg = originalContainer.append("svg");
+      this.panelContainer = containerNode as HTMLElement;
+    }
+
     this.svg.attr("width", this.width).attr("height", this.height);
 
     // Inject required CSS styles for the library
@@ -169,8 +193,8 @@ class GitVisualizer {
       this.showNodePanel(nodeData);
     });
 
-    // Initialize detail panel
-    this.detailPanel = new DetailPanel();
+    // Initialize detail panel - pass wrapper container
+    this.detailPanel = new DetailPanel(this.panelContainer);
 
     // Initialize SSE client with separate endpoint
     this.sseClient = new SSEClient(this.sseEndpoint);
