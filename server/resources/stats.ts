@@ -1,7 +1,17 @@
 import { BaseResource } from "./base.js";
 import { RepoStats } from "../types/index.js";
+import { RepoAnalyzer } from "../mcp/index.js";
 
 export class StatsResource extends BaseResource {
+  private analyzer: RepoAnalyzer;
+
+  constructor(cache: any, githubToken?: string) {
+    super(cache);
+    this.analyzer = new RepoAnalyzer({
+      githubToken,
+    });
+  }
+
   async getRepoStats(owner: string, repo: string): Promise<RepoStats> {
     // Check cache first
     const cached = await this.getCached<RepoStats>(owner, repo, "stats");
@@ -13,53 +23,7 @@ export class StatsResource extends BaseResource {
     console.log(`🔍 Fetching stats for ${owner}/${repo}...`);
 
     try {
-      // Fetch repository basic info (includes stars and creation date)
-      const repoResponse = await this.octokit.rest.repos.get({
-        owner,
-        repo,
-      });
-
-      const repoData = repoResponse.data;
-
-      // Get total PRs count (using advanced search to avoid deprecation)
-      const prsResponse = await this.octokit.rest.search.issuesAndPullRequests({
-        q: `repo:${owner}/${repo} type:pr`,
-        per_page: 1, // We only need the count
-        advanced_search: "true", // Use advanced search to avoid deprecation warning
-      });
-
-      // Get total commits count (approximate from contributors API which is faster than paginating all commits)
-      const contributorsResponse =
-        await this.octokit.rest.repos.listContributors({
-          owner,
-          repo,
-          per_page: 100, // Get up to 100 contributors
-        });
-
-      // Sum up all contributions to get approximate total commits
-      const totalCommits = contributorsResponse.data.reduce(
-        (sum, contributor) => {
-          return sum + (contributor.contributions || 0);
-        },
-        0,
-      );
-
-      // Calculate age in years
-      const createdDate = new Date(repoData.created_at);
-      const now = new Date();
-      const ageInYears =
-        Math.round(
-          ((now.getTime() - createdDate.getTime()) /
-            (365.25 * 24 * 60 * 60 * 1000)) *
-            10,
-        ) / 10; // Round to 1 decimal
-
-      const stats: RepoStats = {
-        stars: repoData.stargazers_count,
-        totalPRs: prsResponse.data.total_count,
-        totalCommits: totalCommits,
-        ageInYears: ageInYears,
-      };
+      const stats = await this.analyzer.getRepoStats(owner, repo);
 
       console.log(`📊 Stats for ${owner}/${repo}:`, {
         stars: stats.stars,
@@ -80,10 +44,7 @@ export class StatsResource extends BaseResource {
 
       // Check if it's a rate limit error
       if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(
-          `⏱️  RATE LIMIT HIT for stats! Using token:`,
-          !!this.octokit.auth,
-        );
+        console.error(`⏱️  RATE LIMIT HIT for stats!`);
       }
 
       throw error;

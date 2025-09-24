@@ -47,13 +47,13 @@ export class GitSeeHandler {
     this.emitter = ExplorationEmitter.getInstance();
 
     // Initialize resource modules
-    this.contributors = new ContributorsResource(this.octokit, this.cache);
-    this.icons = new IconsResource(this.octokit, this.cache);
-    this.repository = new RepositoryResource(this.octokit, this.cache);
-    this.commits = new CommitsResource(this.octokit, this.cache);
-    this.branches = new BranchesResource(this.octokit, this.cache);
-    this.files = new FilesResource(this.octokit, this.cache);
-    this.stats = new StatsResource(this.octokit, this.cache);
+    this.contributors = new ContributorsResource(this.cache, options.token);
+    this.icons = new IconsResource(this.cache, options.token);
+    this.repository = new RepositoryResource(this.cache, options.token);
+    this.commits = new CommitsResource(this.cache, options.token);
+    this.branches = new BranchesResource(this.cache, options.token);
+    this.files = new FilesResource(this.cache, options.token);
+    this.stats = new StatsResource(this.cache, options.token);
   }
 
   async handleEvents(
@@ -401,25 +401,25 @@ export class GitSeeHandler {
 
     // Create per-request resource instances if token provided
     const contributors = cloneOptions?.token
-      ? new ContributorsResource(requestOctokit, this.cache)
+      ? new ContributorsResource(this.cache, cloneOptions.token)
       : this.contributors;
     const icons = cloneOptions?.token
-      ? new IconsResource(requestOctokit, this.cache)
+      ? new IconsResource(this.cache, cloneOptions.token)
       : this.icons;
     const repository = cloneOptions?.token
-      ? new RepositoryResource(requestOctokit, this.cache)
+      ? new RepositoryResource(this.cache, cloneOptions.token)
       : this.repository;
     const commits = cloneOptions?.token
-      ? new CommitsResource(requestOctokit, this.cache)
+      ? new CommitsResource(this.cache, cloneOptions.token)
       : this.commits;
     const branches = cloneOptions?.token
-      ? new BranchesResource(requestOctokit, this.cache)
+      ? new BranchesResource(this.cache, cloneOptions.token)
       : this.branches;
     const files = cloneOptions?.token
-      ? new FilesResource(requestOctokit, this.cache)
+      ? new FilesResource(this.cache, cloneOptions.token)
       : this.files;
     const stats = cloneOptions?.token
-      ? new StatsResource(requestOctokit, this.cache)
+      ? new StatsResource(this.cache, cloneOptions.token)
       : this.stats;
 
     // 🚀 AGENTIC: Start background clone immediately (fire-and-forget) with clone options

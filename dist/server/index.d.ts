@@ -1,7 +1,6 @@
 import * as http from 'http';
 import { IncomingMessage, ServerResponse } from 'http';
 import { EventEmitter } from 'events';
-import { Octokit } from '@octokit/rest';
 
 interface CloneOptions {
     username?: string;
@@ -200,32 +199,40 @@ declare class GitSeeCache {
 }
 
 declare abstract class BaseResource {
-    protected octokit: Octokit;
     protected cache: GitSeeCache;
-    constructor(octokit: Octokit, cache: GitSeeCache);
+    constructor(cache: GitSeeCache);
     protected getCacheKey(owner: string, repo: string, type: string): string;
     protected getCached<T>(owner: string, repo: string, type: string): Promise<T | undefined>;
     protected setCached<T>(owner: string, repo: string, type: string, data: T): void;
 }
 
 declare class ContributorsResource extends BaseResource {
+    private analyzer;
+    constructor(cache: any, githubToken?: string);
     getContributors(owner: string, repo: string): Promise<Contributor[]>;
 }
 
 declare class IconsResource extends BaseResource {
+    private analyzer;
+    constructor(cache: any, githubToken?: string);
     getRepoIcon(owner: string, repo: string): Promise<string | null>;
-    private sortIconsByResolution;
 }
 
 declare class RepositoryResource extends BaseResource {
+    private analyzer;
+    constructor(cache: any, githubToken?: string);
     getRepoInfo(owner: string, repo: string): Promise<Repository>;
 }
 
 declare class CommitsResource extends BaseResource {
+    private analyzer;
+    constructor(cache: any, githubToken?: string);
     getCommits(owner: string, repo: string): Promise<Commit[]>;
 }
 
 declare class BranchesResource extends BaseResource {
+    private analyzer;
+    constructor(cache: any, githubToken?: string);
     getBranches(owner: string, repo: string): Promise<Branch[]>;
 }
 

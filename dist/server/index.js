@@ -5,7 +5,7 @@ var __export = (target, all) => {
 };
 
 // server/handler.ts
-import { Octokit } from "@octokit/rest";
+import { Octokit as Octokit2 } from "@octokit/rest";
 
 // server/utils/cache.ts
 var GitSeeCache = class {
@@ -35,8 +35,7 @@ var GitSeeCache = class {
 
 // server/resources/base.ts
 var BaseResource = class {
-  constructor(octokit, cache) {
-    this.octokit = octokit;
+  constructor(cache) {
     this.cache = cache;
   }
   getCacheKey(owner, repo, type) {
@@ -52,282 +51,295 @@ var BaseResource = class {
   }
 };
 
-// server/resources/contributors.ts
-var ContributorsResource = class extends BaseResource {
-  async getContributors(owner, repo) {
-    const cached = await this.getCached(
-      owner,
-      repo,
-      "contributors"
-    );
-    if (cached) {
-      console.log(`\u{1F4BE} Cache hit for contributors: ${owner}/${repo}`);
-      return cached;
+// server/mcp/base.ts
+import { Octokit } from "@octokit/rest";
+var BaseAnalyzer = class {
+  constructor(config = {}) {
+    this.config = {
+      defaultLimit: 50,
+      defaultDays: 30,
+      ...config
+    };
+    this.octokit = new Octokit({
+      auth: config.githubToken
+    });
+  }
+  async paginate(request, limit) {
+    const actualLimit = limit || this.config.defaultLimit || 50;
+    if (actualLimit <= 100) {
+      const response = await request({ per_page: actualLimit });
+      return response.data;
     }
-    console.log(`\u{1F4E1} Fetching contributors for ${owner}/${repo}...`);
-    try {
-      const response = await this.octokit.rest.repos.listContributors({
-        owner,
-        repo,
-        per_page: 50
+    const results = [];
+    let page = 1;
+    const perPage = 100;
+    while (results.length < actualLimit) {
+      const remaining = actualLimit - results.length;
+      const requestSize = Math.min(perPage, remaining);
+      const response = await request({
+        per_page: requestSize,
+        page
       });
-      const contributors = response.data;
-      console.log(`\u{1F465} Found ${contributors.length} contributors`);
-      this.setCached(owner, repo, "contributors", contributors);
-      return contributors;
-    } catch (error) {
-      console.error(
-        `\u{1F4A5} Error fetching contributors for ${owner}/${repo}:`,
-        error.message
-      );
-      if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(
-          `\u23F1\uFE0F  RATE LIMIT HIT for contributors! Using token:`,
-          !!this.octokit.auth
-        );
-      }
-      throw error;
+      if (response.data.length === 0) break;
+      results.push(...response.data);
+      page++;
     }
+    return results.slice(0, actualLimit);
   }
 };
 
-// server/resources/icons.ts
-var IconsResource = class extends BaseResource {
-  async getRepoIcon(owner, repo) {
-    const cached = await this.getCached(owner, repo, "icon");
-    if (cached !== void 0) {
-      console.log(
-        `\u{1F4BE} Cache hit for ${owner}/${repo} icon:`,
-        cached ? "Found" : "Not found"
-      );
-      console.log(`\u{1F504} Clearing cache to retry (checking for rate limits)...`);
-      this.cache.clear();
-    }
-    console.log(`\u{1F680} Starting fresh icon fetch for ${owner}/${repo}`);
-    try {
-      console.log(`\u{1F4C1} Getting root contents for ${owner}/${repo}...`);
-      const rootContents = await this.octokit.rest.repos.getContent({
+// server/mcp/repo-analyzer/commits.ts
+var CommitAnalyzer = class extends BaseAnalyzer {
+  async getRecentCommits(owner, repo, options = {}) {
+    const {
+      days = this.config.defaultDays,
+      limit = this.config.defaultLimit,
+      author,
+      since,
+      until
+    } = options;
+    const sinceDate = since || (days ? new Date(Date.now() - days * 24 * 60 * 60 * 1e3).toISOString() : void 0);
+    const commits = await this.paginate(
+      (params) => this.octokit.rest.repos.listCommits({
         owner,
         repo,
-        path: ""
-      });
-      if (!Array.isArray(rootContents.data)) {
-        console.log(`\u274C Root contents not an array`);
-        this.setCached(owner, repo, "icon", null);
-        return null;
-      }
-      console.log(`\u{1F4C2} Found ${rootContents.data.length} files in root`);
-      const iconFiles = rootContents.data.filter((file) => {
-        const name = file.name.toLowerCase();
-        const isIcon = name.includes("favicon") || name.includes("logo") || name.includes("icon") || name.startsWith("apple-touch") && name.includes("icon");
-        if (isIcon) {
-        }
-        return isIcon;
-      });
-      console.log(`\u{1F4CA} Found ${iconFiles.length} icon files in root`);
-      const subdirs = ["public", "assets", "static", "images", "img"];
-      for (const subdir of subdirs) {
-        const subdirExists = rootContents.data.find(
-          (item) => item.name === subdir && item.type === "dir"
-        );
-        if (subdirExists) {
-          console.log(`\u{1F4C2} Checking ${subdir}/ directory...`);
-          try {
-            const subdirContents = await this.octokit.rest.repos.getContent({
-              owner,
-              repo,
-              path: subdir
-            });
-            if (Array.isArray(subdirContents.data)) {
-              const subdirIcons = subdirContents.data.filter((file) => {
-                const name = file.name.toLowerCase();
-                const isIcon = name.includes("favicon") || name.includes("logo") || name.includes("icon");
-                if (isIcon) {
-                }
-                return isIcon;
-              });
-              iconFiles.push(
-                ...subdirIcons.map((f) => ({
-                  ...f,
-                  path: `${subdir}/${f.name}`
-                }))
-              );
-            }
-          } catch (error) {
-            console.log(`\u26A0\uFE0F  Could not access ${subdir}/ directory`);
-            continue;
-          }
-        }
-      }
-      console.log(`\u{1F4CA} Total icon files found: ${iconFiles.length}`);
-      const sortedIcons = this.sortIconsByResolution(iconFiles);
-      for (const iconFile of sortedIcons) {
-        const filePath = iconFile.path || iconFile.name;
-        console.log(`\u{1F4E5} Attempting to fetch: ${filePath}`);
+        author,
+        since: sinceDate,
+        until,
+        ...params
+      }),
+      limit
+    );
+    return commits;
+  }
+  async getRecentCommitsWithFiles(owner, repo, options = {}) {
+    const commits = await this.getRecentCommits(owner, repo, options);
+    const detailedCommits = await Promise.all(
+      commits.map(async (commit) => {
         try {
-          const iconResponse = await this.octokit.rest.repos.getContent({
+          const detailedCommit = await this.octokit.rest.repos.getCommit({
             owner,
             repo,
-            path: filePath
+            ref: commit.sha
           });
-          if ("content" in iconResponse.data && iconResponse.data.content) {
-            const iconData = `data:image/png;base64,${iconResponse.data.content}`;
-            console.log(`\u2705 Successfully loaded icon: ${filePath}`);
-            console.log(`\u{1F4CA} Icon data length: ${iconData.length} chars`);
-            this.setCached(owner, repo, "icon", iconData);
-            return iconData;
-          } else {
-            console.log(`\u274C No content in response for: ${filePath}`);
-          }
+          return {
+            ...commit,
+            files: detailedCommit.data.files || []
+          };
         } catch (error) {
-          console.log(`\u274C Failed to load: ${filePath}`);
-          continue;
+          console.warn(`Could not fetch files for commit ${commit.sha}:`, error);
+          return commit;
         }
-      }
-      console.log("\u274C No icons could be loaded");
-      this.setCached(owner, repo, "icon", null);
-      return null;
-    } catch (error) {
-      console.error(`\u{1F4A5} ERROR fetching repo icon for ${owner}/${repo}:`, error);
-      if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(`\u23F1\uFE0F  RATE LIMIT HIT! Error:`, error.message);
-        console.error(`\u{1F511} Using token:`, !!this.octokit.auth);
-      }
-      this.setCached(owner, repo, "icon", null);
-      return null;
-    }
+      })
+    );
+    return detailedCommits;
   }
-  sortIconsByResolution(iconFiles) {
-    return iconFiles.sort((a, b) => {
-      const aName = a.name.toLowerCase();
-      const bName = b.name.toLowerCase();
-      const getResolution = (name) => {
-        const match = name.match(/(\d+)x\d+/);
-        if (match) return parseInt(match[1]);
-        if (name.includes("512")) return 512;
-        if (name.includes("256")) return 256;
-        if (name.includes("192")) return 192;
-        if (name.includes("180")) return 180;
-        if (name.includes("apple-touch")) return 180;
-        if (name.includes("android-chrome")) return 192;
-        if (name === "favicon.ico") return 64;
-        if (name.includes("logo")) return 100;
-        return 50;
-      };
-      return getResolution(bName) - getResolution(aName);
+  async getContributorCommits(owner, repo, contributor, limit) {
+    return this.getRecentCommits(owner, repo, {
+      author: contributor,
+      limit
+    });
+  }
+  async getContributorFiles(owner, repo, contributor, limit) {
+    const commits = await this.getRecentCommitsWithFiles(owner, repo, {
+      author: contributor,
+      limit: limit || 100
+      // Get more commits to analyze file patterns
+    });
+    const fileMap = /* @__PURE__ */ new Map();
+    commits.forEach((commit) => {
+      if (commit.files) {
+        commit.files.forEach((file) => {
+          const existing = fileMap.get(file.filename);
+          if (!existing || commit.commit.author.date > existing.lastModified) {
+            fileMap.set(file.filename, {
+              count: (existing?.count || 0) + 1,
+              lastModified: commit.commit.author.date
+            });
+          }
+        });
+      }
+    });
+    const files = Array.from(fileMap.entries()).map(([filename, data]) => ({
+      filename,
+      modifications: data.count,
+      lastModified: data.lastModified
+    })).sort((a, b) => b.modifications - a.modifications);
+    return limit ? files.slice(0, limit) : files;
+  }
+};
+
+// server/mcp/repo-analyzer/pull-requests.ts
+var PullRequestAnalyzer = class extends BaseAnalyzer {
+  async getRecentPRs(owner, repo, options = {}) {
+    const {
+      days = this.config.defaultDays,
+      limit = this.config.defaultLimit,
+      state = "all",
+      author
+    } = options;
+    const prs = await this.paginate(
+      (params) => this.octokit.rest.pulls.list({
+        owner,
+        repo,
+        state,
+        sort: "updated",
+        direction: "desc",
+        ...params
+      }),
+      limit
+    );
+    let filteredPRs = prs;
+    if (days) {
+      const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1e3);
+      filteredPRs = filteredPRs.filter(
+        (pr) => new Date(pr.updated_at) > cutoffDate
+      );
+    }
+    if (author) {
+      filteredPRs = filteredPRs.filter(
+        (pr) => pr.user.login.toLowerCase() === author.toLowerCase()
+      );
+    }
+    return filteredPRs;
+  }
+  async getContributorPRs(owner, repo, contributor, limit) {
+    return this.getRecentPRs(owner, repo, {
+      author: contributor,
+      limit
+    });
+  }
+  async getPRDetails(owner, repo, prNumber) {
+    const [prResponse, reviewsResponse] = await Promise.all([
+      this.octokit.rest.pulls.get({
+        owner,
+        repo,
+        pull_number: prNumber
+      }),
+      this.octokit.rest.pulls.listReviews({
+        owner,
+        repo,
+        pull_number: prNumber
+      })
+    ]);
+    return {
+      ...prResponse.data,
+      reviews: reviewsResponse.data
+    };
+  }
+  async getRecentReviews(owner, repo, days) {
+    const actualDays = days || this.config.defaultDays || 30;
+    const prs = await this.getRecentPRs(owner, repo, {
+      days: actualDays,
+      state: "all",
+      limit: 100
+    });
+    const allReviews = [];
+    await Promise.all(
+      prs.map(async (pr) => {
+        try {
+          const reviews = await this.octokit.rest.pulls.listReviews({
+            owner,
+            repo,
+            pull_number: pr.number
+          });
+          const cutoffDate = new Date(Date.now() - actualDays * 24 * 60 * 60 * 1e3);
+          const recentReviews = reviews.data.filter(
+            (review) => review.submitted_at && new Date(review.submitted_at) > cutoffDate
+          );
+          allReviews.push(...recentReviews);
+        } catch (error) {
+          console.warn(`Could not fetch reviews for PR #${pr.number}:`, error);
+        }
+      })
+    );
+    return allReviews.sort((a, b) => {
+      const aDate = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+      const bDate = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+      return bDate - aDate;
     });
   }
 };
 
-// server/resources/repository.ts
-var RepositoryResource = class extends BaseResource {
+// server/mcp/repo-analyzer/repository.ts
+var RepositoryAnalyzer = class extends BaseAnalyzer {
   async getRepoInfo(owner, repo) {
-    const cached = await this.getCached(owner, repo, "repo");
-    if (cached) {
-      console.log(`\u{1F4BE} Cache hit for repo info: ${owner}/${repo}`);
-      return cached;
-    }
-    console.log(`\u{1F4E1} Fetching repository info for ${owner}/${repo}...`);
     try {
       const response = await this.octokit.rest.repos.get({ owner, repo });
-      const repoData = response.data;
-      console.log(`\u{1F4CB} Repository info loaded: ${repoData.full_name}`);
-      this.setCached(owner, repo, "repo", repoData);
-      return repoData;
+      return response.data;
     } catch (error) {
-      console.error(
-        `\u{1F4A5} Error fetching repository info for ${owner}/${repo}:`,
-        error.message
-      );
-      if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(
-          `\u23F1\uFE0F  RATE LIMIT HIT for repository! Using token:`,
-          !!this.octokit.auth
-        );
-      }
+      console.error(`\u{1F4A5} Error fetching repository info for ${owner}/${repo}:`, error.message);
       throw error;
     }
   }
-};
-
-// server/resources/commits.ts
-var CommitsResource = class extends BaseResource {
-  async getCommits(owner, repo) {
-    const cached = await this.getCached(owner, repo, "commits");
-    if (cached) {
-      console.log(`\u{1F4BE} Cache hit for commits: ${owner}/${repo}`);
-      return cached;
-    }
-    console.log(`\u{1F4E1} Fetching commits for ${owner}/${repo}...`);
-    try {
-      const response = await this.octokit.rest.repos.listCommits({
+  async getBranches(owner, repo, limit) {
+    const branches = await this.paginate(
+      (params) => this.octokit.rest.repos.listBranches({
         owner,
         repo,
-        per_page: 50
-      });
-      const commits = response.data;
-      console.log(`\u{1F4DD} Found ${commits.length} commits`);
-      this.setCached(owner, repo, "commits", commits);
-      return commits;
-    } catch (error) {
-      console.error(
-        `\u{1F4A5} Error fetching commits for ${owner}/${repo}:`,
-        error.message
-      );
-      if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(
-          `\u23F1\uFE0F  RATE LIMIT HIT for commits! Using token:`,
-          !!this.octokit.auth
-        );
-      }
-      throw error;
-    }
+        ...params
+      }),
+      limit
+    );
+    return branches;
   }
-};
-
-// server/resources/branches.ts
-var BranchesResource = class extends BaseResource {
-  async getBranches(owner, repo) {
-    const cached = await this.getCached(owner, repo, "branches");
-    if (cached) {
-      console.log(`\u{1F4BE} Cache hit for branches: ${owner}/${repo}`);
-      return cached;
-    }
-    console.log(`\u{1F4E1} Fetching branches for ${owner}/${repo}...`);
+  async getContributors(owner, repo, limit) {
+    const contributors = await this.paginate(
+      (params) => this.octokit.rest.repos.listContributors({
+        owner,
+        repo,
+        ...params
+      }),
+      limit || 50
+    );
+    return contributors;
+  }
+  async getRepoStats(owner, repo) {
     try {
-      const response = await this.octokit.rest.repos.listBranches({
+      const repoResponse = await this.octokit.rest.repos.get({
         owner,
         repo
       });
-      const branches = response.data;
-      console.log(`\u{1F33F} Found ${branches.length} branches`);
-      this.setCached(owner, repo, "branches", branches);
-      return branches;
-    } catch (error) {
-      console.error(
-        `\u{1F4A5} Error fetching branches for ${owner}/${repo}:`,
-        error.message
+      const repoData = repoResponse.data;
+      const prsResponse = await this.octokit.rest.search.issuesAndPullRequests({
+        q: `repo:${owner}/${repo} type:pr`,
+        per_page: 1
+        // We only need the count
+      });
+      const contributorsResponse = await this.octokit.rest.repos.listContributors({
+        owner,
+        repo,
+        per_page: 100
+        // Get up to 100 contributors
+      });
+      const totalCommits = contributorsResponse.data.reduce(
+        (sum, contributor) => {
+          return sum + (contributor.contributions || 0);
+        },
+        0
       );
-      if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(
-          `\u23F1\uFE0F  RATE LIMIT HIT for branches! Using token:`,
-          !!this.octokit.auth
-        );
-      }
+      const createdDate = new Date(repoData.created_at);
+      const now = /* @__PURE__ */ new Date();
+      const ageInYears = Math.round(
+        (now.getTime() - createdDate.getTime()) / (365.25 * 24 * 60 * 60 * 1e3) * 10
+      ) / 10;
+      const stats = {
+        stars: repoData.stargazers_count,
+        totalPRs: prsResponse.data.total_count,
+        totalCommits,
+        ageInYears
+      };
+      return stats;
+    } catch (error) {
+      console.error(`\u{1F4A5} Error fetching stats for ${owner}/${repo}:`, error.message);
       throw error;
     }
   }
 };
 
-// server/resources/files.ts
-var FilesResource = class extends BaseResource {
+// server/mcp/repo-analyzer/files.ts
+var FileAnalyzer = class extends BaseAnalyzer {
   async getKeyFiles(owner, repo) {
-    const cached = await this.getCached(owner, repo, "files");
-    if (cached) {
-      console.log("\u{1F4C1} Using cached files data");
-      return cached;
-    }
-    console.log(`\u{1F50D} Fetching key files for ${owner}/${repo}...`);
     const candidateFiles = [
       // Package managers
       { name: "package.json", type: "package" },
@@ -378,12 +390,11 @@ var FilesResource = class extends BaseResource {
     const foundFiles = [];
     const fileCheckPromises = candidateFiles.map(async (candidate) => {
       try {
-        await this.octokit.repos.getContent({
+        await this.octokit.rest.repos.getContent({
           owner,
           repo,
           path: candidate.name
         });
-        console.log(`\u2705 Found file: ${candidate.name}`);
         return {
           name: candidate.name,
           path: candidate.name,
@@ -398,20 +409,11 @@ var FilesResource = class extends BaseResource {
     });
     const results = await Promise.all(fileCheckPromises);
     foundFiles.push(...results.filter((file) => file !== null));
-    console.log(`\u{1F4C1} Found ${foundFiles.length} key files in ${owner}/${repo}`);
-    this.setCached(owner, repo, "files", foundFiles);
     return foundFiles;
   }
   async getFileContent(owner, repo, path4) {
-    const cacheKey = `file-content-${path4}`;
-    const cached = await this.getCached(owner, repo, cacheKey);
-    if (cached) {
-      console.log(`\u{1F4C4} Using cached file content for ${path4}`);
-      return cached;
-    }
-    console.log(`> Fetching file content for ${owner}/${repo}:${path4}...`);
     try {
-      const response = await this.octokit.repos.getContent({
+      const response = await this.octokit.rest.repos.getContent({
         owner,
         repo,
         path: path4
@@ -438,10 +440,6 @@ var FilesResource = class extends BaseResource {
         encoding: fileData.encoding || "utf-8",
         size: fileData.size || 0
       };
-      console.log(
-        `\u2705 Retrieved file content for ${path4} (${fileContent.size} bytes)`
-      );
-      this.setCached(owner, repo, cacheKey, fileContent);
       return fileContent;
     } catch (error) {
       if (error.status === 404) {
@@ -457,8 +455,388 @@ var FilesResource = class extends BaseResource {
   }
 };
 
+// server/mcp/repo-analyzer/icons.ts
+var IconAnalyzer = class extends BaseAnalyzer {
+  async getRepoIcon(owner, repo) {
+    try {
+      const rootContents = await this.octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path: ""
+      });
+      if (!Array.isArray(rootContents.data)) {
+        return null;
+      }
+      const iconFiles = rootContents.data.filter((file) => {
+        const name = file.name.toLowerCase();
+        return name.includes("favicon") || name.includes("logo") || name.includes("icon") || name.startsWith("apple-touch") && name.includes("icon");
+      });
+      const subdirs = ["public", "assets", "static", "images", "img"];
+      for (const subdir of subdirs) {
+        const subdirExists = rootContents.data.find(
+          (item) => item.name === subdir && item.type === "dir"
+        );
+        if (subdirExists) {
+          try {
+            const subdirContents = await this.octokit.rest.repos.getContent({
+              owner,
+              repo,
+              path: subdir
+            });
+            if (Array.isArray(subdirContents.data)) {
+              const subdirIcons = subdirContents.data.filter((file) => {
+                const name = file.name.toLowerCase();
+                return name.includes("favicon") || name.includes("logo") || name.includes("icon");
+              });
+              iconFiles.push(
+                ...subdirIcons.map((f) => ({
+                  ...f,
+                  path: `${subdir}/${f.name}`
+                }))
+              );
+            }
+          } catch (error) {
+            continue;
+          }
+        }
+      }
+      const sortedIcons = this.sortIconsByResolution(iconFiles);
+      for (const iconFile of sortedIcons) {
+        const filePath = iconFile.path || iconFile.name;
+        try {
+          const iconResponse = await this.octokit.rest.repos.getContent({
+            owner,
+            repo,
+            path: filePath
+          });
+          if ("content" in iconResponse.data && iconResponse.data.content) {
+            const iconData = `data:image/png;base64,${iconResponse.data.content}`;
+            return iconData;
+          }
+        } catch (error) {
+          continue;
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error(`\u{1F4A5} Error fetching repo icon for ${owner}/${repo}:`, error.message);
+      return null;
+    }
+  }
+  sortIconsByResolution(iconFiles) {
+    return iconFiles.sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      const getResolution = (name) => {
+        const match = name.match(/(\d+)x\d+/);
+        if (match) return parseInt(match[1]);
+        if (name.includes("512")) return 512;
+        if (name.includes("256")) return 256;
+        if (name.includes("192")) return 192;
+        if (name.includes("180")) return 180;
+        if (name.includes("apple-touch")) return 180;
+        if (name.includes("android-chrome")) return 192;
+        if (name === "favicon.ico") return 64;
+        if (name.includes("logo")) return 100;
+        return 50;
+      };
+      return getResolution(bName) - getResolution(aName);
+    });
+  }
+};
+
+// server/mcp/repo-analyzer/index.ts
+var RepoAnalyzer = class extends BaseAnalyzer {
+  constructor(config = {}) {
+    super(config);
+    this.commitAnalyzer = new CommitAnalyzer(config);
+    this.prAnalyzer = new PullRequestAnalyzer(config);
+    this.repoAnalyzer = new RepositoryAnalyzer(config);
+    this.fileAnalyzer = new FileAnalyzer(config);
+    this.iconAnalyzer = new IconAnalyzer(config);
+  }
+  // Commit methods
+  async getRecentCommits(...args) {
+    return this.commitAnalyzer.getRecentCommits(...args);
+  }
+  async getRecentCommitsWithFiles(...args) {
+    return this.commitAnalyzer.getRecentCommitsWithFiles(...args);
+  }
+  async getContributorCommits(...args) {
+    return this.commitAnalyzer.getContributorCommits(...args);
+  }
+  async getContributorFiles(...args) {
+    return this.commitAnalyzer.getContributorFiles(...args);
+  }
+  // Pull Request methods
+  async getRecentPRs(...args) {
+    return this.prAnalyzer.getRecentPRs(...args);
+  }
+  async getContributorPRs(...args) {
+    return this.prAnalyzer.getContributorPRs(...args);
+  }
+  async getPRDetails(...args) {
+    return this.prAnalyzer.getPRDetails(...args);
+  }
+  async getRecentReviews(...args) {
+    return this.prAnalyzer.getRecentReviews(...args);
+  }
+  // Repository methods
+  async getRepoInfo(...args) {
+    return this.repoAnalyzer.getRepoInfo(...args);
+  }
+  async getBranches(...args) {
+    return this.repoAnalyzer.getBranches(...args);
+  }
+  async getContributors(...args) {
+    return this.repoAnalyzer.getContributors(...args);
+  }
+  async getRepoStats(...args) {
+    return this.repoAnalyzer.getRepoStats(...args);
+  }
+  // File methods
+  async getKeyFiles(...args) {
+    return this.fileAnalyzer.getKeyFiles(...args);
+  }
+  async getFileContent(...args) {
+    return this.fileAnalyzer.getFileContent(...args);
+  }
+  // Icon methods
+  async getRepoIcon(...args) {
+    return this.iconAnalyzer.getRepoIcon(...args);
+  }
+};
+
+// server/resources/contributors.ts
+var ContributorsResource = class extends BaseResource {
+  constructor(cache, githubToken) {
+    super(cache);
+    this.analyzer = new RepoAnalyzer({
+      githubToken,
+      defaultLimit: 50
+    });
+  }
+  async getContributors(owner, repo) {
+    const cached = await this.getCached(
+      owner,
+      repo,
+      "contributors"
+    );
+    if (cached) {
+      console.log(`\u{1F4BE} Cache hit for contributors: ${owner}/${repo}`);
+      return cached;
+    }
+    console.log(`\u{1F4E1} Fetching contributors for ${owner}/${repo}...`);
+    try {
+      const contributors = await this.analyzer.getContributors(owner, repo, 50);
+      console.log(`\u{1F465} Found ${contributors.length} contributors`);
+      this.setCached(owner, repo, "contributors", contributors);
+      return contributors;
+    } catch (error) {
+      console.error(
+        `\u{1F4A5} Error fetching contributors for ${owner}/${repo}:`,
+        error.message
+      );
+      if (error.status === 403 || error.message?.includes("rate limit")) {
+        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for contributors!`);
+      }
+      throw error;
+    }
+  }
+};
+
+// server/resources/icons.ts
+var IconsResource = class extends BaseResource {
+  constructor(cache, githubToken) {
+    super(cache);
+    this.analyzer = new RepoAnalyzer({
+      githubToken
+    });
+  }
+  async getRepoIcon(owner, repo) {
+    const cached = await this.getCached(owner, repo, "icon");
+    if (cached !== void 0) {
+      console.log(
+        `\u{1F4BE} Cache hit for ${owner}/${repo} icon:`,
+        cached ? "Found" : "Not found"
+      );
+      console.log(`\u{1F504} Clearing cache to retry (checking for rate limits)...`);
+      this.cache.clear();
+    }
+    console.log(`\u{1F680} Starting fresh icon fetch for ${owner}/${repo}`);
+    try {
+      const iconData = await this.analyzer.getRepoIcon(owner, repo);
+      if (iconData) {
+        console.log(`\u2705 Successfully loaded icon`);
+        console.log(`\u{1F4CA} Icon data length: ${iconData.length} chars`);
+        this.setCached(owner, repo, "icon", iconData);
+        return iconData;
+      } else {
+        console.log("\u274C No icons could be loaded");
+        this.setCached(owner, repo, "icon", null);
+        return null;
+      }
+    } catch (error) {
+      console.error(`\u{1F4A5} ERROR fetching repo icon for ${owner}/${repo}:`, error);
+      if (error.status === 403 || error.message?.includes("rate limit")) {
+        console.error(`\u23F1\uFE0F  RATE LIMIT HIT! Error:`, error.message);
+      }
+      this.setCached(owner, repo, "icon", null);
+      return null;
+    }
+  }
+};
+
+// server/resources/repository.ts
+var RepositoryResource = class extends BaseResource {
+  constructor(cache, githubToken) {
+    super(cache);
+    this.analyzer = new RepoAnalyzer({
+      githubToken
+    });
+  }
+  async getRepoInfo(owner, repo) {
+    const cached = await this.getCached(owner, repo, "repo");
+    if (cached) {
+      console.log(`\u{1F4BE} Cache hit for repo info: ${owner}/${repo}`);
+      return cached;
+    }
+    console.log(`\u{1F4E1} Fetching repository info for ${owner}/${repo}...`);
+    try {
+      const repoData = await this.analyzer.getRepoInfo(owner, repo);
+      console.log(`\u{1F4CB} Repository info loaded: ${repoData.full_name}`);
+      this.setCached(owner, repo, "repo", repoData);
+      return repoData;
+    } catch (error) {
+      console.error(
+        `\u{1F4A5} Error fetching repository info for ${owner}/${repo}:`,
+        error.message
+      );
+      if (error.status === 403 || error.message?.includes("rate limit")) {
+        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for repository!`);
+      }
+      throw error;
+    }
+  }
+};
+
+// server/resources/commits.ts
+var CommitsResource = class extends BaseResource {
+  constructor(cache, githubToken) {
+    super(cache);
+    this.analyzer = new RepoAnalyzer({
+      githubToken,
+      defaultLimit: 50
+    });
+  }
+  async getCommits(owner, repo) {
+    const cached = await this.getCached(owner, repo, "commits");
+    if (cached) {
+      console.log(`\u{1F4BE} Cache hit for commits: ${owner}/${repo}`);
+      return cached;
+    }
+    console.log(`\u{1F4E1} Fetching commits for ${owner}/${repo}...`);
+    try {
+      const commits = await this.analyzer.getRecentCommits(owner, repo, {
+        limit: 50
+      });
+      console.log(`\u{1F4DD} Found ${commits.length} commits`);
+      this.setCached(owner, repo, "commits", commits);
+      return commits;
+    } catch (error) {
+      console.error(
+        `\u{1F4A5} Error fetching commits for ${owner}/${repo}:`,
+        error.message
+      );
+      if (error.status === 403 || error.message?.includes("rate limit")) {
+        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for commits!`);
+      }
+      throw error;
+    }
+  }
+};
+
+// server/resources/branches.ts
+var BranchesResource = class extends BaseResource {
+  constructor(cache, githubToken) {
+    super(cache);
+    this.analyzer = new RepoAnalyzer({
+      githubToken
+    });
+  }
+  async getBranches(owner, repo) {
+    const cached = await this.getCached(owner, repo, "branches");
+    if (cached) {
+      console.log(`\u{1F4BE} Cache hit for branches: ${owner}/${repo}`);
+      return cached;
+    }
+    console.log(`\u{1F4E1} Fetching branches for ${owner}/${repo}...`);
+    try {
+      const branches = await this.analyzer.getBranches(owner, repo);
+      console.log(`\u{1F33F} Found ${branches.length} branches`);
+      this.setCached(owner, repo, "branches", branches);
+      return branches;
+    } catch (error) {
+      console.error(
+        `\u{1F4A5} Error fetching branches for ${owner}/${repo}:`,
+        error.message
+      );
+      if (error.status === 403 || error.message?.includes("rate limit")) {
+        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for branches!`);
+      }
+      throw error;
+    }
+  }
+};
+
+// server/resources/files.ts
+var FilesResource = class extends BaseResource {
+  constructor(cache, githubToken) {
+    super(cache);
+    this.analyzer = new RepoAnalyzer({
+      githubToken
+    });
+  }
+  async getKeyFiles(owner, repo) {
+    const cached = await this.getCached(owner, repo, "files");
+    if (cached) {
+      console.log("\u{1F4C1} Using cached files data");
+      return cached;
+    }
+    console.log(`\u{1F50D} Fetching key files for ${owner}/${repo}...`);
+    const foundFiles = await this.analyzer.getKeyFiles(owner, repo);
+    console.log(`\u{1F4C1} Found ${foundFiles.length} key files in ${owner}/${repo}`);
+    foundFiles.forEach((file) => console.log(`\u2705 Found file: ${file.name}`));
+    this.setCached(owner, repo, "files", foundFiles);
+    return foundFiles;
+  }
+  async getFileContent(owner, repo, path4) {
+    const cacheKey = `file-content-${path4}`;
+    const cached = await this.getCached(owner, repo, cacheKey);
+    if (cached) {
+      console.log(`\u{1F4C4} Using cached file content for ${path4}`);
+      return cached;
+    }
+    console.log(`> Fetching file content for ${owner}/${repo}:${path4}...`);
+    const fileContent = await this.analyzer.getFileContent(owner, repo, path4);
+    if (fileContent) {
+      console.log(
+        `\u2705 Retrieved file content for ${path4} (${fileContent.size} bytes)`
+      );
+      this.setCached(owner, repo, cacheKey, fileContent);
+    }
+    return fileContent;
+  }
+};
+
 // server/resources/stats.ts
 var StatsResource = class extends BaseResource {
+  constructor(cache, githubToken) {
+    super(cache);
+    this.analyzer = new RepoAnalyzer({
+      githubToken
+    });
+  }
   async getRepoStats(owner, repo) {
     const cached = await this.getCached(owner, repo, "stats");
     if (cached) {
@@ -467,41 +845,7 @@ var StatsResource = class extends BaseResource {
     }
     console.log(`\u{1F50D} Fetching stats for ${owner}/${repo}...`);
     try {
-      const repoResponse = await this.octokit.rest.repos.get({
-        owner,
-        repo
-      });
-      const repoData = repoResponse.data;
-      const prsResponse = await this.octokit.rest.search.issuesAndPullRequests({
-        q: `repo:${owner}/${repo} type:pr`,
-        per_page: 1,
-        // We only need the count
-        advanced_search: "true"
-        // Use advanced search to avoid deprecation warning
-      });
-      const contributorsResponse = await this.octokit.rest.repos.listContributors({
-        owner,
-        repo,
-        per_page: 100
-        // Get up to 100 contributors
-      });
-      const totalCommits = contributorsResponse.data.reduce(
-        (sum, contributor) => {
-          return sum + (contributor.contributions || 0);
-        },
-        0
-      );
-      const createdDate = new Date(repoData.created_at);
-      const now = /* @__PURE__ */ new Date();
-      const ageInYears = Math.round(
-        (now.getTime() - createdDate.getTime()) / (365.25 * 24 * 60 * 60 * 1e3) * 10
-      ) / 10;
-      const stats = {
-        stars: repoData.stargazers_count,
-        totalPRs: prsResponse.data.total_count,
-        totalCommits,
-        ageInYears
-      };
+      const stats = await this.analyzer.getRepoStats(owner, repo);
       console.log(`\u{1F4CA} Stats for ${owner}/${repo}:`, {
         stars: stats.stars,
         totalPRs: stats.totalPRs,
@@ -516,10 +860,7 @@ var StatsResource = class extends BaseResource {
         error.message
       );
       if (error.status === 403 || error.message?.includes("rate limit")) {
-        console.error(
-          `\u23F1\uFE0F  RATE LIMIT HIT for stats! Using token:`,
-          !!this.octokit.auth
-        );
+        console.error(`\u23F1\uFE0F  RATE LIMIT HIT for stats!`);
       }
       throw error;
     }
@@ -1647,19 +1988,19 @@ var ExplorationEmitter = class _ExplorationEmitter extends EventEmitter {
 var GitSeeHandler = class {
   constructor(options = {}) {
     this.options = options;
-    this.octokit = new Octokit({
+    this.octokit = new Octokit2({
       auth: options.token
     });
     this.cache = new GitSeeCache(options.cache?.ttl);
     this.store = new FileStore();
     this.emitter = ExplorationEmitter.getInstance();
-    this.contributors = new ContributorsResource(this.octokit, this.cache);
-    this.icons = new IconsResource(this.octokit, this.cache);
-    this.repository = new RepositoryResource(this.octokit, this.cache);
-    this.commits = new CommitsResource(this.octokit, this.cache);
-    this.branches = new BranchesResource(this.octokit, this.cache);
-    this.files = new FilesResource(this.octokit, this.cache);
-    this.stats = new StatsResource(this.octokit, this.cache);
+    this.contributors = new ContributorsResource(this.cache, options.token);
+    this.icons = new IconsResource(this.cache, options.token);
+    this.repository = new RepositoryResource(this.cache, options.token);
+    this.commits = new CommitsResource(this.cache, options.token);
+    this.branches = new BranchesResource(this.cache, options.token);
+    this.files = new FilesResource(this.cache, options.token);
+    this.stats = new StatsResource(this.cache, options.token);
   }
   async handleEvents(req, res, owner, repo) {
     console.log(`\u{1F4E1} SSE connection established for ${owner}/${repo}`);
@@ -1937,14 +2278,14 @@ var GitSeeHandler = class {
   async processRequest(request) {
     const { owner, repo, data, cloneOptions } = request;
     const response = {};
-    const requestOctokit = cloneOptions?.token ? new Octokit({ auth: cloneOptions.token }) : this.octokit;
-    const contributors = cloneOptions?.token ? new ContributorsResource(requestOctokit, this.cache) : this.contributors;
-    const icons = cloneOptions?.token ? new IconsResource(requestOctokit, this.cache) : this.icons;
-    const repository = cloneOptions?.token ? new RepositoryResource(requestOctokit, this.cache) : this.repository;
-    const commits = cloneOptions?.token ? new CommitsResource(requestOctokit, this.cache) : this.commits;
-    const branches = cloneOptions?.token ? new BranchesResource(requestOctokit, this.cache) : this.branches;
-    const files = cloneOptions?.token ? new FilesResource(requestOctokit, this.cache) : this.files;
-    const stats = cloneOptions?.token ? new StatsResource(requestOctokit, this.cache) : this.stats;
+    const requestOctokit = cloneOptions?.token ? new Octokit2({ auth: cloneOptions.token }) : this.octokit;
+    const contributors = cloneOptions?.token ? new ContributorsResource(this.cache, cloneOptions.token) : this.contributors;
+    const icons = cloneOptions?.token ? new IconsResource(this.cache, cloneOptions.token) : this.icons;
+    const repository = cloneOptions?.token ? new RepositoryResource(this.cache, cloneOptions.token) : this.repository;
+    const commits = cloneOptions?.token ? new CommitsResource(this.cache, cloneOptions.token) : this.commits;
+    const branches = cloneOptions?.token ? new BranchesResource(this.cache, cloneOptions.token) : this.branches;
+    const files = cloneOptions?.token ? new FilesResource(this.cache, cloneOptions.token) : this.files;
+    const stats = cloneOptions?.token ? new StatsResource(this.cache, cloneOptions.token) : this.stats;
     console.log(`\u{1F504} Starting background clone for ${owner}/${repo}...`);
     this.emitter.emitCloneStarted(owner, repo);
     RepoCloner.cloneInBackground(owner, repo, cloneOptions);

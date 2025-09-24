@@ -1,12 +1,9 @@
-import { Octokit } from "@octokit/rest";
 import { GitSeeCache } from "../utils/cache.js";
 
 export abstract class BaseResource {
-  protected octokit: Octokit;
   protected cache: GitSeeCache;
 
-  constructor(octokit: Octokit, cache: GitSeeCache) {
-    this.octokit = octokit;
+  constructor(cache: GitSeeCache) {
     this.cache = cache;
   }
 
