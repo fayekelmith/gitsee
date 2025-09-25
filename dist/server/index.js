@@ -1174,7 +1174,7 @@ Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF 
 
 Return three files: a pm2.config.js, a .env file, and a docker-compose.yml. Please put the title of each file, then the content in backticks. YOU MUST RETURN ALL 3 FILES!!!
 
-- pm2.config.js: the actual dev services for running this project. Often its just one single service! But sometimes the backend/frontend might be separate services. IMPORTANT: each service env should have a INSTALL_COMMAND so our sandbox system knows how to install dependencies! You can also add optional BUILD_COMMAND, TEST_COMMAND, E2E_TEST_COMMAND, and PRE_START_COMMAND if you find those in the package file. (an example of a PRE_START_COMMAND is a db migration script). Please name one of the services "frontend" no matter what. The cwd should start with /workspaces/MY_REPO_NAME. For instance, if the frontend is within an "app" dir, the cwd should be "/workspaces/MY_REPO_NAME/app".
+- pm2.config.js: the actual dev services for running this project (MY_REPO_NAME). Often its just one single service! But sometimes the backend/frontend might be separate services. IMPORTANT: each service env should have a INSTALL_COMMAND so our sandbox system knows how to install dependencies! You can also add optional BUILD_COMMAND, TEST_COMMAND, E2E_TEST_COMMAND, and PRE_START_COMMAND if you find those in the package file. (an example of a PRE_START_COMMAND is a db migration script). Please name one of the services "frontend" no matter what. The cwd should start with /workspaces/MY_REPO_NAME. For instance, if the frontend is within an "app" dir, the cwd should be "/workspaces/MY_REPO_NAME/app".
 - .env: the environment variables needed to run the project, with example values.
 - docker-compose.yml: the auxiliary services needed to run the project, such as databases, caches, queues, etc. IMPORTANT: there is a special "app" service in the docker-compsose.yaml that you MUST include! It is the service in which the codebase is mounted. Here is the EXACT content that it should have:
 \`\`\`
@@ -1546,17 +1546,6 @@ async function get_context(prompt, repoPath, mode = "features", overrides) {
   );
   return final;
 }
-setTimeout(() => {
-  console.log("=====> get_context <=====");
-  get_context(
-    "How do I set up this project?",
-    "/Users/evanfeenstra/code/sphinx2/hive",
-    "services"
-  ).then((result) => {
-    console.log("=============== FINAL RESULT: ===============");
-    console.log(result);
-  });
-});
 
 // server/agent/explore-wrapper.ts
 async function explore(prompt, repoPath, mode = "first_pass") {
@@ -1637,70 +1626,6 @@ async function explore(prompt, repoPath, mode = "first_pass") {
     }
   }
 }
-
-// server/agent/utils.ts
-function parse_files_contents(content) {
-  const files = /* @__PURE__ */ new Map();
-  const lines = content.split("\n");
-  let inCode = false;
-  let currentFileName = null;
-  let currentFileContent = [];
-  for (const line of lines) {
-    if (line.startsWith("```")) {
-      if (inCode) {
-        if (currentFileName) {
-          files.set(currentFileName, currentFileContent.join("\n"));
-          currentFileName = null;
-          currentFileContent = [];
-        }
-        inCode = false;
-      } else {
-        inCode = true;
-      }
-    } else if (inCode) {
-      currentFileContent.push(line);
-    } else {
-      if (line.trim()) {
-        currentFileName = line.trim();
-      }
-    }
-  }
-  return Object.fromEntries(files);
-}
-
-// server/agent/index.ts
-async function clone_and_explore(owner, repo, prompt, mode = "features", clone_options, overrides) {
-  await RepoCloner.waitForClone(owner, repo, clone_options);
-  const cloneResult = await RepoCloner.getCloneResult(owner, repo);
-  if (!cloneResult?.success) {
-    throw new Error("Failed to clone repo");
-  }
-  const localPath = cloneResult.localPath;
-  const result = await get_context(prompt, localPath, mode, overrides);
-  return result;
-}
-async function clone_and_explore_parse_files(owner, repo, prompt, mode = "features", clone_options) {
-  const result = await clone_and_explore(
-    owner,
-    repo,
-    prompt,
-    mode,
-    clone_options
-  );
-  return parse_files_contents(result);
-}
-setTimeout(async () => {
-  return;
-  console.log("======> clone_and_explore_parse_files <======");
-  const result = await clone_and_explore_parse_files(
-    "stakwork",
-    "hive",
-    "How do I set up this project?",
-    "services"
-  );
-  console.log("=============== FINAL RESULT: ===============");
-  console.log(result);
-});
 
 // server/persistence/FileStore.ts
 import * as fs3 from "fs";

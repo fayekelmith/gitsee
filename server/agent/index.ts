@@ -49,16 +49,3 @@ export async function clone_and_explore_parse_files(
   );
   return parse_files_contents(result);
 }
-
-setTimeout(async () => {
-  return;
-  console.log("======> clone_and_explore_parse_files <======");
-  const result = await clone_and_explore_parse_files(
-    "stakwork",
-    "hive",
-    "How do I set up this project?",
-    "services"
-  );
-  console.log("=============== FINAL RESULT: ===============");
-  console.log(result);
-});

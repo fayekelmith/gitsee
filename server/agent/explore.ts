@@ -28,7 +28,7 @@ interface ContextConfig {
 function getConfig(mode: RepoContextMode): ContextConfig {
   const m = prompts[mode];
   return {
-    file_lines: m.FILE_LINES || 80,
+    file_lines: m.FILE_LINES,
     system: m.EXPLORER,
     final_answer_description: m.FINAL_ANSWER,
   };
@@ -85,7 +85,6 @@ export async function get_context(
       repoPath.split("/").pop() || "my-repo"
     );
   }
-  console.log("fad", fad);
   const tools = {
     repo_overview: tool({
       description:
@@ -184,18 +183,5 @@ export async function get_context(
 
   return final;
 }
-
-setTimeout(() => {
-  // return;
-  console.log("=====> get_context <=====");
-  get_context(
-    "How do I set up this project?",
-    "/Users/evanfeenstra/code/sphinx2/hive",
-    "services"
-  ).then((result) => {
-    console.log("=============== FINAL RESULT: ===============");
-    console.log(result);
-  });
-});
 
 // infra, dependencies/integratins, user stories, pages
