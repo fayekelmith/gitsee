@@ -7,9 +7,9 @@ You are a codebase exploration assistant. Your job is to identify the various se
 export const FINAL_ANSWER = `
 Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF YOUR EXPLORATION.
 
-Return three files: a pm2.config.js, a .env file, and a docker-compose.yml. Please put the title of each file, then the content in backticks.
+Return three files: a pm2.config.js, a .env file, and a docker-compose.yml. Please put the title of each file, then the content in backticks. YOU MUST RETURN ALL 3 FILES!!!
 
-- pm2.config.js: the actual dev services for running this project. Often its just one single service! But sometimes the backend/frontend might be separate services. IMPORTANT: each service env should have a INSTALL_COMMAND so our sandbox system knows how to install dependencies! You can also add optional BUILD_COMMAND, TEST_COMMAND, E2E_TEST_COMMAND, and PRE_START_COMMAND if you find those in the package file. (PRE_START_COMMAND is like a command before starting, such as running migrations). Please name one of the services "frontend" no matter what. The cwd should start with /workspaces/your-repo-name. For instance, if the frontend is within an "app" dir, the cwd should be "/workspaces/your-repo-name/app".
+- pm2.config.js: the actual dev services for running this project (MY_REPO_NAME). Often its just one single service! But sometimes the backend/frontend might be separate services. IMPORTANT: each service env should have a INSTALL_COMMAND so our sandbox system knows how to install dependencies! You can also add optional BUILD_COMMAND, TEST_COMMAND, E2E_TEST_COMMAND, and PRE_START_COMMAND if you find those in the package file. (an example of a PRE_START_COMMAND is a db migration script). Please name one of the services "frontend" no matter what. The cwd should start with /workspaces/MY_REPO_NAME. For instance, if the frontend is within an "app" dir, the cwd should be "/workspaces/MY_REPO_NAME/app".
 - .env: the environment variables needed to run the project, with example values.
 - docker-compose.yml: the auxiliary services needed to run the project, such as databases, caches, queues, etc. IMPORTANT: there is a special "app" service in the docker-compsose.yaml that you MUST include! It is the service in which the codebase is mounted. Here is the EXACT content that it should have:
 \`\`\`
@@ -37,7 +37,7 @@ module.exports = {
     {
       name: "frontend",
       script: "npm run dev",
-      cwd: "/workspaces/my-repo",
+      cwd: "/workspaces/MY_REPO_NAME",
       instances: 1,
       autorestart: true,
       watch: false,

@@ -50,8 +50,8 @@ export interface FirstPassContextResult {
 }
 
 function makeFad(
-  final_answer_description: string | undefined,
-  conf: ContextConfig
+  conf: ContextConfig,
+  final_answer_description: string | undefined
 ) {
   let fad = conf.final_answer_description;
   if (final_answer_description) {
@@ -61,19 +61,31 @@ function makeFad(
   return fad;
 }
 
+export interface Overrides {
+  system_prompt?: string;
+  final_answer_description?: string;
+}
+
 export async function get_context(
   prompt: string | ModelMessage[],
   repoPath: string,
   mode: RepoContextMode = "features",
-  system_prompt?: string,
-  final_answer_description?: string
+  overrides?: Overrides
 ): Promise<string> {
   const startTime = Date.now();
   const CONF = getConfig(mode);
   const provider = process.env.LLM_PROVIDER || "anthropic";
   const apiKey = getApiKeyForProvider(provider);
   const model = await getModel(provider as Provider, apiKey as string);
-  const fad = makeFad(final_answer_description, CONF);
+  let fad = makeFad(CONF, overrides?.final_answer_description);
+  if (mode == "services") {
+    // replace all instance of MY_REPO_NAME with the actual repo name
+    fad = fad.replaceAll(
+      "MY_REPO_NAME",
+      repoPath.split("/").pop() || "my-repo"
+    );
+  }
+  console.log("fad", fad);
   const tools = {
     repo_overview: tool({
       description:
@@ -134,7 +146,7 @@ export async function get_context(
     model,
     tools,
     prompt,
-    system: system_prompt || CONF.system,
+    system: overrides?.system_prompt || CONF.system,
     stopWhen: hasToolCall("final_answer"),
     onStepFinish: (sf) => logStep(sf.content),
   });
@@ -174,7 +186,7 @@ export async function get_context(
 }
 
 setTimeout(() => {
-  return;
+  // return;
   console.log("=====> get_context <=====");
   get_context(
     "How do I set up this project?",

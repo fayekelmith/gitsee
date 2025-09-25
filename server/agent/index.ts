@@ -12,12 +12,7 @@ export { parse_files_contents } from "./utils.js";
 
 import { parse_files_contents } from "./utils.js";
 import { RepoCloner, CloneOptions } from "./repo-cloner.js";
-import { get_context, RepoContextMode } from "./explore.js";
-
-export interface Overrides {
-  system_prompt?: string;
-  final_answer_description?: string;
-}
+import { get_context, RepoContextMode, Overrides } from "./explore.js";
 
 export async function clone_and_explore(
   owner: string,
@@ -34,13 +29,7 @@ export async function clone_and_explore(
     throw new Error("Failed to clone repo");
   }
   const localPath = cloneResult.localPath;
-  const result = await get_context(
-    prompt,
-    localPath,
-    mode,
-    overrides?.system_prompt,
-    overrides?.final_answer_description
-  );
+  const result = await get_context(prompt, localPath, mode, overrides);
   return result;
 }
 

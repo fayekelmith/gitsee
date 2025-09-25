@@ -1172,9 +1172,9 @@ You are a codebase exploration assistant. Your job is to identify the various se
 var FINAL_ANSWER3 = `
 Provide the final answer to the user. YOU **MUST** CALL THIS TOOL AT THE END OF YOUR EXPLORATION.
 
-Return three files: a pm2.config.js, a .env file, and a docker-compose.yml. Please put the title of each file, then the content in backticks.
+Return three files: a pm2.config.js, a .env file, and a docker-compose.yml. Please put the title of each file, then the content in backticks. YOU MUST RETURN ALL 3 FILES!!!
 
-- pm2.config.js: the actual dev services for running this project. Often its just one single service! But sometimes the backend/frontend might be separate services. IMPORTANT: each service env should have a INSTALL_COMMAND so our sandbox system knows how to install dependencies! You can also add optional BUILD_COMMAND, TEST_COMMAND, E2E_TEST_COMMAND, and PRE_START_COMMAND if you find those in the package file. (PRE_START_COMMAND is like a command before starting, such as running migrations). Please name one of the services "frontend" no matter what. The cwd should start with /workspaces/your-repo-name. For instance, if the frontend is within an "app" dir, the cwd should be "/workspaces/your-repo-name/app".
+- pm2.config.js: the actual dev services for running this project. Often its just one single service! But sometimes the backend/frontend might be separate services. IMPORTANT: each service env should have a INSTALL_COMMAND so our sandbox system knows how to install dependencies! You can also add optional BUILD_COMMAND, TEST_COMMAND, E2E_TEST_COMMAND, and PRE_START_COMMAND if you find those in the package file. (an example of a PRE_START_COMMAND is a db migration script). Please name one of the services "frontend" no matter what. The cwd should start with /workspaces/MY_REPO_NAME. For instance, if the frontend is within an "app" dir, the cwd should be "/workspaces/MY_REPO_NAME/app".
 - .env: the environment variables needed to run the project, with example values.
 - docker-compose.yml: the auxiliary services needed to run the project, such as databases, caches, queues, etc. IMPORTANT: there is a special "app" service in the docker-compsose.yaml that you MUST include! It is the service in which the codebase is mounted. Here is the EXACT content that it should have:
 \`\`\`
@@ -1202,7 +1202,7 @@ module.exports = {
     {
       name: "frontend",
       script: "npm run dev",
-      cwd: "/workspaces/my-repo",
+      cwd: "/workspaces/MY_REPO_NAME",
       instances: 1,
       autorestart: true,
       watch: false,
@@ -1430,7 +1430,7 @@ function getConfig(mode) {
     final_answer_description: m.FINAL_ANSWER
   };
 }
-function makeFad(final_answer_description, conf) {
+function makeFad(conf, final_answer_description) {
   let fad = conf.final_answer_description;
   if (final_answer_description) {
     const generic2 = generic.FINAL_ANSWER;
@@ -1440,13 +1440,20 @@ function makeFad(final_answer_description, conf) {
   }
   return fad;
 }
-async function get_context(prompt, repoPath, mode = "features", system_prompt, final_answer_description) {
+async function get_context(prompt, repoPath, mode = "features", overrides) {
   const startTime = Date.now();
   const CONF = getConfig(mode);
   const provider = process.env.LLM_PROVIDER || "anthropic";
   const apiKey = getApiKeyForProvider(provider);
   const model = await getModel(provider, apiKey);
-  const fad = makeFad(final_answer_description, CONF);
+  let fad = makeFad(CONF, overrides?.final_answer_description);
+  if (mode == "services") {
+    fad = fad.replaceAll(
+      "MY_REPO_NAME",
+      repoPath.split("/").pop() || "my-repo"
+    );
+  }
+  console.log("fad", fad);
   const tools = {
     repo_overview: tool({
       description: "Get a high-level view of the codebase architecture and structure. Use this to understand the project layout and identify where specific functionality might be located. Call this when you need to: 1) Orient yourself in an unfamiliar codebase, 2) Locate which directories/files might contain relevant code for a user's question, 3) Understand the overall project structure before diving deeper. Don't call this if you already know which specific files you need to examine.",
@@ -1502,7 +1509,7 @@ async function get_context(prompt, repoPath, mode = "features", system_prompt, f
     model,
     tools,
     prompt,
-    system: system_prompt || CONF.system,
+    system: overrides?.system_prompt || CONF.system,
     stopWhen: hasToolCall("final_answer"),
     onStepFinish: (sf) => logStep(sf.content)
   });
@@ -1540,7 +1547,6 @@ async function get_context(prompt, repoPath, mode = "features", system_prompt, f
   return final;
 }
 setTimeout(() => {
-  return;
   console.log("=====> get_context <=====");
   get_context(
     "How do I set up this project?",
@@ -1670,13 +1676,7 @@ async function clone_and_explore(owner, repo, prompt, mode = "features", clone_o
     throw new Error("Failed to clone repo");
   }
   const localPath = cloneResult.localPath;
-  const result = await get_context(
-    prompt,
-    localPath,
-    mode,
-    overrides?.system_prompt,
-    overrides?.final_answer_description
-  );
+  const result = await get_context(prompt, localPath, mode, overrides);
   return result;
 }
 async function clone_and_explore_parse_files(owner, repo, prompt, mode = "features", clone_options) {
