@@ -1,5 +1,5 @@
 import { BaseResource } from "./base.js";
-import { RepoAnalyzer } from "../mcp/index.js";
+import { RepoAnalyzer } from "../github/index.js";
 
 export class IconsResource extends BaseResource {
   private analyzer: RepoAnalyzer;
@@ -17,7 +17,7 @@ export class IconsResource extends BaseResource {
     if (cached !== undefined) {
       console.log(
         `💾 Cache hit for ${owner}/${repo} icon:`,
-        cached ? "Found" : "Not found",
+        cached ? "Found" : "Not found"
       );
       console.log(`🔄 Clearing cache to retry (checking for rate limits)...`);
       this.cache.clear(); // Clear cache to retry

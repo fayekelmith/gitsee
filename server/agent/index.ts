@@ -10,6 +10,8 @@ export { explore } from "./explore-wrapper.js";
 export type { ExplorationResult } from "./explore-wrapper.js";
 export { parse_files_contents } from "./utils.js";
 
+export * from "../github/index.js";
+
 import { parse_files_contents } from "./utils.js";
 import { RepoCloner, CloneOptions } from "./repo-cloner.js";
 import { get_context, RepoContextMode, Overrides } from "./explore.js";

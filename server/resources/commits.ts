@@ -1,6 +1,6 @@
 import { BaseResource } from "./base.js";
 import { Commit } from "../types/index.js";
-import { RepoAnalyzer } from "../mcp/index.js";
+import { RepoAnalyzer } from "../github/index.js";
 
 export class CommitsResource extends BaseResource {
   private analyzer: RepoAnalyzer;
@@ -37,7 +37,7 @@ export class CommitsResource extends BaseResource {
     } catch (error: any) {
       console.error(
         `💥 Error fetching commits for ${owner}/${repo}:`,
-        error.message,
+        error.message
       );
 
       // Check if it's a rate limit error

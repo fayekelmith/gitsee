@@ -3062,7 +3062,6 @@ var BaseVisualizationResource = class {
 // client/utils/logger.ts
 var Logger = class {
   isDev() {
-    return false;
     return typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname === "" || window.location.hostname === "::1");
   }
   log(...args) {

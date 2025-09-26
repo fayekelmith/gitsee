@@ -1,5 +1,5 @@
 import { BaseResource } from "./base.js";
-import { RepoAnalyzer, FileInfo, FileContent } from "../mcp/index.js";
+import { RepoAnalyzer, FileInfo, FileContent } from "../github/index.js";
 
 export class FilesResource extends BaseResource {
   private analyzer: RepoAnalyzer;
@@ -24,7 +24,7 @@ export class FilesResource extends BaseResource {
     const foundFiles = await this.analyzer.getKeyFiles(owner, repo);
 
     console.log(`📁 Found ${foundFiles.length} key files in ${owner}/${repo}`);
-    foundFiles.forEach(file => console.log(`✅ Found file: ${file.name}`));
+    foundFiles.forEach((file) => console.log(`✅ Found file: ${file.name}`));
 
     // Cache the results
     this.setCached(owner, repo, "files", foundFiles);
@@ -35,7 +35,7 @@ export class FilesResource extends BaseResource {
   async getFileContent(
     owner: string,
     repo: string,
-    path: string,
+    path: string
   ): Promise<FileContent | null> {
     // Check cache first
     const cacheKey = `file-content-${path}`;
@@ -51,7 +51,7 @@ export class FilesResource extends BaseResource {
 
     if (fileContent) {
       console.log(
-        `✅ Retrieved file content for ${path} (${fileContent.size} bytes)`,
+        `✅ Retrieved file content for ${path} (${fileContent.size} bytes)`
       );
 
       // Cache the results

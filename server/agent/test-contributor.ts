@@ -2,7 +2,7 @@ import { generateText, tool, hasToolCall, ModelMessage } from "ai";
 import { getModel, getApiKeyForProvider, Provider } from "aieo";
 import * as prompts from "./prompts";
 import { z } from "zod";
-import { RepoAnalyzer } from "../mcp/repo-analyzer";
+import { RepoAnalyzer } from "../github/repo-analyzer";
 import { config } from "dotenv";
 
 config();

@@ -1,6 +1,6 @@
 import { BaseResource } from "./base.js";
 import { Contributor } from "../types/index.js";
-import { RepoAnalyzer } from "../mcp/index.js";
+import { RepoAnalyzer } from "../github/index.js";
 
 export class ContributorsResource extends BaseResource {
   private analyzer: RepoAnalyzer;
@@ -18,7 +18,7 @@ export class ContributorsResource extends BaseResource {
     const cached = await this.getCached<Contributor[]>(
       owner,
       repo,
-      "contributors",
+      "contributors"
     );
     if (cached) {
       console.log(`💾 Cache hit for contributors: ${owner}/${repo}`);
@@ -39,7 +39,7 @@ export class ContributorsResource extends BaseResource {
     } catch (error: any) {
       console.error(
         `💥 Error fetching contributors for ${owner}/${repo}:`,
-        error.message,
+        error.message
       );
 
       // Check if it's a rate limit error

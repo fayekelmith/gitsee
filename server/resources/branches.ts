@@ -1,6 +1,6 @@
 import { BaseResource } from "./base.js";
 import { Branch } from "../types/index.js";
-import { RepoAnalyzer } from "../mcp/index.js";
+import { RepoAnalyzer } from "../github/index.js";
 
 export class BranchesResource extends BaseResource {
   private analyzer: RepoAnalyzer;
@@ -34,7 +34,7 @@ export class BranchesResource extends BaseResource {
     } catch (error: any) {
       console.error(
         `💥 Error fetching branches for ${owner}/${repo}:`,
-        error.message,
+        error.message
       );
 
       // Check if it's a rate limit error

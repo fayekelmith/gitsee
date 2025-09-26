@@ -51,7 +51,7 @@ var BaseResource = class {
   }
 };
 
-// server/mcp/base.ts
+// server/github/base.ts
 import { Octokit } from "@octokit/rest";
 var BaseAnalyzer = class {
   constructor(config = {}) {
@@ -88,7 +88,7 @@ var BaseAnalyzer = class {
   }
 };
 
-// server/mcp/repo-analyzer/commits.ts
+// server/github/repo-analyzer/commits.ts
 var CommitAnalyzer = class extends BaseAnalyzer {
   async getRecentCommits(owner, repo, options = {}) {
     const {
@@ -213,7 +213,7 @@ var CommitAnalyzer = class extends BaseAnalyzer {
   }
 };
 
-// server/mcp/repo-analyzer/pull-requests.ts
+// server/github/repo-analyzer/pull-requests.ts
 var PullRequestAnalyzer = class extends BaseAnalyzer {
   async getRecentPRs(owner, repo, options = {}) {
     const {
@@ -448,7 +448,7 @@ var PullRequestAnalyzer = class extends BaseAnalyzer {
   }
 };
 
-// server/mcp/repo-analyzer/repository.ts
+// server/github/repo-analyzer/repository.ts
 var RepositoryAnalyzer = class extends BaseAnalyzer {
   async getRepoInfo(owner, repo) {
     try {
@@ -520,7 +520,7 @@ var RepositoryAnalyzer = class extends BaseAnalyzer {
   }
 };
 
-// server/mcp/repo-analyzer/files.ts
+// server/github/repo-analyzer/files.ts
 var FileAnalyzer = class extends BaseAnalyzer {
   async getKeyFiles(owner, repo) {
     const candidateFiles = [
@@ -638,7 +638,7 @@ var FileAnalyzer = class extends BaseAnalyzer {
   }
 };
 
-// server/mcp/repo-analyzer/icons.ts
+// server/github/repo-analyzer/icons.ts
 var IconAnalyzer = class extends BaseAnalyzer {
   async getRepoIcon(owner, repo) {
     try {
@@ -728,7 +728,7 @@ var IconAnalyzer = class extends BaseAnalyzer {
   }
 };
 
-// server/mcp/repo-analyzer/index.ts
+// server/github/repo-analyzer/index.ts
 var RepoAnalyzer = class extends BaseAnalyzer {
   constructor(config = {}) {
     super(config);
