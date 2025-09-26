@@ -4,6 +4,8 @@ export { createGitSeeServer } from "./server.js";
 export { ExplorationEmitter } from "./events/index.js";
 export type { ExplorationEvent } from "./events/index.js";
 
+export * from "./github/index.js";
+
 // Export types for library consumers
 export type {
   GitSeeRequest,
@@ -12,7 +14,7 @@ export type {
   Contributor,
   Repository,
   Commit,
-  Branch
+  Branch,
 } from "./types/index.js";
 
 // Export resource classes for advanced usage
@@ -22,7 +24,7 @@ export {
   IconsResource,
   RepositoryResource,
   CommitsResource,
-  BranchesResource
+  BranchesResource,
 } from "./resources/index.js";
 
 // Export utilities

@@ -1,6 +1,7 @@
 import * as http from 'http';
 import { IncomingMessage, ServerResponse } from 'http';
 import { EventEmitter } from 'events';
+import { Octokit } from '@octokit/rest';
 
 interface CloneOptions {
     username?: string;
@@ -36,11 +37,11 @@ interface GitSeeResponse {
     repo?: any;
     contributors?: any[];
     icon?: string | null;
-    commits?: any[];
+    commits?: string;
     branches?: any[];
-    files?: FileInfo[];
-    fileContent?: FileContent | null;
-    stats?: RepoStats;
+    files?: FileInfo$1[];
+    fileContent?: FileContent$1 | null;
+    stats?: RepoStats$1;
     exploration?: ExplorationResult$1 | {
         error: string;
     } | string;
@@ -112,19 +113,19 @@ interface Branch {
     };
     protected: boolean;
 }
-interface FileInfo {
+interface FileInfo$1 {
     name: string;
     path: string;
     type: "package" | "config" | "docs" | "build" | "ci" | "data" | "other";
 }
-interface FileContent {
+interface FileContent$1 {
     name: string;
     path: string;
     content: string;
     encoding: string;
     size: number;
 }
-interface RepoStats {
+interface RepoStats$1 {
     stars: number;
     totalIssues: number;
     totalCommits: number;
@@ -189,6 +190,210 @@ declare class ExplorationEmitter extends EventEmitter {
     cleanupRepo(owner: string, repo: string): void;
 }
 
+interface RepoCommit {
+    sha: string;
+    commit: {
+        author: {
+            name: string;
+            email: string;
+            date: string;
+        };
+        message: string;
+    };
+    author: {
+        login: string;
+        avatar_url: string;
+        id: number;
+    } | null;
+    files?: CommitFile[];
+}
+interface CommitFile {
+    sha: string;
+    filename: string;
+    status: "added" | "modified" | "removed" | "renamed" | "copied" | "changed" | "unchanged";
+    additions: number;
+    deletions: number;
+    changes: number;
+    blob_url: string;
+    raw_url: string;
+    contents_url: string;
+    patch?: string;
+    previous_filename?: string;
+}
+interface RepoPullRequest {
+    id: number;
+    number: number;
+    title: string;
+    body: string | null;
+    state: "open" | "closed";
+    user: {
+        login: string;
+        avatar_url: string;
+        id: number;
+    };
+    created_at: string;
+    updated_at: string;
+    closed_at: string | null;
+    merged_at: string | null;
+    merge_commit_sha: string | null;
+    assignees?: Array<{
+        login: string;
+        avatar_url: string;
+        id: number;
+        [key: string]: any;
+    }> | null;
+    requested_reviewers?: Array<{
+        login: string;
+        avatar_url: string;
+        id: number;
+        [key: string]: any;
+    }> | null;
+    head: {
+        ref: string;
+        sha: string;
+        [key: string]: any;
+    };
+    base: {
+        ref: string;
+        sha: string;
+        [key: string]: any;
+    };
+    [key: string]: any;
+}
+interface PRReview {
+    id: number;
+    user: {
+        login: string;
+        avatar_url: string;
+        id: number;
+    };
+    body: string | null;
+    state: "APPROVED" | "CHANGES_REQUESTED" | "COMMENTED" | "DISMISSED";
+    submitted_at?: string;
+    pull_request_url?: string;
+    [key: string]: any;
+}
+interface ContributorFile {
+    filename: string;
+    modifications: number;
+    lastModified: string;
+}
+interface RecentCommitsOptions {
+    days?: number;
+    limit?: number;
+    author?: string;
+    since?: string;
+    until?: string;
+}
+interface RecentPRsOptions {
+    days?: number | null;
+    limit?: number;
+    state?: "open" | "closed" | "all";
+    author?: string;
+}
+interface RepoBranch {
+    name: string;
+    commit: {
+        sha: string;
+        url: string;
+    };
+    protected: boolean;
+    [key: string]: any;
+}
+interface RepoStats {
+    stars: number;
+    totalIssues: number;
+    totalCommits: number;
+    ageInYears: number;
+}
+interface FileInfo {
+    name: string;
+    path: string;
+    type: "package" | "config" | "docs" | "build" | "ci" | "data" | "other";
+}
+interface FileContent {
+    name: string;
+    path: string;
+    content: string;
+    encoding: string;
+    size: number;
+}
+
+interface RepoAnalyzerConfig {
+    githubToken?: string;
+    defaultLimit?: number;
+    defaultDays?: number;
+}
+declare abstract class BaseAnalyzer {
+    protected octokit: Octokit;
+    protected config: RepoAnalyzerConfig;
+    constructor(config?: RepoAnalyzerConfig);
+    protected paginate<T>(request: any, limit?: number): Promise<T[]>;
+}
+
+declare class CommitAnalyzer extends BaseAnalyzer {
+    private getRecentCommitsRaw;
+    private getRecentCommitsWithFilesRaw;
+    getRecentCommits(owner: string, repo: string, options?: RecentCommitsOptions): Promise<string>;
+    getRecentCommitsWithFiles(owner: string, repo: string, options?: RecentCommitsOptions): Promise<string>;
+    getContributorCommits(owner: string, repo: string, contributor: string, limit?: number): Promise<string>;
+    getContributorFiles(owner: string, repo: string, contributor: string, limit?: number): Promise<ContributorFile[]>;
+}
+
+declare class PullRequestAnalyzer extends BaseAnalyzer {
+    getRecentPRs(owner: string, repo: string, options?: RecentPRsOptions): Promise<RepoPullRequest[]>;
+    getContributorPRs(owner: string, repo: string, contributor: string, limit?: number): Promise<string>;
+    getContributorReviews(owner: string, repo: string, reviewer: string, limit?: number): Promise<RepoPullRequest[]>;
+    getPRDetails(owner: string, repo: string, prNumber: number): Promise<RepoPullRequest & {
+        reviews: PRReview[];
+    }>;
+    getRecentReviews(owner: string, repo: string, days?: number): Promise<PRReview[]>;
+}
+
+declare class RepositoryAnalyzer extends BaseAnalyzer {
+    getRepoInfo(owner: string, repo: string): Promise<any>;
+    getBranches(owner: string, repo: string, limit?: number): Promise<RepoBranch[]>;
+    getContributors(owner: string, repo: string, limit?: number): Promise<any[]>;
+    getRepoStats(owner: string, repo: string): Promise<RepoStats>;
+}
+
+declare class FileAnalyzer extends BaseAnalyzer {
+    getKeyFiles(owner: string, repo: string): Promise<FileInfo[]>;
+    getFileContent(owner: string, repo: string, path: string): Promise<FileContent | null>;
+}
+
+declare class IconAnalyzer extends BaseAnalyzer {
+    getRepoIcon(owner: string, repo: string): Promise<string | null>;
+    private sortIconsByResolution;
+}
+
+declare class RepoAnalyzer extends BaseAnalyzer {
+    private commitAnalyzer;
+    private prAnalyzer;
+    private repoAnalyzer;
+    private fileAnalyzer;
+    private iconAnalyzer;
+    constructor(config?: RepoAnalyzerConfig);
+    getRecentCommits(...args: Parameters<CommitAnalyzer['getRecentCommits']>): Promise<string>;
+    getRecentCommitsWithFiles(...args: Parameters<CommitAnalyzer['getRecentCommitsWithFiles']>): Promise<string>;
+    getContributorCommits(...args: Parameters<CommitAnalyzer['getContributorCommits']>): Promise<string>;
+    getContributorFiles(...args: Parameters<CommitAnalyzer['getContributorFiles']>): Promise<ContributorFile[]>;
+    getRecentPRs(...args: Parameters<PullRequestAnalyzer['getRecentPRs']>): Promise<RepoPullRequest[]>;
+    getContributorPRs(...args: Parameters<PullRequestAnalyzer['getContributorPRs']>): Promise<string>;
+    getContributorReviews(...args: Parameters<PullRequestAnalyzer['getContributorReviews']>): Promise<RepoPullRequest[]>;
+    getPRDetails(...args: Parameters<PullRequestAnalyzer['getPRDetails']>): Promise<RepoPullRequest & {
+        reviews: PRReview[];
+    }>;
+    getRecentReviews(...args: Parameters<PullRequestAnalyzer['getRecentReviews']>): Promise<PRReview[]>;
+    getRepoInfo(...args: Parameters<RepositoryAnalyzer['getRepoInfo']>): Promise<any>;
+    getBranches(...args: Parameters<RepositoryAnalyzer['getBranches']>): Promise<RepoBranch[]>;
+    getContributors(...args: Parameters<RepositoryAnalyzer['getContributors']>): Promise<any[]>;
+    getRepoStats(...args: Parameters<RepositoryAnalyzer['getRepoStats']>): Promise<RepoStats>;
+    getKeyFiles(...args: Parameters<FileAnalyzer['getKeyFiles']>): Promise<FileInfo[]>;
+    getFileContent(...args: Parameters<FileAnalyzer['getFileContent']>): Promise<FileContent | null>;
+    getRepoIcon(...args: Parameters<IconAnalyzer['getRepoIcon']>): Promise<string | null>;
+}
+
 declare class GitSeeCache {
     private cache;
     private ttl;
@@ -227,7 +432,7 @@ declare class RepositoryResource extends BaseResource {
 declare class CommitsResource extends BaseResource {
     private analyzer;
     constructor(cache: any, githubToken?: string);
-    getCommits(owner: string, repo: string): Promise<Commit[]>;
+    getCommits(owner: string, repo: string): Promise<string>;
 }
 
 declare class BranchesResource extends BaseResource {
@@ -236,4 +441,4 @@ declare class BranchesResource extends BaseResource {
     getBranches(owner: string, repo: string): Promise<Branch[]>;
 }
 
-export { BaseResource, type Branch, BranchesResource, type Commit, CommitsResource, type Contributor, ContributorsResource, ExplorationEmitter, type ExplorationEvent, GitSeeCache, GitSeeHandler, type GitSeeOptions, type GitSeeRequest, type GitSeeResponse, IconsResource, type Repository, RepositoryResource, createGitSeeHandler, createGitSeeServer };
+export { BaseAnalyzer, BaseResource, type Branch, BranchesResource, type Commit, type CommitFile, CommitsResource, type Contributor, type ContributorFile, ContributorsResource, ExplorationEmitter, type ExplorationEvent, type FileContent, type FileInfo, GitSeeCache, GitSeeHandler, type GitSeeOptions, type GitSeeRequest, type GitSeeResponse, IconsResource, type PRReview, type RecentCommitsOptions, type RecentPRsOptions, RepoAnalyzer, type RepoAnalyzerConfig, type RepoBranch, type RepoCommit, type RepoPullRequest, type RepoStats, type Repository, RepositoryResource, createGitSeeHandler, createGitSeeServer };

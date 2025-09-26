@@ -25,8 +25,8 @@
     "lint": "eslint client server --ext .js,.ts",
     "format": "prettier --write client/**/*.ts server/**/*.ts",
     "test-agent": "node test-agent.js",
-    "test-mcp": "tsx server/mcp/test-mcp.ts",
-    "test-contributor": "tsx server/agent/test-contributor.ts",
+    "test-mcp": "tsx server/github/test-mcp.ts",
+    "test-github-agent": "tsx server/agent/test-github-agent.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

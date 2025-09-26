@@ -25,7 +25,7 @@ export interface GitSeeResponse {
   repo?: any;
   contributors?: any[];
   icon?: string | null;
-  commits?: any[];
+  commits?: string;
   branches?: any[];
   files?: FileInfo[];
   fileContent?: FileContent | null;

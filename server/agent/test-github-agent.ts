@@ -13,10 +13,13 @@ function logStep(contents: any) {
     if (content.type === "tool-call" && content.toolName !== "final_answer") {
       console.log("TOOL CALL:", content.toolName, ":", content.input);
     }
+    if (content.type === "tool-result" && content.toolName !== "final_answer") {
+      console.log("TOOL RESULT:", content.toolName, ":", content.output);
+    }
   }
 }
 
-export async function get_contributor_context(
+export async function get_github_context(
   prompt: string | ModelMessage[],
   repoPath: string
 ): Promise<string> {
@@ -28,6 +31,19 @@ export async function get_contributor_context(
   const repoName = repoArr.pop() || "";
   const repoOwner = repoArr.pop() || "";
   const tools = {
+    recent_commits: tool({
+      description:
+        "Query a repo for recent commits. The output is a list of recent commits.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        const analyzer = new RepoAnalyzer({
+          githubToken: process.env.GITHUB_TOKEN,
+        });
+        return analyzer.getRecentCommitsWithFiles(repoOwner, repoName, {
+          limit: 7,
+        });
+      },
+    }),
     recent_contributions: tool({
       description:
         "Query a repo for recent PRs by a specific contributor. Input is the contributor's GitHub login. The output is a list of their most recent contributions, including PR titles, issue titles, commit messages, and code review comments.",
@@ -101,9 +117,12 @@ export async function get_contributor_context(
 
 // infra, dependencies/integratins, user stories, pages
 
-setTimeout(() => {
-  get_contributor_context(
-    "Summarize tomsmith8's role in this repo, in just 1-3 sentences. Be very brief.",
-    "/tmp/clones/stakwork/hive"
-  ).then(console.log);
-}, 1);
+// get_github_context(
+//   "Summarize tomsmith8's role in this repo, in just 1-3 sentences. Be very brief.",
+//   "/tmp/clones/stakwork/hive"
+// ).then(console.log);
+
+get_github_context(
+  "Summarize the recent activity in this repo, in just 1-3 sentences. Be very brief.",
+  "/tmp/clones/stakwork/hive"
+).then(console.log);

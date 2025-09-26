@@ -478,9 +478,7 @@ export class GitSeeHandler {
           case "commits":
             console.log(`🔍 Fetching commits for ${owner}/${repo}...`);
             response.commits = await commits.getCommits(owner, repo);
-            console.log(
-              `📝 Commits result: ${response.commits?.length || 0} found`
-            );
+            console.log(`📝 Commits result: Retrieved commit summary`);
             break;
 
           case "branches":

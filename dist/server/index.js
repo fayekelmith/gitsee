@@ -90,7 +90,8 @@ var BaseAnalyzer = class {
 
 // server/github/repo-analyzer/commits.ts
 var CommitAnalyzer = class extends BaseAnalyzer {
-  async getRecentCommits(owner, repo, options = {}) {
+  // Internal method that returns raw commit data for other methods to use
+  async getRecentCommitsRaw(owner, repo, options = {}) {
     const {
       days = this.config.defaultDays,
       limit = this.config.defaultLimit,
@@ -112,8 +113,9 @@ var CommitAnalyzer = class extends BaseAnalyzer {
     );
     return commits;
   }
-  async getRecentCommitsWithFiles(owner, repo, options = {}) {
-    const commits = await this.getRecentCommits(owner, repo, options);
+  // Internal method that returns raw commit data with files for other methods to use
+  async getRecentCommitsWithFilesRaw(owner, repo, options = {}) {
+    const commits = await this.getRecentCommitsRaw(owner, repo, options);
     const detailedCommits = await Promise.all(
       commits.map(async (commit) => {
         try {
@@ -137,8 +139,64 @@ var CommitAnalyzer = class extends BaseAnalyzer {
     );
     return detailedCommits;
   }
+  async getRecentCommits(owner, repo, options = {}) {
+    const commits = await this.getRecentCommitsRaw(owner, repo, options);
+    let output = `
+=== Recent Commits for ${owner}/${repo} ===
+
+`;
+    for (const commit of commits) {
+      output += `\u{1F4DD} ${commit.commit.message.split("\n")[0]}
+`;
+      output += `   SHA: ${commit.sha.substring(0, 8)}
+`;
+      output += `   Author: ${commit.commit.author.name} (${commit.commit.author.email})
+`;
+      output += `   Date: ${new Date(commit.commit.author.date).toLocaleDateString()} ${new Date(commit.commit.author.date).toLocaleTimeString()}
+
+`;
+    }
+    return output;
+  }
+  async getRecentCommitsWithFiles(owner, repo, options = {}) {
+    const detailedCommits = await this.getRecentCommitsWithFilesRaw(owner, repo, options);
+    let output = `
+=== Recent Commits with Files for ${owner}/${repo} ===
+
+`;
+    for (const commit of detailedCommits) {
+      output += `\u{1F4DD} Commit: ${commit.commit.message.split("\n")[0]}
+`;
+      output += `   SHA: ${commit.sha.substring(0, 8)}
+`;
+      output += `   Author: ${commit.commit.author.name} (${commit.commit.author.email})
+`;
+      output += `   Date: ${new Date(commit.commit.author.date).toLocaleDateString()} ${new Date(commit.commit.author.date).toLocaleTimeString()}
+`;
+      if (commit.files && commit.files.length > 0) {
+        output += `
+   \u{1F4C1} Files changed (${commit.files.length}):
+`;
+        commit.files.forEach((file, idx) => {
+          const statusEmoji = {
+            added: "\u2795",
+            modified: "\u{1F4DD}",
+            removed: "\u274C",
+            renamed: "\u{1F504}",
+            copied: "\u{1F4CB}",
+            changed: "\u{1F527}",
+            unchanged: "\u26AA"
+          }[file.status] || "\u{1F4C4}";
+          output += `     ${idx + 1}. ${statusEmoji} ${file.filename} (+${file.additions}/-${file.deletions})
+`;
+        });
+      }
+      output += "\n" + "=".repeat(80) + "\n\n";
+    }
+    return output;
+  }
   async getContributorCommits(owner, repo, contributor, limit) {
-    const commits = await this.getRecentCommitsWithFiles(owner, repo, {
+    const commits = await this.getRecentCommitsWithFilesRaw(owner, repo, {
       author: contributor,
       limit: limit || 50
     });
@@ -185,7 +243,7 @@ var CommitAnalyzer = class extends BaseAnalyzer {
     return output;
   }
   async getContributorFiles(owner, repo, contributor, limit) {
-    const commits = await this.getRecentCommitsWithFiles(owner, repo, {
+    const commits = await this.getRecentCommitsWithFilesRaw(owner, repo, {
       author: contributor,
       limit: limit || 100
       // Get more commits to analyze file patterns
@@ -926,7 +984,7 @@ var CommitsResource = class extends BaseResource {
       const commits = await this.analyzer.getRecentCommits(owner, repo, {
         limit: 50
       });
-      console.log(`\u{1F4DD} Found ${commits.length} commits`);
+      console.log(`\u{1F4DD} Commits fetched successfully`);
       this.setCached(owner, repo, "commits", commits);
       return commits;
     } catch (error) {
@@ -2438,9 +2496,7 @@ var GitSeeHandler = class {
           case "commits":
             console.log(`\u{1F50D} Fetching commits for ${owner}/${repo}...`);
             response.commits = await commits.getCommits(owner, repo);
-            console.log(
-              `\u{1F4DD} Commits result: ${response.commits?.length || 0} found`
-            );
+            console.log(`\u{1F4DD} Commits result: Retrieved commit summary`);
             break;
           case "branches":
             console.log(`\u{1F50D} Fetching branches for ${owner}/${repo}...`);
@@ -2616,6 +2672,7 @@ function createGitSeeServer(options = {}) {
   });
 }
 export {
+  BaseAnalyzer,
   BaseResource,
   BranchesResource,
   CommitsResource,
@@ -2624,6 +2681,7 @@ export {
   GitSeeCache,
   GitSeeHandler,
   IconsResource,
+  RepoAnalyzer,
   RepositoryResource,
   createGitSeeHandler,
   createGitSeeServer

@@ -2,7 +2,8 @@ import { BaseAnalyzer } from "../base.js";
 import { RepoCommit, ContributorFile, RecentCommitsOptions } from "../types.js";
 
 export class CommitAnalyzer extends BaseAnalyzer {
-  async getRecentCommits(
+  // Internal method that returns raw commit data for other methods to use
+  private async getRecentCommitsRaw(
     owner: string,
     repo: string,
     options: RecentCommitsOptions = {}
@@ -37,12 +38,13 @@ export class CommitAnalyzer extends BaseAnalyzer {
     return commits;
   }
 
-  async getRecentCommitsWithFiles(
+  // Internal method that returns raw commit data with files for other methods to use
+  private async getRecentCommitsWithFilesRaw(
     owner: string,
     repo: string,
     options: RecentCommitsOptions = {}
   ): Promise<RepoCommit[]> {
-    const commits = await this.getRecentCommits(owner, repo, options);
+    const commits = await this.getRecentCommitsRaw(owner, repo, options);
 
     // Fetch detailed commit info including files for each commit
     const detailedCommits = await Promise.all(
@@ -71,6 +73,62 @@ export class CommitAnalyzer extends BaseAnalyzer {
 
     return detailedCommits;
   }
+  async getRecentCommits(
+    owner: string,
+    repo: string,
+    options: RecentCommitsOptions = {}
+  ): Promise<string> {
+    const commits = await this.getRecentCommitsRaw(owner, repo, options);
+
+    let output = `\n=== Recent Commits for ${owner}/${repo} ===\n\n`;
+
+    for (const commit of commits) {
+      output += `📝 ${commit.commit.message.split('\n')[0]}\n`;
+      output += `   SHA: ${commit.sha.substring(0, 8)}\n`;
+      output += `   Author: ${commit.commit.author.name} (${commit.commit.author.email})\n`;
+      output += `   Date: ${new Date(commit.commit.author.date).toLocaleDateString()} ${new Date(commit.commit.author.date).toLocaleTimeString()}\n\n`;
+    }
+
+    return output;
+  }
+
+  async getRecentCommitsWithFiles(
+    owner: string,
+    repo: string,
+    options: RecentCommitsOptions = {}
+  ): Promise<string> {
+    const detailedCommits = await this.getRecentCommitsWithFilesRaw(owner, repo, options);
+
+    let output = `\n=== Recent Commits with Files for ${owner}/${repo} ===\n\n`;
+
+    for (const commit of detailedCommits) {
+      output += `📝 Commit: ${commit.commit.message.split('\n')[0]}\n`;
+      output += `   SHA: ${commit.sha.substring(0, 8)}\n`;
+      output += `   Author: ${commit.commit.author.name} (${commit.commit.author.email})\n`;
+      output += `   Date: ${new Date(commit.commit.author.date).toLocaleDateString()} ${new Date(commit.commit.author.date).toLocaleTimeString()}\n`;
+
+      if (commit.files && commit.files.length > 0) {
+        output += `\n   📁 Files changed (${commit.files.length}):\n`;
+        commit.files.forEach((file, idx) => {
+          const statusEmoji = {
+            added: '➕',
+            modified: '📝',
+            removed: '❌',
+            renamed: '🔄',
+            copied: '📋',
+            changed: '🔧',
+            unchanged: '⚪'
+          }[file.status] || '📄';
+
+          output += `     ${idx + 1}. ${statusEmoji} ${file.filename} (+${file.additions}/-${file.deletions})\n`;
+        });
+      }
+
+      output += '\n' + '='.repeat(80) + '\n\n';
+    }
+
+    return output;
+  }
 
   async getContributorCommits(
     owner: string,
@@ -78,7 +136,7 @@ export class CommitAnalyzer extends BaseAnalyzer {
     contributor: string,
     limit?: number
   ): Promise<string> {
-    const commits = await this.getRecentCommitsWithFiles(owner, repo, {
+    const commits = await this.getRecentCommitsWithFilesRaw(owner, repo, {
       author: contributor,
       limit: limit || 50,
     });
@@ -130,7 +188,7 @@ export class CommitAnalyzer extends BaseAnalyzer {
     limit?: number
   ): Promise<ContributorFile[]> {
     // Get commits with file details
-    const commits = await this.getRecentCommitsWithFiles(owner, repo, {
+    const commits = await this.getRecentCommitsWithFilesRaw(owner, repo, {
       author: contributor,
       limit: limit || 100, // Get more commits to analyze file patterns
     });

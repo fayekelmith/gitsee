@@ -13,9 +13,9 @@ export class CommitsResource extends BaseResource {
     });
   }
 
-  async getCommits(owner: string, repo: string): Promise<Commit[]> {
+  async getCommits(owner: string, repo: string): Promise<string> {
     // Check cache first
-    const cached = await this.getCached<Commit[]>(owner, repo, "commits");
+    const cached = await this.getCached<string>(owner, repo, "commits");
     if (cached) {
       console.log(`💾 Cache hit for commits: ${owner}/${repo}`);
       return cached;
@@ -28,12 +28,12 @@ export class CommitsResource extends BaseResource {
         limit: 50,
       });
 
-      console.log(`📝 Found ${commits.length} commits`);
+      console.log(`📝 Commits fetched successfully`);
 
       // Cache the result
       this.setCached(owner, repo, "commits", commits);
 
-      return commits as Commit[];
+      return commits;
     } catch (error: any) {
       console.error(
         `💥 Error fetching commits for ${owner}/${repo}:`,
