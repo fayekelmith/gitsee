@@ -14,6 +14,8 @@ import { parse_files_contents } from "./utils.js";
 import { RepoCloner, CloneOptions } from "./repo-cloner.js";
 import { get_context, RepoContextMode, Overrides } from "./explore.js";
 
+export { get_contributor_context } from "./contributor.js";
+
 export async function clone_and_explore(
   owner: string,
   repo: string,

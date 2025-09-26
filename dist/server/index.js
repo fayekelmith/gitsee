@@ -127,7 +127,10 @@ var CommitAnalyzer = class extends BaseAnalyzer {
             files: detailedCommit.data.files || []
           };
         } catch (error) {
-          console.warn(`Could not fetch files for commit ${commit.sha}:`, error);
+          console.warn(
+            `Could not fetch files for commit ${commit.sha}:`,
+            error
+          );
           return commit;
         }
       })
@@ -135,10 +138,51 @@ var CommitAnalyzer = class extends BaseAnalyzer {
     return detailedCommits;
   }
   async getContributorCommits(owner, repo, contributor, limit) {
-    return this.getRecentCommits(owner, repo, {
+    const commits = await this.getRecentCommitsWithFiles(owner, repo, {
       author: contributor,
-      limit
+      limit: limit || 50
     });
+    let output = `
+=== Contributor Commits for ${contributor} in ${owner}/${repo} ===
+
+`;
+    for (const commit of commits) {
+      output += `\u{1F4DD} Commit: ${commit.commit.message.split("\n")[0]}
+`;
+      output += `   SHA: ${commit.sha.substring(0, 8)}
+`;
+      output += `   Author: ${commit.commit.author.name} (${commit.commit.author.email})
+`;
+      output += `   Date: ${new Date(commit.commit.author.date).toLocaleDateString()} ${new Date(commit.commit.author.date).toLocaleTimeString()}
+`;
+      if (commit.commit.message.includes("\n")) {
+        const fullMessage = commit.commit.message.split("\n").slice(1).join("\n").trim();
+        if (fullMessage) {
+          output += `   Full message: ${fullMessage.substring(0, 200)}${fullMessage.length > 200 ? "..." : ""}
+`;
+        }
+      }
+      if (commit.files && commit.files.length > 0) {
+        output += `
+   \u{1F4C1} Files changed (${commit.files.length}):
+`;
+        commit.files.forEach((file, idx) => {
+          const statusEmoji = {
+            added: "\u2795",
+            modified: "\u{1F4DD}",
+            removed: "\u274C",
+            renamed: "\u{1F504}",
+            copied: "\u{1F4CB}",
+            changed: "\u{1F527}",
+            unchanged: "\u26AA"
+          }[file.status] || "\u{1F4C4}";
+          output += `     ${idx + 1}. ${statusEmoji} ${file.filename} (+${file.additions}/-${file.deletions})
+`;
+        });
+      }
+      output += "\n" + "=".repeat(80) + "\n\n";
+    }
+    return output;
   }
   async getContributorFiles(owner, repo, contributor, limit) {
     const commits = await this.getRecentCommitsWithFiles(owner, repo, {
@@ -173,7 +217,7 @@ var CommitAnalyzer = class extends BaseAnalyzer {
 var PullRequestAnalyzer = class extends BaseAnalyzer {
   async getRecentPRs(owner, repo, options = {}) {
     const {
-      days = this.config.defaultDays,
+      days = options.days === null ? null : options.days || this.config.defaultDays,
       limit = this.config.defaultLimit,
       state = "all",
       author
@@ -185,29 +229,170 @@ var PullRequestAnalyzer = class extends BaseAnalyzer {
         state,
         sort: "updated",
         direction: "desc",
+        ...author && { creator: author },
+        // Use GitHub API's creator parameter
         ...params
       }),
       limit
     );
     let filteredPRs = prs;
-    if (days) {
+    if (days !== null && days !== void 0) {
       const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1e3);
       filteredPRs = filteredPRs.filter(
         (pr) => new Date(pr.updated_at) > cutoffDate
       );
     }
-    if (author) {
-      filteredPRs = filteredPRs.filter(
-        (pr) => pr.user.login.toLowerCase() === author.toLowerCase()
-      );
-    }
     return filteredPRs;
   }
   async getContributorPRs(owner, repo, contributor, limit) {
-    return this.getRecentPRs(owner, repo, {
+    const prs = await this.getRecentPRs(owner, repo, {
       author: contributor,
-      limit
+      limit: limit || 50,
+      days: null
+      // Get all PRs by this contributor
     });
+    const enhancedPRs = await Promise.all(
+      prs.map(async (pr) => {
+        try {
+          const [commentsResponse, reviewsResponse, commitsResponse] = await Promise.all([
+            // Get issue comments
+            this.octokit.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: pr.number
+            }),
+            // Get reviews
+            this.octokit.rest.pulls.listReviews({
+              owner,
+              repo,
+              pull_number: pr.number
+            }),
+            // Get commits
+            this.octokit.rest.pulls.listCommits({
+              owner,
+              repo,
+              pull_number: pr.number
+            })
+          ]);
+          return {
+            ...pr,
+            comments: commentsResponse.data.filter(
+              (comment) => !comment.user?.login.includes("[bot]")
+            ),
+            reviews: reviewsResponse.data.filter(
+              (review) => !review.user?.login.includes("[bot]")
+            ),
+            commits: commitsResponse.data
+          };
+        } catch (error) {
+          console.warn(`Could not fetch details for PR #${pr.number}:`, error);
+          return {
+            ...pr,
+            comments: [],
+            reviews: [],
+            commits: []
+          };
+        }
+      })
+    );
+    const finalPRs = limit ? enhancedPRs.slice(0, limit) : enhancedPRs;
+    let output = `
+=== Contributor PRs for ${contributor} in ${owner}/${repo} ===
+
+`;
+    for (const pr of finalPRs) {
+      output += `\u{1F4DD} PR #${pr.number}: ${pr.title}
+`;
+      output += `   Branch: ${pr.head.ref} \u2192 ${pr.base.ref}
+`;
+      output += `   State: ${pr.state}${pr.merged_at ? " (merged)" : ""}
+`;
+      output += `   Created: ${new Date(pr.created_at).toLocaleDateString()}
+`;
+      if (pr.body) {
+        output += `   Description: ${pr.body.substring(0, 200)}${pr.body.length > 200 ? "..." : ""}
+`;
+      }
+      if (pr.comments && pr.comments.length > 0) {
+        output += `
+   \u{1F4AC} Comments (${pr.comments.length}):
+`;
+        pr.comments.forEach((comment, idx) => {
+          output += `     ${idx + 1}. ${comment.user.login}: ${comment.body.substring(0, 150)}${comment.body.length > 150 ? "..." : ""}
+`;
+        });
+      }
+      if (pr.reviews && pr.reviews.length > 0) {
+        output += `
+   \u{1F440} Reviews (${pr.reviews.length}):
+`;
+        pr.reviews.forEach((review, idx) => {
+          output += `     ${idx + 1}. ${review.user.login} (${review.state})
+`;
+          if (review.body) {
+            output += `        ${review.body.substring(0, 150)}${review.body.length > 150 ? "..." : ""}
+`;
+          }
+        });
+      }
+      if (pr.commits && pr.commits.length > 0) {
+        output += `
+   \u{1F4E6} Commits (${pr.commits.length}):
+`;
+        pr.commits.forEach((commit, idx) => {
+          output += `     ${idx + 1}. ${commit.commit.message.split("\n")[0]} (${commit.commit.author.name})
+`;
+        });
+      }
+      output += "\n" + "=".repeat(80) + "\n\n";
+    }
+    return output;
+  }
+  async getContributorReviews(owner, repo, reviewer, limit) {
+    const prs = await this.getRecentPRs(owner, repo, {
+      limit: limit ? limit * 3 : 150
+    });
+    const reviewedPRs = [];
+    for (const pr of prs) {
+      try {
+        const reviewsResponse = await this.octokit.rest.pulls.listReviews({
+          owner,
+          repo,
+          pull_number: pr.number
+        });
+        const hasReviewByUser = reviewsResponse.data.some(
+          (review) => review.user?.login.toLowerCase() === reviewer.toLowerCase() && !review.user?.login.includes("[bot]")
+        );
+        if (hasReviewByUser) {
+          const [commentsResponse, commitsResponse] = await Promise.all([
+            this.octokit.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: pr.number
+            }),
+            this.octokit.rest.pulls.listCommits({
+              owner,
+              repo,
+              pull_number: pr.number
+            })
+          ]);
+          reviewedPRs.push({
+            ...pr,
+            comments: commentsResponse.data.filter(
+              (comment) => !comment.user?.login.includes("[bot]")
+            ),
+            reviews: reviewsResponse.data.filter(
+              (review) => !review.user?.login.includes("[bot]")
+            ),
+            commits: commitsResponse.data
+          });
+          if (limit && reviewedPRs.length >= limit) break;
+        }
+      } catch (error) {
+        console.warn(`Could not fetch reviews for PR #${pr.number}:`, error);
+      }
+    }
+    return reviewedPRs;
   }
   async getPRDetails(owner, repo, prNumber) {
     const [prResponse, reviewsResponse] = await Promise.all([
@@ -243,7 +428,9 @@ var PullRequestAnalyzer = class extends BaseAnalyzer {
             repo,
             pull_number: pr.number
           });
-          const cutoffDate = new Date(Date.now() - actualDays * 24 * 60 * 60 * 1e3);
+          const cutoffDate = new Date(
+            Date.now() - actualDays * 24 * 60 * 60 * 1e3
+          );
           const recentReviews = reviews.data.filter(
             (review) => review.submitted_at && new Date(review.submitted_at) > cutoffDate
           );
@@ -574,6 +761,9 @@ var RepoAnalyzer = class extends BaseAnalyzer {
   }
   async getContributorPRs(...args) {
     return this.prAnalyzer.getContributorPRs(...args);
+  }
+  async getContributorReviews(...args) {
+    return this.prAnalyzer.getContributorReviews(...args);
   }
   async getPRDetails(...args) {
     return this.prAnalyzer.getPRDetails(...args);
@@ -1425,7 +1615,7 @@ function logStep(contents) {
 function getConfig(mode) {
   const m = prompts_exports[mode];
   return {
-    file_lines: m.FILE_LINES || 80,
+    file_lines: m.FILE_LINES,
     system: m.EXPLORER,
     final_answer_description: m.FINAL_ANSWER
   };
@@ -1453,7 +1643,6 @@ async function get_context(prompt, repoPath, mode = "features", overrides) {
       repoPath.split("/").pop() || "my-repo"
     );
   }
-  console.log("fad", fad);
   const tools = {
     repo_overview: tool({
       description: "Get a high-level view of the codebase architecture and structure. Use this to understand the project layout and identify where specific functionality might be located. Call this when you need to: 1) Orient yourself in an unfamiliar codebase, 2) Locate which directories/files might contain relevant code for a user's question, 3) Understand the overall project structure before diving deeper. Don't call this if you already know which specific files you need to examine.",
@@ -1626,6 +1815,102 @@ async function explore(prompt, repoPath, mode = "first_pass") {
     }
   }
 }
+
+// server/agent/contributor.ts
+import { generateText as generateText2, tool as tool2, hasToolCall as hasToolCall2 } from "ai";
+import { getModel as getModel2, getApiKeyForProvider as getApiKeyForProvider2 } from "aieo";
+import { z as z2 } from "zod";
+function logStep2(contents) {
+  if (!Array.isArray(contents)) return;
+  for (const content of contents) {
+    if (content.type === "tool-call" && content.toolName !== "final_answer") {
+      console.log("TOOL CALL:", content.toolName, ":", content.input);
+    }
+  }
+}
+async function get_contributor_context(prompt, repoPath) {
+  const startTime = Date.now();
+  const provider = process.env.LLM_PROVIDER || "anthropic";
+  const apiKey = getApiKeyForProvider2(provider);
+  const model = await getModel2(provider, apiKey);
+  const repoArr = repoPath.split("/");
+  const repoName = repoArr.pop() || "";
+  const repoOwner = repoArr.pop() || "";
+  const tools = {
+    recent_contributions: tool2({
+      description: "Query a repo for recent PRs by a specific contributor. Input is the contributor's GitHub login. The output is a list of their most recent contributions, including PR titles, issue titles, commit messages, and code review comments.",
+      inputSchema: z2.object({ user: z2.string() }),
+      execute: async ({ user }) => {
+        try {
+          const analyzer = new RepoAnalyzer({
+            githubToken: process.env.GITHUB_TOKEN
+          });
+          const output = await analyzer.getContributorPRs(
+            repoOwner,
+            repoName,
+            user,
+            5
+          );
+          return output;
+        } catch (e) {
+          return "Could not retrieve repository map";
+        }
+      }
+    }),
+    final_answer: tool2({
+      // The tool that signals the end of the process
+      description: generic.FINAL_ANSWER.trim(),
+      inputSchema: z2.object({ answer: z2.string() }),
+      execute: async ({ answer }) => answer
+    })
+  };
+  const { steps } = await generateText2({
+    model,
+    tools,
+    prompt,
+    system: generic.EXPLORER,
+    stopWhen: hasToolCall2("final_answer"),
+    onStepFinish: (sf) => logStep2(sf.content)
+  });
+  let final = "";
+  let lastText = "";
+  for (const step of steps) {
+    for (const item of step.content) {
+      if (item.type === "text" && item.text && item.text.trim().length > 0) {
+        lastText = item.text.trim();
+      }
+    }
+  }
+  steps.reverse();
+  for (const step of steps) {
+    const final_answer = step.content.find((c) => {
+      return c.type === "tool-result" && c.toolName === "final_answer";
+    });
+    if (final_answer) {
+      final = final_answer.output;
+    }
+  }
+  if (!final && lastText) {
+    console.warn(
+      "No final_answer tool call detected; falling back to last reasoning text."
+    );
+    final = `${lastText}
+
+(Note: Model did not invoke final_answer tool; using last reasoning text as answer.)`;
+  }
+  const endTime = Date.now();
+  const duration = endTime - startTime;
+  console.log(
+    `\u23F1\uFE0F get_context completed in ${duration}ms (${(duration / 1e3).toFixed(2)}s)`
+  );
+  return final;
+}
+setTimeout(() => {
+  get_contributor_context(
+    "Summarize tomsmith8's role in this repo, in just 1-3 sentences. Be very brief.",
+    "/tmp/clones/stakwork/hive"
+  ).then(console.log);
+}, 1e3);
 
 // server/persistence/FileStore.ts
 import * as fs3 from "fs";

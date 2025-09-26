@@ -49,6 +49,10 @@ export class RepoAnalyzer extends BaseAnalyzer {
     return this.prAnalyzer.getContributorPRs(...args);
   }
 
+  async getContributorReviews(...args: Parameters<PullRequestAnalyzer['getContributorReviews']>) {
+    return this.prAnalyzer.getContributorReviews(...args);
+  }
+
   async getPRDetails(...args: Parameters<PullRequestAnalyzer['getPRDetails']>) {
     return this.prAnalyzer.getPRDetails(...args);
   }

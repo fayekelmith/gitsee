@@ -1,9 +1,5 @@
 import { BaseAnalyzer } from "../base.js";
-import {
-  RepoCommit,
-  ContributorFile,
-  RecentCommitsOptions,
-} from "../types.js";
+import { RepoCommit, ContributorFile, RecentCommitsOptions } from "../types.js";
 
 export class CommitAnalyzer extends BaseAnalyzer {
   async getRecentCommits(
@@ -19,17 +15,22 @@ export class CommitAnalyzer extends BaseAnalyzer {
       until,
     } = options;
 
-    const sinceDate = since || (days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString() : undefined);
+    const sinceDate =
+      since ||
+      (days
+        ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+        : undefined);
 
     const commits = await this.paginate<RepoCommit>(
-      (params: any) => this.octokit.rest.repos.listCommits({
-        owner,
-        repo,
-        author,
-        since: sinceDate,
-        until,
-        ...params,
-      }),
+      (params: any) =>
+        this.octokit.rest.repos.listCommits({
+          owner,
+          repo,
+          author,
+          since: sinceDate,
+          until,
+          ...params,
+        }),
       limit
     );
 
@@ -59,7 +60,10 @@ export class CommitAnalyzer extends BaseAnalyzer {
           };
         } catch (error) {
           // If we can't get detailed info, return commit without files
-          console.warn(`Could not fetch files for commit ${commit.sha}:`, error);
+          console.warn(
+            `Could not fetch files for commit ${commit.sha}:`,
+            error
+          );
           return commit;
         }
       })
@@ -73,11 +77,50 @@ export class CommitAnalyzer extends BaseAnalyzer {
     repo: string,
     contributor: string,
     limit?: number
-  ): Promise<RepoCommit[]> {
-    return this.getRecentCommits(owner, repo, {
+  ): Promise<string> {
+    const commits = await this.getRecentCommitsWithFiles(owner, repo, {
       author: contributor,
-      limit,
+      limit: limit || 50,
     });
+
+    // Format as string output
+    let output = `\n=== Contributor Commits for ${contributor} in ${owner}/${repo} ===\n\n`;
+
+    for (const commit of commits) {
+      output += `📝 Commit: ${commit.commit.message.split('\n')[0]}\n`;
+      output += `   SHA: ${commit.sha.substring(0, 8)}\n`;
+      output += `   Author: ${commit.commit.author.name} (${commit.commit.author.email})\n`;
+      output += `   Date: ${new Date(commit.commit.author.date).toLocaleDateString()} ${new Date(commit.commit.author.date).toLocaleTimeString()}\n`;
+
+      if (commit.commit.message.includes('\n')) {
+        const fullMessage = commit.commit.message.split('\n').slice(1).join('\n').trim();
+        if (fullMessage) {
+          output += `   Full message: ${fullMessage.substring(0, 200)}${fullMessage.length > 200 ? '...' : ''}\n`;
+        }
+      }
+
+      // Show changed files
+      if (commit.files && commit.files.length > 0) {
+        output += `\n   📁 Files changed (${commit.files.length}):\n`;
+        commit.files.forEach((file, idx) => {
+          const statusEmoji = {
+            added: '➕',
+            modified: '📝',
+            removed: '❌',
+            renamed: '🔄',
+            copied: '📋',
+            changed: '🔧',
+            unchanged: '⚪'
+          }[file.status] || '📄';
+
+          output += `     ${idx + 1}. ${statusEmoji} ${file.filename} (+${file.additions}/-${file.deletions})\n`;
+        });
+      }
+
+      output += '\n' + '='.repeat(80) + '\n\n';
+    }
+
+    return output;
   }
 
   async getContributorFiles(
@@ -95,9 +138,9 @@ export class CommitAnalyzer extends BaseAnalyzer {
     // Count file modifications
     const fileMap = new Map<string, { count: number; lastModified: string }>();
 
-    commits.forEach(commit => {
+    commits.forEach((commit) => {
       if (commit.files) {
-        commit.files.forEach(file => {
+        commit.files.forEach((file) => {
           const existing = fileMap.get(file.filename);
           if (!existing || commit.commit.author.date > existing.lastModified) {
             fileMap.set(file.filename, {

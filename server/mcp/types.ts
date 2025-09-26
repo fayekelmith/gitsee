@@ -100,7 +100,7 @@ export interface RecentCommitsOptions {
 }
 
 export interface RecentPRsOptions {
-  days?: number;
+  days?: number | null;
   limit?: number;
   state?: "open" | "closed" | "all";
   author?: string;

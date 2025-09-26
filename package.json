@@ -25,6 +25,7 @@
     "lint": "eslint client server --ext .js,.ts",
     "format": "prettier --write client/**/*.ts server/**/*.ts",
     "test-agent": "node test-agent.js",
+    "test-mcp": "tsx server/mcp/test-mcp.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
