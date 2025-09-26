@@ -59,11 +59,8 @@ export class RepositoryAnalyzer extends BaseAnalyzer {
 
       const repoData = repoResponse.data;
 
-      // Get total PRs count (using advanced search to avoid deprecation)
-      const prsResponse = await this.octokit.rest.search.issuesAndPullRequests({
-        q: `repo:${owner}/${repo} type:pr`,
-        per_page: 1, // We only need the count
-      });
+      // Use repository's open_issues_count for total issues
+      const totalIssues = repoData.open_issues_count;
 
       // Get total commits count (approximate from contributors API)
       const contributorsResponse = await this.octokit.rest.repos.listContributors({
@@ -92,7 +89,7 @@ export class RepositoryAnalyzer extends BaseAnalyzer {
 
       const stats: RepoStats = {
         stars: repoData.stargazers_count,
-        totalPRs: prsResponse.data.total_count,
+        totalIssues: totalIssues,
         totalCommits: totalCommits,
         ageInYears: ageInYears,
       };

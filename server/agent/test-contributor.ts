@@ -3,6 +3,9 @@ import { getModel, getApiKeyForProvider, Provider } from "aieo";
 import * as prompts from "./prompts";
 import { z } from "zod";
 import { RepoAnalyzer } from "../mcp/repo-analyzer";
+import { config } from "dotenv";
+
+config();
 
 function logStep(contents: any) {
   if (!Array.isArray(contents)) return;
@@ -103,4 +106,4 @@ setTimeout(() => {
     "Summarize tomsmith8's role in this repo, in just 1-3 sentences. Be very brief.",
     "/tmp/clones/stakwork/hive"
   ).then(console.log);
-}, 1000);
+}, 1);

@@ -27,7 +27,7 @@ export class StatsResource extends BaseResource {
 
       console.log(`📊 Stats for ${owner}/${repo}:`, {
         stars: stats.stars,
-        totalPRs: stats.totalPRs,
+        totalIssues: stats.totalIssues,
         totalCommits: stats.totalCommits,
         ageInYears: stats.ageInYears,
       });

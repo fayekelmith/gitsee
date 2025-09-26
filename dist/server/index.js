@@ -488,11 +488,7 @@ var RepositoryAnalyzer = class extends BaseAnalyzer {
         repo
       });
       const repoData = repoResponse.data;
-      const prsResponse = await this.octokit.rest.search.issuesAndPullRequests({
-        q: `repo:${owner}/${repo} type:pr`,
-        per_page: 1
-        // We only need the count
-      });
+      const totalIssues = repoData.open_issues_count;
       const contributorsResponse = await this.octokit.rest.repos.listContributors({
         owner,
         repo,
@@ -512,7 +508,7 @@ var RepositoryAnalyzer = class extends BaseAnalyzer {
       ) / 10;
       const stats = {
         stars: repoData.stargazers_count,
-        totalPRs: prsResponse.data.total_count,
+        totalIssues,
         totalCommits,
         ageInYears
       };
@@ -1038,7 +1034,7 @@ var StatsResource = class extends BaseResource {
       const stats = await this.analyzer.getRepoStats(owner, repo);
       console.log(`\u{1F4CA} Stats for ${owner}/${repo}:`, {
         stars: stats.stars,
-        totalPRs: stats.totalPRs,
+        totalIssues: stats.totalIssues,
         totalCommits: stats.totalCommits,
         ageInYears: stats.ageInYears
       });
@@ -1815,102 +1811,6 @@ async function explore(prompt, repoPath, mode = "first_pass") {
     }
   }
 }
-
-// server/agent/contributor.ts
-import { generateText as generateText2, tool as tool2, hasToolCall as hasToolCall2 } from "ai";
-import { getModel as getModel2, getApiKeyForProvider as getApiKeyForProvider2 } from "aieo";
-import { z as z2 } from "zod";
-function logStep2(contents) {
-  if (!Array.isArray(contents)) return;
-  for (const content of contents) {
-    if (content.type === "tool-call" && content.toolName !== "final_answer") {
-      console.log("TOOL CALL:", content.toolName, ":", content.input);
-    }
-  }
-}
-async function get_contributor_context(prompt, repoPath) {
-  const startTime = Date.now();
-  const provider = process.env.LLM_PROVIDER || "anthropic";
-  const apiKey = getApiKeyForProvider2(provider);
-  const model = await getModel2(provider, apiKey);
-  const repoArr = repoPath.split("/");
-  const repoName = repoArr.pop() || "";
-  const repoOwner = repoArr.pop() || "";
-  const tools = {
-    recent_contributions: tool2({
-      description: "Query a repo for recent PRs by a specific contributor. Input is the contributor's GitHub login. The output is a list of their most recent contributions, including PR titles, issue titles, commit messages, and code review comments.",
-      inputSchema: z2.object({ user: z2.string() }),
-      execute: async ({ user }) => {
-        try {
-          const analyzer = new RepoAnalyzer({
-            githubToken: process.env.GITHUB_TOKEN
-          });
-          const output = await analyzer.getContributorPRs(
-            repoOwner,
-            repoName,
-            user,
-            5
-          );
-          return output;
-        } catch (e) {
-          return "Could not retrieve repository map";
-        }
-      }
-    }),
-    final_answer: tool2({
-      // The tool that signals the end of the process
-      description: generic.FINAL_ANSWER.trim(),
-      inputSchema: z2.object({ answer: z2.string() }),
-      execute: async ({ answer }) => answer
-    })
-  };
-  const { steps } = await generateText2({
-    model,
-    tools,
-    prompt,
-    system: generic.EXPLORER,
-    stopWhen: hasToolCall2("final_answer"),
-    onStepFinish: (sf) => logStep2(sf.content)
-  });
-  let final = "";
-  let lastText = "";
-  for (const step of steps) {
-    for (const item of step.content) {
-      if (item.type === "text" && item.text && item.text.trim().length > 0) {
-        lastText = item.text.trim();
-      }
-    }
-  }
-  steps.reverse();
-  for (const step of steps) {
-    const final_answer = step.content.find((c) => {
-      return c.type === "tool-result" && c.toolName === "final_answer";
-    });
-    if (final_answer) {
-      final = final_answer.output;
-    }
-  }
-  if (!final && lastText) {
-    console.warn(
-      "No final_answer tool call detected; falling back to last reasoning text."
-    );
-    final = `${lastText}
-
-(Note: Model did not invoke final_answer tool; using last reasoning text as answer.)`;
-  }
-  const endTime = Date.now();
-  const duration = endTime - startTime;
-  console.log(
-    `\u23F1\uFE0F get_context completed in ${duration}ms (${(duration / 1e3).toFixed(2)}s)`
-  );
-  return final;
-}
-setTimeout(() => {
-  get_contributor_context(
-    "Summarize tomsmith8's role in this repo, in just 1-3 sentences. Be very brief.",
-    "/tmp/clones/stakwork/hive"
-  ).then(console.log);
-}, 1e3);
 
 // server/persistence/FileStore.ts
 import * as fs3 from "fs";

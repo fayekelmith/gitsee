@@ -3606,10 +3606,10 @@ var StatsVisualization = class extends BaseVisualizationResource {
         value: statsData.stars
       },
       {
-        id: "stat-prs",
-        name: `${statsData.totalPRs} PRs`,
-        label: "Pull Requests",
-        value: statsData.totalPRs
+        id: "stat-issues",
+        name: `${statsData.totalIssues} issues`,
+        label: "Issues",
+        value: statsData.totalIssues
       },
       {
         id: "stat-commits",
@@ -4745,10 +4745,10 @@ var GitVisualizer = class {
         value: stats.stars
       },
       {
-        id: "stat-prs",
-        name: `${stats.totalPRs} PRs`,
-        label: "Pull Requests",
-        value: stats.totalPRs
+        id: "stat-issues",
+        name: `${stats.totalIssues} issues`,
+        label: "Issues",
+        value: stats.totalIssues
       },
       {
         id: "stat-commits",

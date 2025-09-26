@@ -503,7 +503,7 @@ export class GitSeeHandler {
             console.log(`🔍 Fetching stats for ${owner}/${repo}...`);
             response.stats = await stats.getRepoStats(owner, repo);
             console.log(
-              `📊 Stats result: ${response.stats?.stars} stars, ${response.stats?.totalPRs} PRs, ${response.stats?.totalCommits} commits, ${response.stats?.ageInYears}y old`
+              `📊 Stats result: ${response.stats?.stars} stars, ${response.stats?.totalIssues} issues, ${response.stats?.totalCommits} commits, ${response.stats?.ageInYears}y old`
             );
             break;
 

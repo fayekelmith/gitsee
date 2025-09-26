@@ -123,7 +123,7 @@ export interface FileContent {
 
 export interface RepoStats {
   stars: number;
-  totalPRs: number;
+  totalIssues: number;
   totalCommits: number;
   ageInYears: number;
 }
