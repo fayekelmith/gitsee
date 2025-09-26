@@ -3059,6 +3059,40 @@ var BaseVisualizationResource = class {
   }
 };
 
+// client/utils/logger.ts
+var Logger = class {
+  isDev() {
+    return false;
+    return typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname === "" || window.location.hostname === "::1");
+  }
+  log(...args) {
+    if (this.isDev()) {
+      console.log(...args);
+    }
+  }
+  warn(...args) {
+    if (this.isDev()) {
+      console.warn(...args);
+    }
+  }
+  error(...args) {
+    if (this.isDev()) {
+      console.error(...args);
+    }
+  }
+  info(...args) {
+    if (this.isDev()) {
+      console.info(...args);
+    }
+  }
+  debug(...args) {
+    if (this.isDev()) {
+      console.debug(...args);
+    }
+  }
+};
+var logger = new Logger();
+
 // client/resources/repository.ts
 var RepositoryVisualization = class extends BaseVisualizationResource {
   constructor(context, onNodeClick) {
@@ -3066,13 +3100,13 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
     this.onNodeClick = onNodeClick;
   }
   create(repoData) {
-    console.log("\u{1F3D7}\uFE0F Creating repository visualization...");
+    logger.log("\u{1F3D7}\uFE0F Creating repository visualization...");
     const centerX = this.context.width / 2;
     const centerY = this.context.height / 2;
-    console.log(
+    logger.log(
       `\u{1F4CF} Context dimensions: ${this.context.width} x ${this.context.height}`
     );
-    console.log(
+    logger.log(
       `\u{1F3AF} Positioning repository at center: (${centerX}, ${centerY})`
     );
     const repoNode = {
@@ -3089,7 +3123,7 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
     };
   }
   update(resourceData) {
-    console.log("\u{1F504} Updating repository visualization...");
+    logger.log("\u{1F504} Updating repository visualization...");
     const group = this.getResourceGroup();
     const nodes = group.selectAll(".repo-node").data(resourceData.nodes, (d) => d.id);
     nodes.exit().remove();
@@ -3098,7 +3132,7 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
     nodeUpdate.attr("transform", (d) => {
       const x = d.x || 0;
       const y = d.y || 0;
-      console.log(`\u{1F3AF} Positioning repo node at (${x}, ${y})`);
+      logger.log(`\u{1F3AF} Positioning repo node at (${x}, ${y})`);
       return `translate(${x},${y})`;
     });
     nodeEnter.each((d, i, nodes2) => {
@@ -3130,7 +3164,7 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
       if (d.avatar && existingCircle.size() > 0) {
         const currentFill = existingCircle.style("fill");
         if (!currentFill || currentFill.indexOf("url(") === -1) {
-          console.log("\u{1F5BC}\uFE0F Updating existing repo node with avatar");
+          logger.log("\u{1F5BC}\uFE0F Updating existing repo node with avatar");
           node.select("path").remove();
           const repoRadius = 35;
           const fillPattern = this.createAvatarPattern(d, repoRadius);
@@ -3140,7 +3174,7 @@ var RepositoryVisualization = class extends BaseVisualizationResource {
     });
   }
   destroy() {
-    console.log("\u{1F5D1}\uFE0F Destroying repository visualization...");
+    logger.log("\u{1F5D1}\uFE0F Destroying repository visualization...");
     this.getResourceGroup().remove();
   }
   addHoverEffects(selection2) {
@@ -3204,7 +3238,7 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
     this.onNodeClick = onNodeClick;
   }
   create(contributorsData) {
-    console.log(
+    logger.log(
       `\u{1F3D7}\uFE0F Creating contributors visualization for ${contributorsData.length} contributors...`
     );
     const centerX = this.context.width / 2;
@@ -3234,7 +3268,7 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
     };
   }
   update(resourceData) {
-    console.log("\u{1F504} Updating contributors visualization...");
+    logger.log("\u{1F504} Updating contributors visualization...");
     const group = this.getResourceGroup();
     const nodes = group.selectAll(".contributor-node").data(resourceData.nodes, (d) => d.id);
     nodes.exit().remove();
@@ -3262,7 +3296,7 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
     }
   }
   updateWithAnimation(resourceData) {
-    console.log(
+    logger.log(
       `\u{1F3AD} Updating contributors visualization with animation for ${resourceData.nodes.length} nodes...`
     );
     const group = this.getResourceGroup();
@@ -3271,12 +3305,12 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
     const nodeEnter = nodes.enter().append("g").attr("class", "gitsee-node contributor-node").attr("transform", (d) => {
       const x = d.x || 0;
       const y = d.y || 0;
-      console.log(`\u{1F3AF} NEW node ${d.id} positioned at (${x}, ${y})`);
+      logger.log(`\u{1F3AF} NEW node ${d.id} positioned at (${x}, ${y})`);
       return `translate(${x},${y}) scale(0)`;
     }).style("opacity", 0).call(this.createDragBehavior());
     nodeEnter.each((d, i, nodes2) => {
       const node = select_default2(nodes2[i]);
-      console.log(
+      logger.log(
         `\u{1F195} Creating visual elements for new node: ${d.id} (${d.contributions} contributions)`
       );
       const baseRadius = 16;
@@ -3299,12 +3333,12 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
       const y = d.y || 0;
       return `translate(${x},${y}) scale(1)`;
     });
-    console.log(
+    logger.log(
       `\u2705 Contributors update complete. Total visible: ${nodes.size() + nodeEnter.size()}`
     );
   }
   destroy() {
-    console.log("\u{1F5D1}\uFE0F Destroying contributors visualization...");
+    logger.log("\u{1F5D1}\uFE0F Destroying contributors visualization...");
     this.getResourceGroup().remove();
   }
   addHoverEffects(selection2) {
@@ -3326,8 +3360,8 @@ var ContributorsVisualization = class extends BaseVisualizationResource {
     });
   }
   getPanelContent(nodeData, contributorData) {
-    console.log("\u{1F50D} Contributor data:", nodeData);
-    console.log("\u{1F50D} Additional contributor data:", contributorData);
+    logger.log("\u{1F50D} Contributor data:", nodeData);
+    logger.log("\u{1F50D} Additional contributor data:", contributorData);
     const sections = [];
     if (nodeData.contributions) {
       sections.push({
@@ -3350,7 +3384,7 @@ var LinksVisualization = class extends BaseVisualizationResource {
     super(context, "links");
   }
   create(linksData) {
-    console.log(
+    logger.log(
       `\u{1F3D7}\uFE0F Creating links visualization for ${linksData.length} links...`
     );
     return {
@@ -3360,14 +3394,14 @@ var LinksVisualization = class extends BaseVisualizationResource {
     };
   }
   update(resourceData) {
-    console.log("\u{1F504} Updating links visualization...");
+    logger.log("\u{1F504} Updating links visualization...");
     const group = this.getResourceGroup();
     const links = group.selectAll(".gitsee-link").data(resourceData.links, (d) => d.id);
     links.exit().remove();
     links.enter().append("line").attr("class", "gitsee-link").style("stroke", (d) => this.getLinkColor(d.type)).style("stroke-width", (d) => this.getLinkWidth(d.type)).style("stroke-opacity", 0.8);
   }
   updateWithAnimation(resourceData) {
-    console.log(
+    logger.log(
       `\u{1F3AD} Updating links visualization with animation for ${resourceData.links.length} links...`
     );
     const group = this.getResourceGroup();
@@ -3375,7 +3409,7 @@ var LinksVisualization = class extends BaseVisualizationResource {
     links.exit().remove();
     const linksEnter = links.enter().append("line").attr("class", "gitsee-link").style("stroke", (d) => this.getLinkColor(d.type)).style("stroke-width", (d) => this.getLinkWidth(d.type)).style("stroke-opacity", 0);
     linksEnter.transition().duration(400).style("stroke-opacity", 0.8);
-    console.log(
+    logger.log(
       `\u2705 Links update complete. Total visible: ${links.merge(linksEnter).size()}`
     );
   }
@@ -3432,7 +3466,7 @@ var LinksVisualization = class extends BaseVisualizationResource {
     });
   }
   destroy() {
-    console.log("\u{1F5D1}\uFE0F Destroying links visualization...");
+    logger.log("\u{1F5D1}\uFE0F Destroying links visualization...");
     this.getResourceGroup().remove();
   }
 };
@@ -3533,8 +3567,8 @@ var FilesVisualization = class extends BaseVisualizationResource {
       data: "Loading file content..."
     });
     try {
-      console.log(`\u{1F50D} Fetching content for file: ${nodeData.name}`);
-      console.log(`\u{1F50D} API request details:`, {
+      logger.log(`\u{1F50D} Fetching content for file: ${nodeData.name}`);
+      logger.log(`\u{1F50D} API request details:`, {
         owner,
         repo,
         filePath: nodeData.path || nodeData.name
@@ -3554,7 +3588,7 @@ var FilesVisualization = class extends BaseVisualizationResource {
       }
       const data = await response.json();
       if (data.fileContent && data.fileContent.content) {
-        console.log(
+        logger.log(
           `\u2705 Retrieved file content: ${data.fileContent.size} bytes`
         );
         sections[0] = {
@@ -3563,7 +3597,7 @@ var FilesVisualization = class extends BaseVisualizationResource {
           data: data.fileContent.content
         };
       } else {
-        console.warn("\u26A0\uFE0F No file content received");
+        logger.warn("\u26A0\uFE0F No file content received");
         sections[0] = {
           title: "Content",
           type: "content",
@@ -3571,7 +3605,7 @@ var FilesVisualization = class extends BaseVisualizationResource {
         };
       }
     } catch (error) {
-      console.error("\u{1F4A5} Error fetching file content:", error);
+      logger.error("\u{1F4A5} Error fetching file content:", error);
       sections[0] = {
         title: "Content",
         type: "content",
@@ -4096,11 +4130,11 @@ var SSEClient = class {
       try {
         this.disconnect();
         const sseUrl = `${this.baseUrl}/events/${owner}/${repo}`;
-        console.log(`\u{1F4E1} Connecting to SSE: ${sseUrl}`);
+        logger.log(`\u{1F4E1} Connecting to SSE: ${sseUrl}`);
         this.eventSource = new EventSource(sseUrl);
         this.eventSource.onopen = () => {
-          console.log(`\u2705 SSE connected to ${owner}/${repo}`);
-          console.log(
+          logger.log(`\u2705 SSE connected to ${owner}/${repo}`);
+          logger.log(
             `\u{1F4CA} EventSource readyState: ${this.eventSource?.readyState} (OPEN=1)`
           );
           this.reconnectAttempts = 0;
@@ -4109,33 +4143,33 @@ var SSEClient = class {
         this.eventSource.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            console.log(`\u{1F4E8} SSE event received:`, data.type, data);
+            logger.log(`\u{1F4E8} SSE event received:`, data.type, data);
             const handlers = this.eventHandlers.get(data.type) || [];
             const allHandlers = this.eventHandlers.get("*") || [];
             [...handlers, ...allHandlers].forEach((handler) => {
               try {
                 handler(data);
               } catch (error) {
-                console.error("Error in SSE event handler:", error);
+                logger.error("Error in SSE event handler:", error);
               }
             });
           } catch (error) {
-            console.error("Error parsing SSE message:", error, event.data);
+            logger.error("Error parsing SSE message:", error, event.data);
           }
         };
         this.eventSource.onerror = (error) => {
-          console.error(`\u{1F4A5} SSE connection error for ${owner}/${repo}:`, error);
+          logger.error(`\u{1F4A5} SSE connection error for ${owner}/${repo}:`, error);
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
             const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
-            console.log(
+            logger.log(
               `\u{1F504} Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
             );
             setTimeout(() => {
-              this.connect(owner, repo).catch(console.error);
+              this.connect(owner, repo).catch(logger.error);
             }, delay);
           } else {
-            console.error(
+            logger.error(
               `\u274C Max reconnection attempts reached for ${owner}/${repo}`
             );
             reject(
@@ -4153,7 +4187,7 @@ var SSEClient = class {
    */
   disconnect() {
     if (this.eventSource) {
-      console.log("\u{1F4E1} Disconnecting SSE");
+      logger.log("\u{1F4E1} Disconnecting SSE");
       this.eventSource.close();
       this.eventSource = null;
     }
@@ -4166,14 +4200,14 @@ var SSEClient = class {
       this.eventHandlers.set(eventType, []);
     }
     this.eventHandlers.get(eventType).push(handler);
-    console.log(`\u{1F4DD} Registered handler for '${eventType}' events`);
+    logger.log(`\u{1F4DD} Registered handler for '${eventType}' events`);
     return () => {
       const handlers = this.eventHandlers.get(eventType);
       if (handlers) {
         const index = handlers.indexOf(handler);
         if (index > -1) {
           handlers.splice(index, 1);
-          console.log(`\u{1F4DD} Unregistered handler for '${eventType}' events`);
+          logger.log(`\u{1F4DD} Unregistered handler for '${eventType}' events`);
         }
       }
     };
@@ -4189,14 +4223,14 @@ var SSEClient = class {
    */
   off(eventType) {
     this.eventHandlers.delete(eventType);
-    console.log(`\u{1F4DD} Removed all handlers for '${eventType}' events`);
+    logger.log(`\u{1F4DD} Removed all handlers for '${eventType}' events`);
   }
   /**
    * Remove all event handlers
    */
   offAll() {
     this.eventHandlers.clear();
-    console.log("\u{1F4DD} Removed all event handlers");
+    logger.log("\u{1F4DD} Removed all event handlers");
   }
   /**
    * Check if connected
@@ -4414,7 +4448,7 @@ var GitVisualizer = class {
           continue;
         }
         if (!this.checkCollision(testX, testY, radius, nodeType)) {
-          console.log(
+          logger.log(
             `\u{1F300} Found collision-free position for ${nodeType} after ${attempts + 1} attempts at radius ${Math.round(spiralRadius)}`
           );
           return { x: testX, y: testY };
@@ -4423,7 +4457,7 @@ var GitVisualizer = class {
       spiralRadius += spiralStep;
       attempts++;
     }
-    console.warn(
+    logger.warn(
       `\u26A0\uFE0F Could not find collision-free position for ${nodeType} after ${maxAttempts} attempts, using original`
     );
     return position;
@@ -4479,7 +4513,7 @@ var GitVisualizer = class {
     const distance = baseDistance + distanceVariation;
     const x = centerX + Math.cos(angle) * distance;
     const y = centerY + Math.sin(angle) * distance;
-    console.log(
+    logger.log(
       `\u{1F331} ${nodeType}[${index}] positioned at (${Math.round(x)}, ${Math.round(y)}) - distance: ${Math.round(distance)}`
     );
     return { x, y };
@@ -4505,23 +4539,23 @@ var GitVisualizer = class {
     const repoY = this.height / 2;
     const transform2 = identity2.translate(repoX, repoY).scale(targetZoom).translate(-repoX, -repoY);
     this.svg.transition().duration(1200).ease(quadOut).call(this.context.zoom.transform, transform2);
-    console.log(
+    logger.log(
       `\u{1F50D} Gradual zoom out to ${targetZoom.toFixed(2)}x (repo stays centered)`
     );
   }
   async visualize(owner, repo) {
     try {
-      console.log(`\u{1F680} Visualizing ${owner}/${repo}...`);
+      logger.log(`\u{1F680} Visualizing ${owner}/${repo}...`);
       this.currentOwner = owner;
       this.currentRepo = repo;
       if (!this.sseClient.isConnected()) {
         this.connectToSSE(owner, repo);
       } else {
-        console.log(`\u{1F4E1} SSE already connected for ${owner}/${repo}`);
+        logger.log(`\u{1F4E1} SSE already connected for ${owner}/${repo}`);
       }
       this.clearVisualization();
       const data = await this.fetchRepoData(owner, repo);
-      console.log("\u{1F4E6} API Response:", {
+      logger.log("\u{1F4E6} API Response:", {
         hasRepo: !!data.repo,
         hasContributors: !!data.contributors,
         hasIcon: !!data.icon,
@@ -4536,7 +4570,7 @@ var GitVisualizer = class {
           description: data.repo?.description,
           ...data.repo
         };
-        console.log(`\u{1F50D} Stored repo data:`, {
+        logger.log(`\u{1F50D} Stored repo data:`, {
           name: this.currentRepoData.name,
           full_name: data.repo?.full_name,
           fallback: `${owner}/${repo}`
@@ -4560,14 +4594,14 @@ var GitVisualizer = class {
             repoNode.id
           );
         }
-        console.log("\u{1F4CD} Repository node created at center");
+        logger.log("\u{1F4CD} Repository node created at center");
       }
       if (data.icon) {
         setTimeout(() => {
           const existingRepoNode = this.allNodes.find((n) => n.id === "repo");
           if (existingRepoNode && data.icon) {
             existingRepoNode.avatar = data.icon;
-            console.log("\u{1F5BC}\uFE0F Repository icon loaded, updating existing node");
+            logger.log("\u{1F5BC}\uFE0F Repository icon loaded, updating existing node");
             this.repositoryViz.update({ nodes: [existingRepoNode], links: [] });
           }
         }, 500);
@@ -4595,9 +4629,9 @@ var GitVisualizer = class {
           data.icon ? 1e3 : 500
         );
       }
-      console.log(`\u2705 Successfully started visualization for ${owner}/${repo}`);
+      logger.log(`\u2705 Successfully started visualization for ${owner}/${repo}`);
     } catch (error) {
-      console.error("Error visualizing repository:", error);
+      logger.error("Error visualizing repository:", error);
     }
   }
   async fetchRepoData(owner, repo) {
@@ -4618,7 +4652,7 @@ var GitVisualizer = class {
     return response.json();
   }
   connectToSSE(owner, repo) {
-    console.log(`\u{1F4E1} Setting up SSE for ${owner}/${repo}...`);
+    logger.log(`\u{1F4E1} Setting up SSE for ${owner}/${repo}...`);
     this.sseClient.onExplorationStarted((event) => {
       this.showExplorationStatus(
         `\u{1F916} Starting ${event.mode} analysis...`,
@@ -4631,17 +4665,17 @@ var GitVisualizer = class {
       }
     });
     this.sseClient.onExplorationCompleted((event) => {
-      console.log(`\u{1F4E8} SSE exploration_completed event received:`, event);
+      logger.log(`\u{1F4E8} SSE exploration_completed event received:`, event);
       this.showExplorationStatus(
         `\u2705 ${event.mode} analysis complete!`,
         "success"
       );
       if (event.mode === "first_pass" && event.data?.result) {
-        console.log(
+        logger.log(
           `\u{1F389} First-pass exploration completed for ${owner}/${repo}:`,
           event.data.result
         );
-        console.log(
+        logger.log(
           `\u{1F389} Infrastructure data:`,
           event.data.result.infrastructure
         );
@@ -4662,52 +4696,52 @@ var GitVisualizer = class {
       }
     });
     this.sseClient.connect(owner, repo).catch((error) => {
-      console.error("Failed to connect to SSE:", error);
+      logger.error("Failed to connect to SSE:", error);
       this.showExplorationStatus("\u26A0\uFE0F Real-time updates unavailable", "warning");
     });
   }
   showExplorationStatus(message, type2) {
-    console.log(`\u{1F4F1} Status: ${message}`);
+    logger.log(`\u{1F4F1} Status: ${message}`);
     const emoji = {
       info: "\u2139\uFE0F",
       success: "\u2705",
       error: "\u274C",
       warning: "\u26A0\uFE0F"
     }[type2];
-    console.log(`${emoji} ${message}`);
+    logger.log(`${emoji} ${message}`);
   }
   onExplorationComplete(explorationResult, mode) {
-    console.log(
+    logger.log(
       `\u{1F38A} Processing ${mode} exploration results:`,
       explorationResult
     );
     if (mode === "first_pass" && explorationResult) {
-      console.log(
+      logger.log(
         `\u{1F52E} Processing concept visualization from exploration data...`
       );
       if (this.mainVisualizationComplete) {
-        console.log(`\u{1F52E} Main visualization complete, adding concepts now...`);
+        logger.log(`\u{1F52E} Main visualization complete, adding concepts now...`);
         setTimeout(() => {
           this.addConceptsSequentially(explorationResult);
         }, 1e3);
       } else {
-        console.log(
+        logger.log(
           `\u{1F52E} Main visualization in progress, storing concepts for later...`
         );
         this.pendingConcepts = explorationResult;
       }
     }
     if (mode === "first_pass" && explorationResult.infrastructure) {
-      console.log(
+      logger.log(
         `\u{1F3D7}\uFE0F Infrastructure discovered: ${explorationResult.infrastructure}`
       );
     }
     if (explorationResult.key_files) {
-      console.log(`\u{1F4C1} Key files identified: ${explorationResult.key_files}`);
+      logger.log(`\u{1F4C1} Key files identified: ${explorationResult.key_files}`);
     }
   }
   clearVisualization() {
-    console.log("\u{1F9F9} Clearing visualization...");
+    logger.log("\u{1F9F9} Clearing visualization...");
     this.allNodes = [];
     this.allLinks = [];
     this.occupiedSpaces = [];
@@ -4727,11 +4761,11 @@ var GitVisualizer = class {
   }
   addStatsAfterIcon(stats, onComplete) {
     if (!stats) {
-      console.log("\u{1F4CA} No stats to add");
+      logger.log("\u{1F4CA} No stats to add");
       if (onComplete) onComplete();
       return;
     }
-    console.log(`\u{1F4CA} Adding stats one by one...`);
+    logger.log(`\u{1F4CA} Adding stats one by one...`);
     setTimeout(() => {
       this.addStatsSequentially(stats, 0, onComplete);
     }, 300);
@@ -4764,18 +4798,18 @@ var GitVisualizer = class {
       }
     ];
     if (index >= statItems.length) {
-      console.log("\u{1F389} All stats added!");
+      logger.log("\u{1F389} All stats added!");
       if (onComplete) {
         setTimeout(onComplete, 500);
       }
       return;
     }
     const stat = statItems[index];
-    console.log(
+    logger.log(
       `\u{1F4CA} Adding stat ${index + 1}/${statItems.length}: ${stat.name}`
     );
     const position = this.calculateOrganicPosition("stat", index);
-    console.log(
+    logger.log(
       `\u{1F4CD} Positioning ${stat.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`
     );
     const statNode = {
@@ -4822,7 +4856,7 @@ var GitVisualizer = class {
   }
   addContributorsAfterStats(contributors, files) {
     if (!contributors || contributors.length === 0) {
-      console.log("\u{1F465} No contributors to add, going to files");
+      logger.log("\u{1F465} No contributors to add, going to files");
       setTimeout(() => {
         this.addFilesAfterContributors(files);
       }, 500);
@@ -4831,7 +4865,7 @@ var GitVisualizer = class {
     const sortedContributors = contributors.sort(
       (a, b) => b.contributions - a.contributions
     );
-    console.log(
+    logger.log(
       "\u{1F4CA} Contributors sorted by contributions:",
       sortedContributors.map((c) => `${c.login}: ${c.contributions}`)
     );
@@ -4843,14 +4877,14 @@ var GitVisualizer = class {
   }
   addContributorsSequentially(contributors, index, onComplete) {
     if (index >= contributors.length) {
-      console.log("\u{1F389} All contributors added!");
+      logger.log("\u{1F389} All contributors added!");
       if (onComplete) {
         onComplete();
       }
       return;
     }
     const contributor = contributors[index];
-    console.log(
+    logger.log(
       `\u{1F464} Adding contributor ${index + 1}/${contributors.length}: ${contributor.login}`
     );
     const position = this.calculateOrganicPosition(
@@ -4858,10 +4892,10 @@ var GitVisualizer = class {
       index,
       contributor.contributions
     );
-    console.log(
+    logger.log(
       `\u{1F4CD} Positioning ${contributor.login} (${contributor.contributions} contributions) organically`
     );
-    console.log("====================", contributor);
+    logger.log("====================", contributor);
     const contributorNode = {
       id: `contributor-${contributor.id}`,
       type: "contributor",
@@ -4917,10 +4951,10 @@ var GitVisualizer = class {
   }
   addFilesAfterContributors(files) {
     if (!files || files.length === 0) {
-      console.log("\u{1F4C1} No files to add");
+      logger.log("\u{1F4C1} No files to add");
       return;
     }
-    console.log(
+    logger.log(
       `\u{1F4C1} Adding ${files.length} files to visualization one by one...`
     );
     setTimeout(() => {
@@ -4929,10 +4963,10 @@ var GitVisualizer = class {
   }
   addFilesSequentially(files, index) {
     if (index >= files.length) {
-      console.log("\u{1F389} All files added!");
+      logger.log("\u{1F389} All files added!");
       this.mainVisualizationComplete = true;
       if (this.pendingConcepts) {
-        console.log(
+        logger.log(
           "\u{1F52E} Main visualization complete, adding pending concepts..."
         );
         setTimeout(() => {
@@ -4943,9 +4977,9 @@ var GitVisualizer = class {
       return;
     }
     const file = files[index];
-    console.log(`\u{1F4C4} Adding file ${index + 1}/${files.length}: ${file.name}`);
+    logger.log(`\u{1F4C4} Adding file ${index + 1}/${files.length}: ${file.name}`);
     const position = this.calculateOrganicPosition("file", index);
-    console.log(
+    logger.log(
       `\u{1F4CD} Positioning ${file.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`
     );
     const fileNode = {
@@ -4992,25 +5026,25 @@ var GitVisualizer = class {
     }, this.nodeDelay);
   }
   addConceptsSequentially(explorationResult) {
-    console.log(`\u{1F52E} Starting sequential concept addition...`);
+    logger.log(`\u{1F52E} Starting sequential concept addition...`);
     this.conceptsViz.setRepoData(this.currentRepoData);
     const conceptResourceData = this.conceptsViz.create(explorationResult);
     if (conceptResourceData.nodes.length === 0) {
-      console.log("\u{1F52E} No concept nodes to add");
+      logger.log("\u{1F52E} No concept nodes to add");
       return;
     }
-    console.log(
+    logger.log(
       `\u{1F52E} Adding ${conceptResourceData.nodes.length} concept nodes sequentially...`
     );
     this.addConceptNodesSequentially(conceptResourceData.nodes, 0);
   }
   addConceptNodesSequentially(conceptNodes, index) {
     if (index >= conceptNodes.length) {
-      console.log("\u{1F389} All concept nodes added!");
+      logger.log("\u{1F389} All concept nodes added!");
       return;
     }
     const node = conceptNodes[index];
-    console.log(
+    logger.log(
       `\u{1F52E} Adding concept ${index + 1}/${conceptNodes.length}: ${node.name} (${node.kind})`
     );
     const position = this.calculateOrganicPosition(
@@ -5079,7 +5113,7 @@ var GitVisualizer = class {
       );
     } else if (nodeData.type === "file") {
       if (!this.currentOwner || !this.currentRepo) {
-        console.error("No current owner/repo stored");
+        logger.error("No current owner/repo stored");
         content = {
           name: nodeData.name,
           sections: [

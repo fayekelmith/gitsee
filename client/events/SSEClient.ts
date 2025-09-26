@@ -1,3 +1,5 @@
+import { logger } from "../utils/logger.js";
+
 export interface ExplorationSSEEvent {
   type:
     | "connected"
@@ -37,13 +39,13 @@ export class SSEClient {
         this.disconnect();
 
         const sseUrl = `${this.baseUrl}/events/${owner}/${repo}`;
-        console.log(`📡 Connecting to SSE: ${sseUrl}`);
+        logger.log(`📡 Connecting to SSE: ${sseUrl}`);
 
         this.eventSource = new EventSource(sseUrl);
 
         this.eventSource.onopen = () => {
-          console.log(`✅ SSE connected to ${owner}/${repo}`);
-          console.log(
+          logger.log(`✅ SSE connected to ${owner}/${repo}`);
+          logger.log(
             `📊 EventSource readyState: ${this.eventSource?.readyState} (OPEN=1)`
           );
           this.reconnectAttempts = 0; // Reset on successful connection
@@ -53,7 +55,7 @@ export class SSEClient {
         this.eventSource.onmessage = (event) => {
           try {
             const data: ExplorationSSEEvent = JSON.parse(event.data);
-            console.log(`📨 SSE event received:`, data.type, data);
+            logger.log(`📨 SSE event received:`, data.type, data);
 
             // Emit to all registered handlers
             const handlers = this.eventHandlers.get(data.type) || [];
@@ -63,31 +65,31 @@ export class SSEClient {
               try {
                 handler(data);
               } catch (error) {
-                console.error("Error in SSE event handler:", error);
+                logger.error("Error in SSE event handler:", error);
               }
             });
           } catch (error) {
-            console.error("Error parsing SSE message:", error, event.data);
+            logger.error("Error parsing SSE message:", error, event.data);
           }
         };
 
         this.eventSource.onerror = (error) => {
-          console.error(`💥 SSE connection error for ${owner}/${repo}:`, error);
+          logger.error(`💥 SSE connection error for ${owner}/${repo}:`, error);
 
           if (this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;
             const delay =
               this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1); // Exponential backoff
 
-            console.log(
+            logger.log(
               `🔄 Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`
             );
 
             setTimeout(() => {
-              this.connect(owner, repo).catch(console.error);
+              this.connect(owner, repo).catch(logger.error);
             }, delay);
           } else {
-            console.error(
+            logger.error(
               `❌ Max reconnection attempts reached for ${owner}/${repo}`
             );
             reject(
@@ -106,7 +108,7 @@ export class SSEClient {
    */
   disconnect(): void {
     if (this.eventSource) {
-      console.log("📡 Disconnecting SSE");
+      logger.log("📡 Disconnecting SSE");
       this.eventSource.close();
       this.eventSource = null;
     }
@@ -121,7 +123,7 @@ export class SSEClient {
     }
 
     this.eventHandlers.get(eventType)!.push(handler);
-    console.log(`📝 Registered handler for '${eventType}' events`);
+    logger.log(`📝 Registered handler for '${eventType}' events`);
 
     // Return unsubscribe function
     return () => {
@@ -130,7 +132,7 @@ export class SSEClient {
         const index = handlers.indexOf(handler);
         if (index > -1) {
           handlers.splice(index, 1);
-          console.log(`📝 Unregistered handler for '${eventType}' events`);
+          logger.log(`📝 Unregistered handler for '${eventType}' events`);
         }
       }
     };
@@ -148,7 +150,7 @@ export class SSEClient {
    */
   off(eventType: string): void {
     this.eventHandlers.delete(eventType);
-    console.log(`📝 Removed all handlers for '${eventType}' events`);
+    logger.log(`📝 Removed all handlers for '${eventType}' events`);
   }
 
   /**
@@ -156,7 +158,7 @@ export class SSEClient {
    */
   offAll(): void {
     this.eventHandlers.clear();
-    console.log("📝 Removed all event handlers");
+    logger.log("📝 Removed all event handlers");
   }
 
   /**

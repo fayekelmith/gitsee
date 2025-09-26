@@ -16,6 +16,7 @@ import {
 } from "./resources/index.js";
 import { DetailPanel } from "./panel/index.js";
 import { SSEClient } from "./events/index.js";
+import { logger } from "./utils/logger.js";
 
 class GitVisualizer {
   private width: number;
@@ -329,7 +330,7 @@ class GitVisualizer {
         }
 
         if (!this.checkCollision(testX, testY, radius, nodeType)) {
-          console.log(
+          logger.log(
             `🌀 Found collision-free position for ${nodeType} after ${attempts + 1} attempts at radius ${Math.round(spiralRadius)}`
           );
           return { x: testX, y: testY };
@@ -340,7 +341,7 @@ class GitVisualizer {
       attempts++;
     }
 
-    console.warn(
+    logger.warn(
       `⚠️ Could not find collision-free position for ${nodeType} after ${maxAttempts} attempts, using original`
     );
     return position;
@@ -413,7 +414,7 @@ class GitVisualizer {
     const x = centerX + Math.cos(angle) * distance;
     const y = centerY + Math.sin(angle) * distance;
 
-    console.log(
+    logger.log(
       `🌱 ${nodeType}[${index}] positioned at (${Math.round(x)}, ${Math.round(y)}) - distance: ${Math.round(distance)}`
     );
 
@@ -465,14 +466,14 @@ class GitVisualizer {
       .ease(d3.easeQuadOut)
       .call(this.context.zoom.transform, transform);
 
-    console.log(
+    logger.log(
       `🔍 Gradual zoom out to ${targetZoom.toFixed(2)}x (repo stays centered)`
     );
   }
 
   async visualize(owner: string, repo: string): Promise<void> {
     try {
-      console.log(`🚀 Visualizing ${owner}/${repo}...`);
+      logger.log(`🚀 Visualizing ${owner}/${repo}...`);
 
       // Store the current owner/repo for later use
       this.currentOwner = owner;
@@ -482,7 +483,7 @@ class GitVisualizer {
       if (!this.sseClient.isConnected()) {
         this.connectToSSE(owner, repo);
       } else {
-        console.log(`📡 SSE already connected for ${owner}/${repo}`);
+        logger.log(`📡 SSE already connected for ${owner}/${repo}`);
       }
 
       // Clear existing visualization
@@ -490,7 +491,7 @@ class GitVisualizer {
 
       // Fetch data from API
       const data = await this.fetchRepoData(owner, repo);
-      console.log("📦 API Response:", {
+      logger.log("📦 API Response:", {
         hasRepo: !!data.repo,
         hasContributors: !!data.contributors,
         hasIcon: !!data.icon,
@@ -511,7 +512,7 @@ class GitVisualizer {
           ...data.repo,
         };
 
-        console.log(`🔍 Stored repo data:`, {
+        logger.log(`🔍 Stored repo data:`, {
           name: this.currentRepoData.name,
           full_name: data.repo?.full_name,
           fallback: `${owner}/${repo}`,
@@ -540,7 +541,7 @@ class GitVisualizer {
           );
         }
 
-        console.log("📍 Repository node created at center");
+        logger.log("📍 Repository node created at center");
       }
 
       // Step 2: Add icon after delay
@@ -550,7 +551,7 @@ class GitVisualizer {
           const existingRepoNode = this.allNodes.find((n) => n.id === "repo");
           if (existingRepoNode && data.icon) {
             existingRepoNode.avatar = data.icon;
-            console.log("🖼️ Repository icon loaded, updating existing node");
+            logger.log("🖼️ Repository icon loaded, updating existing node");
 
             // Update visualization with the modified node
             this.repositoryViz.update({ nodes: [existingRepoNode], links: [] });
@@ -585,9 +586,9 @@ class GitVisualizer {
         );
       }
 
-      console.log(`✅ Successfully started visualization for ${owner}/${repo}`);
+      logger.log(`✅ Successfully started visualization for ${owner}/${repo}`);
     } catch (error) {
-      console.error("Error visualizing repository:", error);
+      logger.error("Error visualizing repository:", error);
     }
   }
 
@@ -615,7 +616,7 @@ class GitVisualizer {
   }
 
   private connectToSSE(owner: string, repo: string): void {
-    console.log(`📡 Setting up SSE for ${owner}/${repo}...`);
+    logger.log(`📡 Setting up SSE for ${owner}/${repo}...`);
 
     // Set up event handlers
     this.sseClient.onExplorationStarted((event) => {
@@ -632,7 +633,7 @@ class GitVisualizer {
     });
 
     this.sseClient.onExplorationCompleted((event) => {
-      console.log(`📨 SSE exploration_completed event received:`, event);
+      logger.log(`📨 SSE exploration_completed event received:`, event);
       this.showExplorationStatus(
         `✅ ${event.mode} analysis complete!`,
         "success"
@@ -640,11 +641,11 @@ class GitVisualizer {
 
       // If this is first_pass exploration, we could enhance the visualization
       if (event.mode === "first_pass" && event.data?.result) {
-        console.log(
+        logger.log(
           `🎉 First-pass exploration completed for ${owner}/${repo}:`,
           event.data.result
         );
-        console.log(
+        logger.log(
           `🎉 Infrastructure data:`,
           event.data.result.infrastructure
         );
@@ -670,7 +671,7 @@ class GitVisualizer {
 
     // Connect to SSE stream (non-blocking)
     this.sseClient.connect(owner, repo).catch((error) => {
-      console.error("Failed to connect to SSE:", error);
+      logger.error("Failed to connect to SSE:", error);
       this.showExplorationStatus("⚠️ Real-time updates unavailable", "warning");
     });
   }
@@ -679,7 +680,7 @@ class GitVisualizer {
     message: string,
     type: "info" | "success" | "error" | "warning"
   ): void {
-    console.log(`📱 Status: ${message}`);
+    logger.log(`📱 Status: ${message}`);
 
     // For now, just log to console
     // In the future, this could show a toast notification or status bar
@@ -690,30 +691,30 @@ class GitVisualizer {
       warning: "⚠️",
     }[type];
 
-    console.log(`${emoji} ${message}`);
+    logger.log(`${emoji} ${message}`);
   }
 
   private onExplorationComplete(explorationResult: any, mode: string): void {
-    console.log(
+    logger.log(
       `🎊 Processing ${mode} exploration results:`,
       explorationResult
     );
 
     // Create and show concept visualization based on exploration results
     if (mode === "first_pass" && explorationResult) {
-      console.log(
+      logger.log(
         `🔮 Processing concept visualization from exploration data...`
       );
 
       if (this.mainVisualizationComplete) {
         // Main visualization is done, add concepts immediately
-        console.log(`🔮 Main visualization complete, adding concepts now...`);
+        logger.log(`🔮 Main visualization complete, adding concepts now...`);
         setTimeout(() => {
           this.addConceptsSequentially(explorationResult);
         }, 1000);
       } else {
         // Main visualization still in progress, store concepts for later
-        console.log(
+        logger.log(
           `🔮 Main visualization in progress, storing concepts for later...`
         );
         this.pendingConcepts = explorationResult;
@@ -721,18 +722,18 @@ class GitVisualizer {
     }
 
     if (mode === "first_pass" && explorationResult.infrastructure) {
-      console.log(
+      logger.log(
         `🏗️ Infrastructure discovered: ${explorationResult.infrastructure}`
       );
     }
 
     if (explorationResult.key_files) {
-      console.log(`📁 Key files identified: ${explorationResult.key_files}`);
+      logger.log(`📁 Key files identified: ${explorationResult.key_files}`);
     }
   }
 
   private clearVisualization(): void {
-    console.log("🧹 Clearing visualization...");
+    logger.log("🧹 Clearing visualization...");
     this.allNodes = [];
     this.allLinks = [];
     this.occupiedSpaces = []; // Clear collision tracking
@@ -759,12 +760,12 @@ class GitVisualizer {
 
   private addStatsAfterIcon(stats: any, onComplete: () => void): void {
     if (!stats) {
-      console.log("📊 No stats to add");
+      logger.log("📊 No stats to add");
       if (onComplete) onComplete();
       return;
     }
 
-    console.log(`📊 Adding stats one by one...`);
+    logger.log(`📊 Adding stats one by one...`);
     setTimeout(() => {
       this.addStatsSequentially(stats, 0, onComplete);
     }, 300); // Small delay before starting stats
@@ -804,7 +805,7 @@ class GitVisualizer {
     ];
 
     if (index >= statItems.length) {
-      console.log("🎉 All stats added!");
+      logger.log("🎉 All stats added!");
       if (onComplete) {
         setTimeout(onComplete, 500); // Small delay before moving to next phase
       }
@@ -812,14 +813,14 @@ class GitVisualizer {
     }
 
     const stat = statItems[index];
-    console.log(
+    logger.log(
       `📊 Adding stat ${index + 1}/${statItems.length}: ${stat.name}`
     );
 
     // Calculate collision-free organic position for this stat
     const position = this.calculateOrganicPosition("stat", index);
 
-    console.log(
+    logger.log(
       `📍 Positioning ${stat.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`
     );
 
@@ -885,7 +886,7 @@ class GitVisualizer {
 
   private addContributorsAfterStats(contributors: any[], files: any[]): void {
     if (!contributors || contributors.length === 0) {
-      console.log("👥 No contributors to add, going to files");
+      logger.log("👥 No contributors to add, going to files");
       setTimeout(() => {
         this.addFilesAfterContributors(files);
       }, 500);
@@ -896,7 +897,7 @@ class GitVisualizer {
     const sortedContributors = contributors.sort(
       (a, b) => b.contributions - a.contributions
     );
-    console.log(
+    logger.log(
       "📊 Contributors sorted by contributions:",
       sortedContributors.map((c) => `${c.login}: ${c.contributions}`)
     );
@@ -915,7 +916,7 @@ class GitVisualizer {
     onComplete?: () => void
   ): void {
     if (index >= contributors.length) {
-      console.log("🎉 All contributors added!");
+      logger.log("🎉 All contributors added!");
       if (onComplete) {
         onComplete();
       }
@@ -923,7 +924,7 @@ class GitVisualizer {
     }
 
     const contributor = contributors[index];
-    console.log(
+    logger.log(
       `👤 Adding contributor ${index + 1}/${contributors.length}: ${contributor.login}`
     );
 
@@ -934,11 +935,11 @@ class GitVisualizer {
       contributor.contributions
     );
 
-    console.log(
+    logger.log(
       `📍 Positioning ${contributor.login} (${contributor.contributions} contributions) organically`
     );
 
-    console.log("====================", contributor);
+    logger.log("====================", contributor);
     const contributorNode: NodeData = {
       id: `contributor-${contributor.id}`,
       type: "contributor",
@@ -1011,11 +1012,11 @@ class GitVisualizer {
 
   private addFilesAfterContributors(files: any[]): void {
     if (!files || files.length === 0) {
-      console.log("📁 No files to add");
+      logger.log("📁 No files to add");
       return;
     }
 
-    console.log(
+    logger.log(
       `📁 Adding ${files.length} files to visualization one by one...`
     );
     setTimeout(() => {
@@ -1025,11 +1026,11 @@ class GitVisualizer {
 
   private addFilesSequentially(files: any[], index: number): void {
     if (index >= files.length) {
-      console.log("🎉 All files added!");
+      logger.log("🎉 All files added!");
       this.mainVisualizationComplete = true;
       // Check if we have pending concepts to add
       if (this.pendingConcepts) {
-        console.log(
+        logger.log(
           "🔮 Main visualization complete, adding pending concepts..."
         );
         setTimeout(() => {
@@ -1041,12 +1042,12 @@ class GitVisualizer {
     }
 
     const file = files[index];
-    console.log(`📄 Adding file ${index + 1}/${files.length}: ${file.name}`);
+    logger.log(`📄 Adding file ${index + 1}/${files.length}: ${file.name}`);
 
     // Calculate collision-free organic position for this file
     const position = this.calculateOrganicPosition("file", index);
 
-    console.log(
+    logger.log(
       `📍 Positioning ${file.name} organically at (${Math.round(position.x)}, ${Math.round(position.y)})`
     );
 
@@ -1111,7 +1112,7 @@ class GitVisualizer {
   }
 
   private addConceptsSequentially(explorationResult: any): void {
-    console.log(`🔮 Starting sequential concept addition...`);
+    logger.log(`🔮 Starting sequential concept addition...`);
 
     // Pass repo data to concepts viz for click handling
     this.conceptsViz.setRepoData(this.currentRepoData);
@@ -1120,11 +1121,11 @@ class GitVisualizer {
     const conceptResourceData = this.conceptsViz.create(explorationResult);
 
     if (conceptResourceData.nodes.length === 0) {
-      console.log("🔮 No concept nodes to add");
+      logger.log("🔮 No concept nodes to add");
       return;
     }
 
-    console.log(
+    logger.log(
       `🔮 Adding ${conceptResourceData.nodes.length} concept nodes sequentially...`
     );
     this.addConceptNodesSequentially(conceptResourceData.nodes, 0);
@@ -1135,12 +1136,12 @@ class GitVisualizer {
     index: number
   ): void {
     if (index >= conceptNodes.length) {
-      console.log("🎉 All concept nodes added!");
+      logger.log("🎉 All concept nodes added!");
       return;
     }
 
     const node = conceptNodes[index];
-    console.log(
+    logger.log(
       `🔮 Adding concept ${index + 1}/${conceptNodes.length}: ${node.name} (${node.kind})`
     );
 
@@ -1232,7 +1233,7 @@ class GitVisualizer {
     } else if (nodeData.type === "file") {
       // Use the stored owner/repo from visualize() call
       if (!this.currentOwner || !this.currentRepo) {
-        console.error("No current owner/repo stored");
+        logger.error("No current owner/repo stored");
         content = {
           name: nodeData.name,
           sections: [

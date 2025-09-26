@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import * as d3 from "d3";
 import { BaseVisualizationResource } from "./base.js";
 import { NodeData, LinkData, ResourceData } from "../types/index.js";
@@ -12,7 +13,7 @@ export class ContributorsVisualization extends BaseVisualizationResource {
   }
 
   create(contributorsData: any[]): ResourceData {
-    console.log(
+    logger.log(
       `🏗️ Creating contributors visualization for ${contributorsData.length} contributors...`,
     );
 
@@ -50,7 +51,7 @@ export class ContributorsVisualization extends BaseVisualizationResource {
   }
 
   update(resourceData: ResourceData): void {
-    console.log("🔄 Updating contributors visualization...");
+    logger.log("🔄 Updating contributors visualization...");
 
     const group = this.getResourceGroup();
 
@@ -115,7 +116,7 @@ export class ContributorsVisualization extends BaseVisualizationResource {
   }
 
   updateWithAnimation(resourceData: ResourceData): void {
-    console.log(
+    logger.log(
       `🎭 Updating contributors visualization with animation for ${resourceData.nodes.length} nodes...`,
     );
 
@@ -138,7 +139,7 @@ export class ContributorsVisualization extends BaseVisualizationResource {
         // Position at the node's actual coordinates, not (0,0)
         const x = d.x || 0;
         const y = d.y || 0;
-        console.log(`🎯 NEW node ${d.id} positioned at (${x}, ${y})`);
+        logger.log(`🎯 NEW node ${d.id} positioned at (${x}, ${y})`);
         return `translate(${x},${y}) scale(0)`;
       })
       .style("opacity", 0)
@@ -149,7 +150,7 @@ export class ContributorsVisualization extends BaseVisualizationResource {
     // Add circles with avatar patterns to NEW nodes only
     nodeEnter.each((d: NodeData, i: number, nodes: any) => {
       const node = d3.select(nodes[i]);
-      console.log(
+      logger.log(
         `🆕 Creating visual elements for new node: ${d.id} (${d.contributions} contributions)`,
       );
 
@@ -199,13 +200,13 @@ export class ContributorsVisualization extends BaseVisualizationResource {
     // Don't touch existing nodes - they're already perfect!
     // Only the NEW nodes (nodeEnter) get their visual elements created above
 
-    console.log(
+    logger.log(
       `✅ Contributors update complete. Total visible: ${nodes.size() + nodeEnter.size()}`,
     );
   }
 
   destroy(): void {
-    console.log("🗑️ Destroying contributors visualization...");
+    logger.log("🗑️ Destroying contributors visualization...");
     this.getResourceGroup().remove();
   }
 
@@ -266,8 +267,8 @@ export class ContributorsVisualization extends BaseVisualizationResource {
     contributorData?: any,
   ): PanelContent {
     // Console log the contributor data for inspection
-    console.log("🔍 Contributor data:", nodeData);
-    console.log("🔍 Additional contributor data:", contributorData);
+    logger.log("🔍 Contributor data:", nodeData);
+    logger.log("🔍 Additional contributor data:", contributorData);
 
     const sections: PanelSection[] = [];
 

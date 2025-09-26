@@ -2460,7 +2460,7 @@ var GitSeeHandler = class {
             console.log(`\u{1F50D} Fetching stats for ${owner}/${repo}...`);
             response.stats = await stats.getRepoStats(owner, repo);
             console.log(
-              `\u{1F4CA} Stats result: ${response.stats?.stars} stars, ${response.stats?.totalPRs} PRs, ${response.stats?.totalCommits} commits, ${response.stats?.ageInYears}y old`
+              `\u{1F4CA} Stats result: ${response.stats?.stars} stars, ${response.stats?.totalIssues} issues, ${response.stats?.totalCommits} commits, ${response.stats?.ageInYears}y old`
             );
             break;
           case "file_content":

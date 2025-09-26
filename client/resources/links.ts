@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import * as d3 from "d3";
 import { BaseVisualizationResource } from "./base.js";
 import { LinkData, ResourceData } from "../types/index.js";
@@ -8,7 +9,7 @@ export class LinksVisualization extends BaseVisualizationResource {
   }
 
   create(linksData: LinkData[]): ResourceData {
-    console.log(
+    logger.log(
       `🏗️ Creating links visualization for ${linksData.length} links...`,
     );
 
@@ -19,7 +20,7 @@ export class LinksVisualization extends BaseVisualizationResource {
   }
 
   update(resourceData: ResourceData): void {
-    console.log("🔄 Updating links visualization...");
+    logger.log("🔄 Updating links visualization...");
 
     const group = this.getResourceGroup();
 
@@ -42,7 +43,7 @@ export class LinksVisualization extends BaseVisualizationResource {
   }
 
   updateWithAnimation(resourceData: ResourceData): void {
-    console.log(
+    logger.log(
       `🎭 Updating links visualization with animation for ${resourceData.links.length} links...`,
     );
 
@@ -68,7 +69,7 @@ export class LinksVisualization extends BaseVisualizationResource {
     // Animate entrance for new links only
     linksEnter.transition().duration(400).style("stroke-opacity", 0.8);
 
-    console.log(
+    logger.log(
       `✅ Links update complete. Total visible: ${links.merge(linksEnter).size()}`,
     );
 
@@ -137,7 +138,7 @@ export class LinksVisualization extends BaseVisualizationResource {
   }
 
   destroy(): void {
-    console.log("🗑️ Destroying links visualization...");
+    logger.log("🗑️ Destroying links visualization...");
     this.getResourceGroup().remove();
   }
 }

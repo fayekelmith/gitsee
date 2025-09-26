@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import * as d3 from "d3";
 import { BaseVisualizationResource } from "./base.js";
 import { NodeData, ResourceData } from "../types/index.js";
@@ -12,15 +13,15 @@ export class RepositoryVisualization extends BaseVisualizationResource {
   }
 
   create(repoData: any): ResourceData {
-    console.log("🏗️ Creating repository visualization...");
+    logger.log("🏗️ Creating repository visualization...");
 
     const centerX = this.context.width / 2;
     const centerY = this.context.height / 2;
 
-    console.log(
+    logger.log(
       `📏 Context dimensions: ${this.context.width} x ${this.context.height}`,
     );
-    console.log(
+    logger.log(
       `🎯 Positioning repository at center: (${centerX}, ${centerY})`,
     );
 
@@ -40,7 +41,7 @@ export class RepositoryVisualization extends BaseVisualizationResource {
   }
 
   update(resourceData: ResourceData): void {
-    console.log("🔄 Updating repository visualization...");
+    logger.log("🔄 Updating repository visualization...");
 
     const group = this.getResourceGroup();
 
@@ -64,7 +65,7 @@ export class RepositoryVisualization extends BaseVisualizationResource {
     nodeUpdate.attr("transform", (d: NodeData) => {
       const x = d.x || 0;
       const y = d.y || 0;
-      console.log(`🎯 Positioning repo node at (${x}, ${y})`);
+      logger.log(`🎯 Positioning repo node at (${x}, ${y})`);
       return `translate(${x},${y})`;
     });
 
@@ -132,7 +133,7 @@ export class RepositoryVisualization extends BaseVisualizationResource {
       if (d.avatar && existingCircle.size() > 0) {
         const currentFill = existingCircle.style("fill");
         if (!currentFill || currentFill.indexOf("url(") === -1) {
-          console.log("🖼️ Updating existing repo node with avatar");
+          logger.log("🖼️ Updating existing repo node with avatar");
 
           // Remove the fallback GitHub folder icon first
           node.select("path").remove();
@@ -152,7 +153,7 @@ export class RepositoryVisualization extends BaseVisualizationResource {
   }
 
   destroy(): void {
-    console.log("🗑️ Destroying repository visualization...");
+    logger.log("🗑️ Destroying repository visualization...");
     this.getResourceGroup().remove();
   }
 

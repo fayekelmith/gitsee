@@ -126,7 +126,7 @@ interface FileContent {
 }
 interface RepoStats {
     stars: number;
-    totalPRs: number;
+    totalIssues: number;
     totalCommits: number;
     ageInYears: number;
 }

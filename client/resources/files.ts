@@ -1,3 +1,4 @@
+import { logger } from "../utils/logger.js";
 import * as d3 from "d3";
 import { BaseVisualizationResource } from "./base.js";
 import { NodeData, ResourceData } from "../types/index.js";
@@ -238,8 +239,8 @@ export class FilesVisualization extends BaseVisualizationResource {
 
     // Fetch file content from API
     try {
-      console.log(`🔍 Fetching content for file: ${nodeData.name}`);
-      console.log(`🔍 API request details:`, {
+      logger.log(`🔍 Fetching content for file: ${nodeData.name}`);
+      logger.log(`🔍 API request details:`, {
         owner,
         repo,
         filePath: nodeData.path || nodeData.name,
@@ -263,7 +264,7 @@ export class FilesVisualization extends BaseVisualizationResource {
       const data = await response.json();
 
       if (data.fileContent && data.fileContent.content) {
-        console.log(
+        logger.log(
           `✅ Retrieved file content: ${data.fileContent.size} bytes`,
         );
 
@@ -274,7 +275,7 @@ export class FilesVisualization extends BaseVisualizationResource {
           data: data.fileContent.content,
         };
       } else {
-        console.warn("⚠️ No file content received");
+        logger.warn("⚠️ No file content received");
         sections[0] = {
           title: "Content",
           type: "content" as const,
@@ -282,7 +283,7 @@ export class FilesVisualization extends BaseVisualizationResource {
         };
       }
     } catch (error) {
-      console.error("💥 Error fetching file content:", error);
+      logger.error("💥 Error fetching file content:", error);
       sections[0] = {
         title: "Content",
         type: "content" as const,
