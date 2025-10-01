@@ -30,9 +30,9 @@ export class StatsVisualization extends BaseVisualizationResource {
       },
       {
         id: "stat-issues",
-        name: `${statsData.totalIssues} issues`,
+        name: `${statsData.totalIssues ?? 0} issues`,
         label: "Issues",
-        value: statsData.totalIssues,
+        value: statsData.totalIssues ?? 0,
       },
       {
         id: "stat-commits",

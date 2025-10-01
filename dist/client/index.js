@@ -3640,9 +3640,9 @@ var StatsVisualization = class extends BaseVisualizationResource {
       },
       {
         id: "stat-issues",
-        name: `${statsData.totalIssues} issues`,
+        name: `${statsData.totalIssues ?? 0} issues`,
         label: "Issues",
-        value: statsData.totalIssues
+        value: statsData.totalIssues ?? 0
       },
       {
         id: "stat-commits",
@@ -4779,9 +4779,9 @@ var GitVisualizer = class {
       },
       {
         id: "stat-issues",
-        name: `${stats.totalIssues} issues`,
+        name: `${stats.totalIssues ?? 0} issues`,
         label: "Issues",
-        value: stats.totalIssues
+        value: stats.totalIssues ?? 0
       },
       {
         id: "stat-commits",

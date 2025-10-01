@@ -786,9 +786,9 @@ class GitVisualizer {
       },
       {
         id: "stat-issues",
-        name: `${stats.totalIssues} issues`,
+        name: `${stats.totalIssues ?? 0} issues`,
         label: "Issues",
-        value: stats.totalIssues,
+        value: stats.totalIssues ?? 0,
       },
       {
         id: "stat-commits",
