@@ -77,16 +77,26 @@ export class RepoCloner {
     console.log(`📥 Starting clone of ${owner}/${repo} to ${repoPath}`);
 
     try {
-      // Check if already exists
+      // Check if already exists AND is a valid clone (has .git or at least some files)
       if (fs.existsSync(repoPath)) {
-        console.log(
-          `📂 Repository ${owner}/${repo} already exists at ${repoPath}`
-        );
-        return {
-          success: true,
-          localPath: repoPath,
-          duration: Date.now() - startTime,
-        };
+        const hasGit = fs.existsSync(path.join(repoPath, ".git"));
+        const hasFiles = fs.readdirSync(repoPath).length > 0;
+
+        if (hasGit || hasFiles) {
+          console.log(
+            `📂 Repository ${owner}/${repo} already exists at ${repoPath}`
+          );
+          return {
+            success: true,
+            localPath: repoPath,
+            duration: Date.now() - startTime,
+          };
+        } else {
+          console.log(
+            `🗑️ Repository ${owner}/${repo} exists but appears invalid, removing...`
+          );
+          fs.rmSync(repoPath, { recursive: true, force: true });
+        }
       }
 
       // Ensure parent directory exists

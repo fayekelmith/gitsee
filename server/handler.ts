@@ -1,5 +1,4 @@
 import { IncomingMessage, ServerResponse } from "http";
-import { Octokit } from "@octokit/rest";
 import { GitSeeCache } from "./utils/cache.js";
 import {
   ContributorsResource,
@@ -21,9 +20,7 @@ import { FileStore } from "./persistence/index.js";
 import { ExplorationEmitter } from "./events/index.js";
 
 export class GitSeeHandler {
-  private octokit: Octokit;
   private cache: GitSeeCache;
-  private options: GitSeeOptions;
   private store: FileStore;
   private emitter: ExplorationEmitter;
 
@@ -37,13 +34,8 @@ export class GitSeeHandler {
   private stats: StatsResource;
 
   constructor(options: GitSeeOptions = {}) {
-    this.options = options;
-    this.octokit = new Octokit({
-      auth: options.token,
-    });
-
     this.cache = new GitSeeCache(options.cache?.ttl);
-    this.store = new FileStore();
+    this.store = new FileStore(options.cacheDir);
     this.emitter = ExplorationEmitter.getInstance();
 
     // Initialize resource modules
@@ -392,12 +384,59 @@ export class GitSeeHandler {
   private async processRequest(
     request: GitSeeRequest
   ): Promise<GitSeeResponse> {
-    const { owner, repo, data, cloneOptions } = request;
+    const { owner, repo, data, cloneOptions, useCache } = request;
     const response: GitSeeResponse = {};
-    // Create per-request Octokit instance if token provided, otherwise use default
-    const requestOctokit = cloneOptions?.token
-      ? new Octokit({ auth: cloneOptions.token })
-      : this.octokit;
+
+    // Check if we should use cached data (default: true, skip only if explicitly false)
+    if (useCache !== false) {
+      const cachedData = await this.store.getBasicData(owner, repo);
+      if (cachedData) {
+        console.log(`💾 Using cached data for ${owner}/${repo}`);
+
+        // Check if we also have cached exploration
+        const cachedExploration = await this.store.getExploration(owner, repo, "first_pass");
+
+        // Emit SSE event for cached exploration so frontend knows to render concept nodes
+        if (cachedExploration?.result) {
+          console.log(`📡 Scheduling cached exploration SSE emission for ${owner}/${repo}`);
+          // Emit after a delay to allow SSE connection to establish
+          setImmediate(async () => {
+            try {
+              await this.emitter.waitForConnection(owner, repo, 5000);
+              console.log(`📡 Emitting cached exploration via SSE for ${owner}/${repo}`);
+              this.emitter.emitExplorationCompleted(
+                owner,
+                repo,
+                "first_pass",
+                cachedExploration.result
+              );
+            } catch (error) {
+              console.warn(`⏰ Timeout waiting for SSE, emitting anyway for ${owner}/${repo}`);
+              this.emitter.emitExplorationCompleted(
+                owner,
+                repo,
+                "first_pass",
+                cachedExploration.result
+              );
+            }
+          });
+        }
+
+        // Return cached data directly including exploration
+        return {
+          repo: cachedData.repo,
+          contributors: cachedData.contributors,
+          icon: cachedData.icon,
+          files: cachedData.files,
+          stats: cachedData.stats,
+          exploration: cachedExploration?.result,
+        };
+      } else {
+        console.log(`💾 No cached data found for ${owner}/${repo}, fetching fresh...`);
+      }
+    } else {
+      console.log(`🔄 useCache=false, skipping cache and fetching fresh data for ${owner}/${repo}`);
+    }
 
     // Create per-request resource instances if token provided
     const contributors = cloneOptions?.token
@@ -594,15 +633,6 @@ export class GitSeeHandler {
                   );
                   response.exploration = explorationResult;
 
-                  // Also store basic data if this is our first interaction
-                  await this.store.storeBasicData(owner, repo, {
-                    repo: response.repo,
-                    contributors: response.contributors,
-                    files: response.files,
-                    stats: response.stats,
-                    icon: response.icon,
-                  });
-
                   console.log(
                     `✅ ${explorationMode} exploration completed and cached`
                   );
@@ -635,6 +665,15 @@ export class GitSeeHandler {
         // Continue processing other data types instead of failing completely
       }
     }
+
+    // Store basic data to file cache for future requests
+    await this.store.storeBasicData(owner, repo, {
+      repo: response.repo,
+      contributors: response.contributors,
+      files: response.files,
+      stats: response.stats,
+      icon: response.icon,
+    });
 
     return response;
   }
