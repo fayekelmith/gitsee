@@ -2474,12 +2474,37 @@ var GitSeeHandler = class {
       const cachedData = await this.store.getBasicData(owner, repo);
       if (cachedData) {
         console.log(`\u{1F4BE} Using cached data for ${owner}/${repo}`);
+        const cachedExploration = await this.store.getExploration(owner, repo, "first_pass");
+        if (cachedExploration?.result) {
+          console.log(`\u{1F4E1} Scheduling cached exploration SSE emission for ${owner}/${repo}`);
+          setImmediate(async () => {
+            try {
+              await this.emitter.waitForConnection(owner, repo, 5e3);
+              console.log(`\u{1F4E1} Emitting cached exploration via SSE for ${owner}/${repo}`);
+              this.emitter.emitExplorationCompleted(
+                owner,
+                repo,
+                "first_pass",
+                cachedExploration.result
+              );
+            } catch (error) {
+              console.warn(`\u23F0 Timeout waiting for SSE, emitting anyway for ${owner}/${repo}`);
+              this.emitter.emitExplorationCompleted(
+                owner,
+                repo,
+                "first_pass",
+                cachedExploration.result
+              );
+            }
+          });
+        }
         return {
           repo: cachedData.repo,
           contributors: cachedData.contributors,
           icon: cachedData.icon,
           files: cachedData.files,
-          stats: cachedData.stats
+          stats: cachedData.stats,
+          exploration: cachedExploration?.result
         };
       } else {
         console.log(`\u{1F4BE} No cached data found for ${owner}/${repo}, fetching fresh...`);
@@ -2626,13 +2651,6 @@ var GitSeeHandler = class {
                     explorationResult
                   );
                   response.exploration = explorationResult;
-                  await this.store.storeBasicData(owner, repo, {
-                    repo: response.repo,
-                    contributors: response.contributors,
-                    files: response.files,
-                    stats: response.stats,
-                    icon: response.icon
-                  });
                   console.log(
                     `\u2705 ${explorationMode} exploration completed and cached`
                   );
@@ -2663,6 +2681,13 @@ var GitSeeHandler = class {
         );
       }
     }
+    await this.store.storeBasicData(owner, repo, {
+      repo: response.repo,
+      contributors: response.contributors,
+      files: response.files,
+      stats: response.stats,
+      icon: response.icon
+    });
     return response;
   }
 };

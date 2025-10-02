@@ -43,7 +43,8 @@
         "#visualization", // container selector
         "/api/gitsee?swarmId=asdf", // API endpoint (Next.js proxy for auth)
         {}, // custom headers (optional)
-        "http://localhost:3000/api/gitsee" // SSE endpoint (direct to EC2)
+        "http://localhost:3000/api/gitsee", // SSE endpoint (direct to EC2)
+        100
       );
 
       // Start visualization

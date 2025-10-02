@@ -392,13 +392,44 @@ export class GitSeeHandler {
       const cachedData = await this.store.getBasicData(owner, repo);
       if (cachedData) {
         console.log(`💾 Using cached data for ${owner}/${repo}`);
-        // Return cached data directly
+
+        // Check if we also have cached exploration
+        const cachedExploration = await this.store.getExploration(owner, repo, "first_pass");
+
+        // Emit SSE event for cached exploration so frontend knows to render concept nodes
+        if (cachedExploration?.result) {
+          console.log(`📡 Scheduling cached exploration SSE emission for ${owner}/${repo}`);
+          // Emit after a delay to allow SSE connection to establish
+          setImmediate(async () => {
+            try {
+              await this.emitter.waitForConnection(owner, repo, 5000);
+              console.log(`📡 Emitting cached exploration via SSE for ${owner}/${repo}`);
+              this.emitter.emitExplorationCompleted(
+                owner,
+                repo,
+                "first_pass",
+                cachedExploration.result
+              );
+            } catch (error) {
+              console.warn(`⏰ Timeout waiting for SSE, emitting anyway for ${owner}/${repo}`);
+              this.emitter.emitExplorationCompleted(
+                owner,
+                repo,
+                "first_pass",
+                cachedExploration.result
+              );
+            }
+          });
+        }
+
+        // Return cached data directly including exploration
         return {
           repo: cachedData.repo,
           contributors: cachedData.contributors,
           icon: cachedData.icon,
           files: cachedData.files,
           stats: cachedData.stats,
+          exploration: cachedExploration?.result,
         };
       } else {
         console.log(`💾 No cached data found for ${owner}/${repo}, fetching fresh...`);
@@ -602,15 +633,6 @@ export class GitSeeHandler {
                   );
                   response.exploration = explorationResult;
 
-                  // Also store basic data if this is our first interaction
-                  await this.store.storeBasicData(owner, repo, {
-                    repo: response.repo,
-                    contributors: response.contributors,
-                    files: response.files,
-                    stats: response.stats,
-                    icon: response.icon,
-                  });
-
                   console.log(
                     `✅ ${explorationMode} exploration completed and cached`
                   );
@@ -643,6 +665,15 @@ export class GitSeeHandler {
         // Continue processing other data types instead of failing completely
       }
     }
+
+    // Store basic data to file cache for future requests
+    await this.store.storeBasicData(owner, repo, {
+      repo: response.repo,
+      contributors: response.contributors,
+      files: response.files,
+      stats: response.stats,
+      icon: response.icon,
+    });
 
     return response;
   }
