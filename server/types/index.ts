@@ -19,6 +19,8 @@ export interface GitSeeRequest {
   explorationPrompt?: string; // Custom prompt for exploration
   // Optional clone options for private repos, auth, or different branches
   cloneOptions?: CloneOptions;
+  // Opt-in to use cached data instead of fetching fresh from GitHub
+  useCache?: boolean;
 }
 
 export interface GitSeeResponse {
@@ -50,6 +52,7 @@ export interface GitSeeOptions {
   cache?: {
     ttl?: number; // seconds
   };
+  cacheDir?: string; // Directory for persistent file cache
 }
 
 export interface Contributor {

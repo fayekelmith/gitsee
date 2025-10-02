@@ -32,6 +32,7 @@ interface GitSeeRequest {
     explorationMode?: "features" | "first_pass";
     explorationPrompt?: string;
     cloneOptions?: CloneOptions;
+    useCache?: boolean;
 }
 interface GitSeeResponse {
     repo?: any;
@@ -61,6 +62,7 @@ interface GitSeeOptions {
     cache?: {
         ttl?: number;
     };
+    cacheDir?: string;
 }
 interface Contributor {
     id: number;
@@ -133,9 +135,7 @@ interface RepoStats$1 {
 }
 
 declare class GitSeeHandler {
-    private octokit;
     private cache;
-    private options;
     private store;
     private emitter;
     private contributors;

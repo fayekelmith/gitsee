@@ -1,5 +1,4 @@
 import { IncomingMessage, ServerResponse } from "http";
-import { Octokit } from "@octokit/rest";
 import { GitSeeCache } from "./utils/cache.js";
 import {
   ContributorsResource,
@@ -21,9 +20,7 @@ import { FileStore } from "./persistence/index.js";
 import { ExplorationEmitter } from "./events/index.js";
 
 export class GitSeeHandler {
-  private octokit: Octokit;
   private cache: GitSeeCache;
-  private options: GitSeeOptions;
   private store: FileStore;
   private emitter: ExplorationEmitter;
 
@@ -37,13 +34,8 @@ export class GitSeeHandler {
   private stats: StatsResource;
 
   constructor(options: GitSeeOptions = {}) {
-    this.options = options;
-    this.octokit = new Octokit({
-      auth: options.token,
-    });
-
     this.cache = new GitSeeCache(options.cache?.ttl);
-    this.store = new FileStore();
+    this.store = new FileStore(options.cacheDir);
     this.emitter = ExplorationEmitter.getInstance();
 
     // Initialize resource modules
@@ -392,12 +384,28 @@ export class GitSeeHandler {
   private async processRequest(
     request: GitSeeRequest
   ): Promise<GitSeeResponse> {
-    const { owner, repo, data, cloneOptions } = request;
+    const { owner, repo, data, cloneOptions, useCache } = request;
     const response: GitSeeResponse = {};
-    // Create per-request Octokit instance if token provided, otherwise use default
-    const requestOctokit = cloneOptions?.token
-      ? new Octokit({ auth: cloneOptions.token })
-      : this.octokit;
+
+    // Check if we should use cached data (default: true, skip only if explicitly false)
+    if (useCache !== false) {
+      const cachedData = await this.store.getBasicData(owner, repo);
+      if (cachedData) {
+        console.log(`💾 Using cached data for ${owner}/${repo}`);
+        // Return cached data directly
+        return {
+          repo: cachedData.repo,
+          contributors: cachedData.contributors,
+          icon: cachedData.icon,
+          files: cachedData.files,
+          stats: cachedData.stats,
+        };
+      } else {
+        console.log(`💾 No cached data found for ${owner}/${repo}, fetching fresh...`);
+      }
+    } else {
+      console.log(`🔄 useCache=false, skipping cache and fetching fresh data for ${owner}/${repo}`);
+    }
 
     // Create per-request resource instances if token provided
     const contributors = cloneOptions?.token

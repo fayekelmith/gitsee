@@ -4,9 +4,6 @@ var __export = (target, all) => {
     __defProp(target, name, { get: all[name], enumerable: true });
 };
 
-// server/handler.ts
-import { Octokit as Octokit2 } from "@octokit/rest";
-
 // server/utils/cache.ts
 var GitSeeCache = class {
   constructor(ttl = 300) {
@@ -1152,14 +1149,23 @@ var RepoCloner = class {
     console.log(`\u{1F4E5} Starting clone of ${owner}/${repo} to ${repoPath}`);
     try {
       if (fs.existsSync(repoPath)) {
-        console.log(
-          `\u{1F4C2} Repository ${owner}/${repo} already exists at ${repoPath}`
-        );
-        return {
-          success: true,
-          localPath: repoPath,
-          duration: Date.now() - startTime
-        };
+        const hasGit = fs.existsSync(path.join(repoPath, ".git"));
+        const hasFiles = fs.readdirSync(repoPath).length > 0;
+        if (hasGit || hasFiles) {
+          console.log(
+            `\u{1F4C2} Repository ${owner}/${repo} already exists at ${repoPath}`
+          );
+          return {
+            success: true,
+            localPath: repoPath,
+            duration: Date.now() - startTime
+          };
+        } else {
+          console.log(
+            `\u{1F5D1}\uFE0F Repository ${owner}/${repo} exists but appears invalid, removing...`
+          );
+          fs.rmSync(repoPath, { recursive: true, force: true });
+        }
       }
       const parentDir = path.dirname(repoPath);
       fs.mkdirSync(parentDir, { recursive: true });
@@ -1529,10 +1535,6 @@ function execCommand(command, cwd, timeoutMs = 1e4) {
     const rgIndex = parts.findIndex(
       (part) => part === "rg" || part.endsWith("/rg")
     );
-    if (rgIndex === -1) {
-      reject(new Error("Not a ripgrep command"));
-      return;
-    }
     const args = parts.slice(rgIndex + 1).map((arg) => {
       if (arg.startsWith('"') && arg.endsWith('"') || arg.startsWith("'") && arg.endsWith("'")) {
         return arg.slice(1, -1);
@@ -1902,11 +1904,37 @@ var FileStore = class {
     const enrichedData = {
       ...data,
       stored_at: (/* @__PURE__ */ new Date()).toISOString(),
+      timestamp: Date.now(),
       owner,
       repo
     };
     fs3.writeFileSync(filePath, JSON.stringify(enrichedData, null, 2));
     console.log(`\u{1F4BE} Stored basic data for ${owner}/${repo}`);
+  }
+  // Get cached basic API data
+  async getBasicData(owner, repo) {
+    const repoDir = this.getRepoDir(owner, repo);
+    const filePath = path3.join(repoDir, "basic.json");
+    if (!fs3.existsSync(filePath)) {
+      return null;
+    }
+    try {
+      const content = fs3.readFileSync(filePath, "utf-8");
+      const data = JSON.parse(content);
+      console.log(`\u{1F4C2} Retrieved cached basic data for ${owner}/${repo} (stored at: ${data.stored_at})`);
+      return data;
+    } catch (error) {
+      console.error(`Error reading basic data: ${error}`);
+      return null;
+    }
+  }
+  // Check if we have recent basic data
+  async hasRecentBasicData(owner, repo, maxAgeHours = 24) {
+    const data = await this.getBasicData(owner, repo);
+    if (!data || !data.timestamp) return false;
+    const ageMs = Date.now() - data.timestamp;
+    const ageHours = ageMs / (1e3 * 60 * 60);
+    return ageHours < maxAgeHours;
   }
   // Store agent exploration results
   async storeExploration(owner, repo, mode, result) {
@@ -2155,12 +2183,8 @@ var ExplorationEmitter = class _ExplorationEmitter extends EventEmitter {
 // server/handler.ts
 var GitSeeHandler = class {
   constructor(options = {}) {
-    this.options = options;
-    this.octokit = new Octokit2({
-      auth: options.token
-    });
     this.cache = new GitSeeCache(options.cache?.ttl);
-    this.store = new FileStore();
+    this.store = new FileStore(options.cacheDir);
     this.emitter = ExplorationEmitter.getInstance();
     this.contributors = new ContributorsResource(this.cache, options.token);
     this.icons = new IconsResource(this.cache, options.token);
@@ -2444,9 +2468,25 @@ var GitSeeHandler = class {
     });
   }
   async processRequest(request) {
-    const { owner, repo, data, cloneOptions } = request;
+    const { owner, repo, data, cloneOptions, useCache } = request;
     const response = {};
-    const requestOctokit = cloneOptions?.token ? new Octokit2({ auth: cloneOptions.token }) : this.octokit;
+    if (useCache !== false) {
+      const cachedData = await this.store.getBasicData(owner, repo);
+      if (cachedData) {
+        console.log(`\u{1F4BE} Using cached data for ${owner}/${repo}`);
+        return {
+          repo: cachedData.repo,
+          contributors: cachedData.contributors,
+          icon: cachedData.icon,
+          files: cachedData.files,
+          stats: cachedData.stats
+        };
+      } else {
+        console.log(`\u{1F4BE} No cached data found for ${owner}/${repo}, fetching fresh...`);
+      }
+    } else {
+      console.log(`\u{1F504} useCache=false, skipping cache and fetching fresh data for ${owner}/${repo}`);
+    }
     const contributors = cloneOptions?.token ? new ContributorsResource(this.cache, cloneOptions.token) : this.contributors;
     const icons = cloneOptions?.token ? new IconsResource(this.cache, cloneOptions.token) : this.icons;
     const repository = cloneOptions?.token ? new RepositoryResource(this.cache, cloneOptions.token) : this.repository;

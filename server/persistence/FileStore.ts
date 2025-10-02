@@ -58,12 +58,47 @@ export class FileStore {
     const enrichedData = {
       ...data,
       stored_at: new Date().toISOString(),
+      timestamp: Date.now(),
       owner,
       repo,
     };
 
     fs.writeFileSync(filePath, JSON.stringify(enrichedData, null, 2));
     console.log(`💾 Stored basic data for ${owner}/${repo}`);
+  }
+
+  // Get cached basic API data
+  async getBasicData(owner: string, repo: string): Promise<any | null> {
+    const repoDir = this.getRepoDir(owner, repo);
+    const filePath = path.join(repoDir, "basic.json");
+
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+
+    try {
+      const content = fs.readFileSync(filePath, "utf-8");
+      const data = JSON.parse(content);
+      console.log(`📂 Retrieved cached basic data for ${owner}/${repo} (stored at: ${data.stored_at})`);
+      return data;
+    } catch (error) {
+      console.error(`Error reading basic data: ${error}`);
+      return null;
+    }
+  }
+
+  // Check if we have recent basic data
+  async hasRecentBasicData(
+    owner: string,
+    repo: string,
+    maxAgeHours: number = 24
+  ): Promise<boolean> {
+    const data = await this.getBasicData(owner, repo);
+    if (!data || !data.timestamp) return false;
+
+    const ageMs = Date.now() - data.timestamp;
+    const ageHours = ageMs / (1000 * 60 * 60);
+    return ageHours < maxAgeHours;
   }
 
   // Store agent exploration results

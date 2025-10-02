@@ -6,19 +6,19 @@ import * as path from "path";
 function execCommand(
   command: string,
   cwd: string,
-  timeoutMs: number = 10000,
+  timeoutMs: number = 10000
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     // Parse the ripgrep command and add explicit directory
     const parts = command.split(" ");
     const rgIndex = parts.findIndex(
-      (part) => part === "rg" || part.endsWith("/rg"),
+      (part) => part === "rg" || part.endsWith("/rg")
     );
 
-    if (rgIndex === -1) {
-      reject(new Error("Not a ripgrep command"));
-      return;
-    }
+    // if (rgIndex === -1) {
+    //   reject(new Error("Not a ripgrep command"));
+    //   return;
+    // }
 
     // Build ripgrep arguments properly, removing quotes and adding explicit directory
     const args = parts.slice(rgIndex + 1).map((arg) => {
@@ -106,7 +106,7 @@ function execCommand(
   });
 }
 
-// Get repository map using git ls-tree and tree
+// Get repository map using ripgrep --files
 export async function getRepoMap(repoPath: string): Promise<string> {
   if (!repoPath) {
     return "No repository path provided";
@@ -116,10 +116,11 @@ export async function getRepoMap(repoPath: string): Promise<string> {
     return "Repository not cloned yet";
   }
 
+  // "rg --files",
   try {
     const result = await execCommand(
       "git ls-tree -r --name-only HEAD | tree -L 3 --fromfile",
-      repoPath,
+      repoPath
     );
     return result;
   } catch (error: any) {
@@ -131,7 +132,7 @@ export async function getRepoMap(repoPath: string): Promise<string> {
 export function getFileSummary(
   filePath: string,
   repoPath: string,
-  linesLimit: number,
+  linesLimit: number
 ): string {
   if (!repoPath) {
     return "No repository path provided";
@@ -162,7 +163,7 @@ export function getFileSummary(
 // Fulltext search using ripgrep
 export async function fulltextSearch(
   query: string,
-  repoPath: string,
+  repoPath: string
 ): Promise<string> {
   if (!repoPath) {
     return "No repository path provided";
@@ -176,7 +177,7 @@ export async function fulltextSearch(
     const result = await execCommand(
       `rg --glob '!dist' --ignore-file .gitignore -C 2 -n --max-count 10 --max-columns 200 "${query}"`,
       repoPath,
-      5000,
+      5000
     );
 
     // Limit the result to 10,000 characters to prevent overwhelming output
